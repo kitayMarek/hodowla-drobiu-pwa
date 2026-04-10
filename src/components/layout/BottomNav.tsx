@@ -6,7 +6,7 @@ const items = [
   { to: '/stada', icon: '🐔', label: 'Stada' },
   { to: '/sprzedaz', icon: '💰', label: 'Sprzedaż' },
   { to: '/finanse', icon: '📈', label: 'Finanse' },
-  { to: '/raporty', icon: '📋', label: 'Raporty' },
+  { to: '/inwestycje', icon: '🏗️', label: 'Inwestycje' },
 ];
 
 export function BottomNav() {

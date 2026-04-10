@@ -66,6 +66,35 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   inne: 'Inne',
 };
 
+export type InvestmentCategory =
+  | 'budynek'
+  | 'maszyna'
+  | 'wyposazenie'
+  | 'instalacja'
+  | 'pojazd'
+  | 'grunty'
+  | 'inne_st';
+
+export const INVESTMENT_CATEGORY_LABELS: Record<InvestmentCategory, string> = {
+  budynek:     'Budynek / obiekt',
+  maszyna:     'Maszyna / urządzenie',
+  wyposazenie: 'Wyposażenie kurnika',
+  instalacja:  'Instalacja (el., went., ogrzew.)',
+  pojazd:      'Pojazd',
+  grunty:      'Grunty / dzierżawa',
+  inne_st:     'Inne środki trwałe',
+};
+
+export const INVESTMENT_CATEGORY_ICONS: Record<InvestmentCategory, string> = {
+  budynek:     '🏗️',
+  maszyna:     '⚙️',
+  wyposazenie: '🪣',
+  instalacja:  '🔌',
+  pojazd:      '🚜',
+  grunty:      '🌱',
+  inne_st:     '📦',
+};
+
 export type WeighingMethod = 'sample' | 'full_flock';
 
 export const WEIGHING_METHOD_LABELS: Record<WeighingMethod, string> = {

@@ -128,6 +128,17 @@ export const expenseSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const investmentSchema = z.object({
+  purchaseDate: isoDate,
+  category: z.enum(['budynek', 'maszyna', 'wyposazenie', 'instalacja', 'pojazd', 'grunty', 'inne_st']),
+  name: z.string().min(3, 'Nazwa musi mieć minimum 3 znaki'),
+  amountPln: z.coerce.number().min(0.01, 'Kwota musi być większa od 0'),
+  usefulLifeYears: z.coerce.number().int().min(1).max(99).optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v) || undefined),
+  supplier: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 export type BatchFormValues = z.infer<typeof batchSchema>;
 export type DailyEntryFormValues = z.infer<typeof dailyEntrySchema>;
 export type FeedTypeFormValues = z.infer<typeof feedTypeSchema>;
@@ -136,3 +147,4 @@ export type HealthEventFormValues = z.infer<typeof healthEventSchema>;
 export type SlaughterFormValues = z.infer<typeof slaughterSchema>;
 export type SaleFormValues = z.infer<typeof saleSchema>;
 export type ExpenseFormValues = z.infer<typeof expenseSchema>;
+export type InvestmentFormValues = z.infer<typeof investmentSchema>;

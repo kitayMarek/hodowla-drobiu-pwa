@@ -8,6 +8,7 @@ import type { Weighing } from '@/models/weighing.model';
 import type { SlaughterRecord } from '@/models/slaughter.model';
 import type { Sale } from '@/models/sale.model';
 import type { Expense } from '@/models/expense.model';
+import type { Investment } from '@/models/investment.model';
 import type { AppSettings } from '@/models/settings.model';
 
 export class FarmDatabase extends Dexie {
@@ -22,6 +23,7 @@ export class FarmDatabase extends Dexie {
   slaughterRecords!: Table<SlaughterRecord, number>;
   sales!: Table<Sale, number>;
   expenses!: Table<Expense, number>;
+  investments!: Table<Investment, number>;
   settings!: Table<AppSettings, number>;
 
   constructor() {
@@ -40,6 +42,11 @@ export class FarmDatabase extends Dexie {
       sales: '++id, batchId, saleDate, saleType, [batchId+saleDate], [saleType+saleDate]',
       expenses: '++id, batchId, expenseDate, category, [batchId+expenseDate], [batchId+category]',
       settings: '++id, &key',
+    });
+
+    // v2: moduł Inwestycji i środków trwałych
+    this.version(2).stores({
+      investments: '++id, purchaseDate, category',
     });
   }
 }

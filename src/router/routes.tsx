@@ -14,6 +14,7 @@ import { WeighingListPage } from '@/pages/weighings/WeighingListPage';
 import { SlaughterPage } from '@/pages/slaughter/SlaughterPage';
 import { SalesPage } from '@/pages/sales/SalesPage';
 import { FinancePage } from '@/pages/finance/FinancePage';
+import { InvestmentPage } from '@/pages/investments/InvestmentPage';
 import { ReportsPage } from '@/pages/reports/ReportsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
 
@@ -55,6 +56,9 @@ export const router = createBrowserRouter([
 
       // Finanse
       { path: 'finanse', element: <FinancePage /> },
+
+      // Inwestycje
+      { path: 'inwestycje', element: <InvestmentPage /> },
 
       // Raporty
       { path: 'raporty', element: <ReportsPage /> },
