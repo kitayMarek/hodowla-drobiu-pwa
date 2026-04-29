@@ -24,10 +24,11 @@ export function BatchFormPage() {
   const {
     register,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<BatchFormValues>({
     resolver: zodResolver(batchSchema),
-    defaultValues: existing ?? {
+    defaultValues: {
       status: 'active',
       species: 'brojler',
       startDate: todayISO(),
@@ -35,6 +36,10 @@ export function BatchFormPage() {
       initialCount: 1000,
     },
   });
+
+  React.useEffect(() => {
+    if (existing) reset(existing);
+  }, [existing, reset]);
 
   if (isEdit && existing === undefined) return <PageLoader />;
 

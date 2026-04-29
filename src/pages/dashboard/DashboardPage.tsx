@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
 import { formatPln, formatPercent, formatFCR, formatGrams, formatCount } from '@/utils/format';
 import { formatDate, ageLabel } from '@/utils/date';
-import { SPECIES_LABELS, SPECIES_EMOJI } from '@/constants/species';
+import { SPECIES_LABELS, SPECIES_EMOJI, isLayerSpecies } from '@/constants/species';
 import { BATCH_STATUS_COLORS } from '@/constants/phases';
 import { pl } from '@/i18n/pl';
 import { useLiveQuery } from 'dexie-react-hooks';
@@ -19,15 +19,46 @@ import type { Weighing } from '@/models/weighing.model';
 import { calcDailyMortalityTrend } from '@/engine/mortality';
 import { calcWeightGainTrend } from '@/engine/growth';
 import { calcDailyEggTrend } from '@/engine/eggs';
+import { DailyCalendar } from '@/components/dashboard/DailyCalendar';
+import { incubationService, calcKeyDates } from '@/services/incubation.service';
 
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
   const activeBatches = useActiveBatches();
   const allBatches = useBatches();
 
+  const feedDeliveries = useLiveQuery(() => db.feedDeliveries.toArray(), []) ?? [];
+
+  // Wylęgarnia – alerty lockdown
+  const upcomingLockdowns = useLiveQuery(
+    () => incubationService.getUpcomingLockdowns(3),
+    []
+  ) ?? [];
+  const activeIncubations = useLiveQuery(
+    () => db.incubations.where('status').anyOf('incubating', 'lockdown').count(),
+    []
+  ) ?? 0;
+  const allExpenses = useLiveQuery(() => db.expenses.toArray(), []) ?? [];
+  const allSales = useLiveQuery(() => db.sales.toArray(), []) ?? [];
+
+  // Wpisy dzienne bieżącego miesiąca – dla kalendarza
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = `${today.slice(0, 7)}-01`;
+  const monthEntries = useLiveQuery(
+    () => db.dailyEntries.where('date').between(monthStart, today, true, true).toArray(),
+    [monthStart, today],
+  ) ?? [];
+
   const totalBirds = allKPIs.reduce((s, k) => s + k.currentBirdCount, 0);
-  const totalRevenue = allKPIs.reduce((s, k) => s + k.totalRevenuePln, 0);
-  const totalCosts = allKPIs.reduce((s, k) => s + k.totalCostPln, 0);
+  // Przychody i koszty z pełnych danych – nie tylko aktywnych stad
+  const totalRevenue = allSales.reduce((s, x) => s + x.totalRevenuePln, 0);
+  const totalFeedDeliveryCost = feedDeliveries.reduce((s, d) => s + d.totalCostPln, 0);
+  const totalOtherExpenses = allExpenses.reduce((s, e) => s + e.amountPln, 0);
+  const totalChickCost = allBatches.reduce(
+    (s, b) => s + (b.chick_cost_per_unit ?? 0) * b.initialCount + (b.transport_cost ?? 0),
+    0
+  );
+  const totalCosts = totalFeedDeliveryCost + totalOtherExpenses + totalChickCost;
   const totalMargin = totalRevenue - totalCosts;
 
   // Wybierz pierwszą aktywną partię do wykresów
@@ -64,6 +95,47 @@ export function DashboardPage() {
         />
       ) : (
         <>
+          {/* Alert lockdown wylęgarni */}
+          {upcomingLockdowns.map(inc => {
+            const { lockdownDate } = calcKeyDates(inc.startDate, inc.totalDays, inc.lockdownDay);
+            const today = new Date(); today.setHours(0,0,0,0);
+            const ld = new Date(lockdownDate); ld.setHours(0,0,0,0);
+            const daysUntil = Math.floor((ld.getTime() - today.getTime()) / 86_400_000);
+            return (
+              <Link key={inc.id} to={`/wyleglarnia/${inc.id}`} className="block">
+                <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                  <span className="text-2xl">🔔</span>
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-orange-800">
+                      {daysUntil === 0 ? 'DZIŚ: Przejdź w lockdown!' : `Za ${daysUntil} ${daysUntil === 1 ? 'dzień' : 'dni'}: Lockdown`}
+                    </div>
+                    <div className="text-xs text-orange-700">
+                      {inc.name} · zmień na {inc.lockdownTempC} °C / {inc.lockdownHumidityPct}% wilg. · zatrzymaj obracanie
+                    </div>
+                  </div>
+                  <svg className="w-4 h-4 text-orange-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </Link>
+            );
+          })}
+
+          {/* Szybki podgląd wylęgarni */}
+          {activeIncubations > 0 && upcomingLockdowns.length === 0 && (
+            <Link to="/wyleglarnia" className="block">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+                <span className="text-2xl">🥚</span>
+                <div className="flex-1 text-sm text-amber-800">
+                  <span className="font-semibold">{activeIncubations} aktywny wsad inkubacji</span>
+                </div>
+                <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </Link>
+          )}
+
           {/* KPI grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard
@@ -101,32 +173,53 @@ export function DashboardPage() {
             </Link>
           } padding="none">
             <div className="divide-y divide-gray-50">
-              {allKPIs.map(kpi => (
-                <Link
-                  key={kpi.batchId}
-                  to={`/stada/${kpi.batchId}`}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
-                >
-                  <span className="text-2xl">{SPECIES_EMOJI[activeBatches.find(b => b.id === kpi.batchId)?.species ?? 'brojler']}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{kpi.batchName}</div>
-                    <div className="text-xs text-gray-500">
-                      {kpi.ageInDays} dni · {kpi.currentBirdCount.toLocaleString('pl-PL')} szt.
+              {allKPIs.map(kpi => {
+                const batch = activeBatches.find(b => b.id === kpi.batchId);
+                const todayEntry = monthEntries.find(e => e.batchId === kpi.batchId && e.date === today);
+                // Status dzisiejszy: missing / partial (nioska bez jaj) / complete
+                const todayStatus = !todayEntry
+                  ? 'missing'
+                  : (batch && isLayerSpecies(batch.species) && todayEntry.eggsCollected == null)
+                    ? 'partial'
+                    : 'complete';
+                const dotColor = todayStatus === 'complete'
+                  ? 'bg-green-500'
+                  : todayStatus === 'partial'
+                    ? 'bg-orange-400'
+                    : 'bg-red-400';
+                return (
+                  <Link
+                    key={kpi.batchId}
+                    to={`/stada/${kpi.batchId}`}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="relative shrink-0">
+                      <span className="text-2xl">{SPECIES_EMOJI[batch?.species ?? 'brojler']}</span>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${dotColor}`} />
                     </div>
-                  </div>
-                  <div className="text-right hidden sm:block">
-                    <div className="text-sm font-medium">FCR: {formatFCR(kpi.fcr)}</div>
-                    <div className="text-xs text-gray-500">
-                      {kpi.mortalityPercent.toFixed(1)}% upadki
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900 truncate">{kpi.batchName}</div>
+                      <div className="text-xs text-gray-500">
+                        {kpi.ageInDays} dni · {kpi.currentBirdCount.toLocaleString('pl-PL')} szt.
+                      </div>
                     </div>
-                  </div>
-                  <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
-              ))}
+                    <div className="text-right hidden sm:block">
+                      <div className="text-sm font-medium">FCR: {formatFCR(kpi.fcr)}</div>
+                      <div className="text-xs text-gray-500">
+                        {kpi.mortalityPercent.toFixed(1)}% upadki
+                      </div>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                );
+              })}
             </div>
           </Card>
+
+          {/* Kalendarz kompletności wpisów */}
+          <DailyCalendar activeBatches={activeBatches} monthEntries={monthEntries} />
 
           {/* Charts */}
           <div className="grid md:grid-cols-2 gap-4">

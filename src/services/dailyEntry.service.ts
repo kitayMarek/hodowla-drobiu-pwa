@@ -42,6 +42,17 @@ export const dailyEntryService = {
     await db.dailyEntries.delete(id);
   },
 
+  /** Usuwa wpis dzienny WRAZ z powiązanymi rekordami feedConsumptions */
+  async deleteWithConsumptions(id: number): Promise<void> {
+    const entry = await db.dailyEntries.get(id);
+    if (entry) {
+      await db.feedConsumptions
+        .where('[batchId+date]').equals([entry.batchId, entry.date])
+        .delete();
+    }
+    await db.dailyEntries.delete(id);
+  },
+
   async getWeeklyAggregates(batchId: number): Promise<Array<{
     weekStart: string;
     totalDead: number;

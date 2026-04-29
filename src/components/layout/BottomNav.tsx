@@ -4,9 +4,9 @@ import { NavLink } from 'react-router-dom';
 const items = [
   { to: '/', icon: '📊', label: 'Pulpit', end: true },
   { to: '/stada', icon: '🐔', label: 'Stada' },
+  { to: '/wyleglarnia', icon: '🥚', label: 'Wylęgarnia' },
   { to: '/sprzedaz', icon: '💰', label: 'Sprzedaż' },
   { to: '/finanse', icon: '📈', label: 'Finanse' },
-  { to: '/inwestycje', icon: '🏗️', label: 'Inwestycje' },
 ];
 
 export function BottomNav() {

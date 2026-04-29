@@ -107,6 +107,7 @@ export const slaughterSchema = z.object({
 export const saleSchema = z.object({
   saleDate: isoDate,
   saleType: z.enum(['jaja', 'ptaki_zywe', 'tuszki', 'elementy']),
+  batchId: z.coerce.number().int().positive('Wybierz stado'),
   eggsCount: positiveInt.optional(),
   eggPricePln: positiveNum.optional(),
   birdCount: positiveInt.optional(),
@@ -128,6 +129,16 @@ export const expenseSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const feedDeliverySchema = z.object({
+  deliveryDate: isoDate,
+  feedTypeId: z.coerce.number().int().positive('Wybierz rodzaj paszy'),
+  quantityKg: z.coerce.number().min(0.1, 'Ilość musi być większa od 0'),
+  totalCostPln: z.coerce.number().min(0, 'Kwota nie może być ujemna'),
+  supplierName: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  notes: z.string().optional(),
+});
+
 export const investmentSchema = z.object({
   purchaseDate: isoDate,
   category: z.enum(['budynek', 'maszyna', 'wyposazenie', 'instalacja', 'pojazd', 'grunty', 'inne_st']),
@@ -139,6 +150,38 @@ export const investmentSchema = z.object({
   notes: z.string().optional(),
 });
 
+export const eggPurchaseSchema = z.object({
+  purchaseDate: isoDate,
+  count: z.coerce.number().int().min(1, 'Minimalna ilość to 1 jajko'),
+  pricePerEgg: positiveNum.optional(),
+  totalCostPln: positiveNum,
+  supplierName: z.string().optional(),
+  invoiceNumber: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export const eggHatchTransferSchema = z.object({
+  transferDate: isoDate,
+  count: z.coerce.number().int().min(1, 'Minimalna ilość to 1 jajko'),
+  sourceBatchId: z.coerce.number().int().positive().optional().or(z.literal('')).transform(v => v === '' ? undefined : Number(v) || undefined),
+  pricePerEgg: positiveNum.optional(),
+  totalRevenuePln: positiveNum.optional(),
+  notes: z.string().optional(),
+});
+
+export const orderSchema = z.object({
+  batchId:           z.coerce.number().int().positive('Wybierz stado'),
+  orderType:         z.enum(['jaja', 'ptaki_zywe', 'tuszki']),
+  plannedDate:       isoDate,
+  quantity:          positiveInt.optional(),
+  weightKg:          positiveNum.optional(),
+  pricePerUnit:      positiveNum.optional(),
+  estimatedPricePln: z.coerce.number().min(0.01, 'Podaj szacunkową wartość zamówienia'),
+  buyerName:         z.string().optional(),
+  phone:             z.string().optional(),
+  notes:             z.string().optional(),
+});
+
 export type BatchFormValues = z.infer<typeof batchSchema>;
 export type DailyEntryFormValues = z.infer<typeof dailyEntrySchema>;
 export type FeedTypeFormValues = z.infer<typeof feedTypeSchema>;
@@ -147,4 +190,8 @@ export type HealthEventFormValues = z.infer<typeof healthEventSchema>;
 export type SlaughterFormValues = z.infer<typeof slaughterSchema>;
 export type SaleFormValues = z.infer<typeof saleSchema>;
 export type ExpenseFormValues = z.infer<typeof expenseSchema>;
+export type FeedDeliveryFormValues = z.infer<typeof feedDeliverySchema>;
 export type InvestmentFormValues = z.infer<typeof investmentSchema>;
+export type EggPurchaseFormValues = z.infer<typeof eggPurchaseSchema>;
+export type EggHatchTransferFormValues = z.infer<typeof eggHatchTransferSchema>;
+export type OrderFormValues = z.infer<typeof orderSchema>;

@@ -1,9 +1,20 @@
 import type { DailyEntry } from '@/models/dailyEntry.model';
+import type { Sale } from '@/models/sale.model';
+import type { SlaughterRecord } from '@/models/slaughter.model';
 import type { TrendPoint } from './types';
 
-export function calcCurrentBirdCount(initialCount: number, entries: DailyEntry[]): number {
-  const totalLost = entries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
-  return Math.max(0, initialCount - totalLost);
+export function calcCurrentBirdCount(
+  initialCount: number,
+  entries: DailyEntry[],
+  sales: Sale[] = [],
+  slaughterRecords: SlaughterRecord[] = [],
+): number {
+  const totalDead      = entries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
+  const totalSoldLive  = sales
+    .filter(s => s.saleType === 'ptaki_zywe')
+    .reduce((s, sale) => s + (sale.birdCount ?? 0), 0);
+  const totalSlaughtered = slaughterRecords.reduce((s, r) => s + r.birdsSlaughtered, 0);
+  return Math.max(0, initialCount - totalDead - totalSoldLive - totalSlaughtered);
 }
 
 export function calcTotalMortality(entries: DailyEntry[]): number {

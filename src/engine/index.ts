@@ -14,12 +14,12 @@ export function calculateAllKPIs(input: BatchKPIInput): BatchKPIResult {
   const ageInDays = differenceInDays(new Date(), parseISO(batch.startDate));
 
   // Populacja
-  const currentBirdCount = calcCurrentBirdCount(batch.initialCount, dailyEntries);
+  const currentBirdCount = calcCurrentBirdCount(batch.initialCount, dailyEntries, sales, slaughterRecords);
   const totalMortality = calcTotalMortality(dailyEntries);
   const mortalityPercent = calcMortalityPercent(batch.initialCount, totalMortality);
 
-  // Pasza
-  const totalFeedKg = calcTotalFeedKg(feedConsumptions);
+  // Pasza – zużycie pochodzi z wpisów dziennych (feedConsumedKg)
+  const totalFeedKg = calcTotalFeedKg(dailyEntries);
   const feedCostPln = calcFeedCost(feedConsumptions, feedTypes);
 
   // Wzrost

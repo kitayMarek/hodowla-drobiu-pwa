@@ -17,6 +17,9 @@ import { FinancePage } from '@/pages/finance/FinancePage';
 import { InvestmentPage } from '@/pages/investments/InvestmentPage';
 import { ReportsPage } from '@/pages/reports/ReportsPage';
 import { SettingsPage } from '@/pages/settings/SettingsPage';
+import { HatcheryListPage } from '@/pages/hatchery/HatcheryListPage';
+import { HatcheryFormPage } from '@/pages/hatchery/HatcheryFormPage';
+import { HatcheryDetailPage } from '@/pages/hatchery/HatcheryDetailPage';
 
 export const router = createBrowserRouter([
   {
@@ -59,6 +62,12 @@ export const router = createBrowserRouter([
 
       // Inwestycje
       { path: 'inwestycje', element: <InvestmentPage /> },
+
+      // Wylęgarnia
+      { path: 'wyleglarnia', element: <HatcheryListPage /> },
+      { path: 'wyleglarnia/nowy', element: <HatcheryFormPage /> },
+      { path: 'wyleglarnia/:id', element: <HatcheryDetailPage /> },
+      { path: 'wyleglarnia/:id/edytuj', element: <HatcheryFormPage /> },
 
       // Raporty
       { path: 'raporty', element: <ReportsPage /> },

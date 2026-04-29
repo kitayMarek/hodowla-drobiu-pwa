@@ -34,7 +34,7 @@ export const batchService = {
       [
         db.batches, db.dailyEntries, db.weighings, db.healthEvents,
         db.housing, db.slaughterRecords, db.sales, db.expenses,
-        db.feedConsumptions,
+        db.feedConsumptions, db.batchPhotos,
       ],
       async () => {
         await Promise.all([
@@ -46,6 +46,7 @@ export const batchService = {
           db.sales.where('batchId').equals(id).delete(),
           db.expenses.where('batchId').equals(id).delete(),
           db.feedConsumptions.where('batchId').equals(id).delete(),
+          db.batchPhotos.where('batchId').equals(id).delete(),
         ]);
         await db.batches.delete(id);
       }

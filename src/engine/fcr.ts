@@ -1,20 +1,28 @@
 import type { FeedConsumption, FeedType } from '@/models/feed.model';
+import type { DailyEntry } from '@/models/dailyEntry.model';
 import type { Weighing } from '@/models/weighing.model';
 import type { TrendPoint } from './types';
 
-export function calcTotalFeedKg(consumptions: FeedConsumption[]): number {
-  return consumptions.reduce((s, c) => s + c.consumedKg, 0);
+/** Całkowite zużycie paszy z wpisów dziennych stada */
+export function calcTotalFeedKg(dailyEntries: DailyEntry[]): number {
+  return dailyEntries.reduce((s, e) => s + e.feedConsumedKg, 0);
 }
 
+/** Koszt paszy stada = zużycie (kg) × cena/kg z katalogu pasz */
 export function calcFeedCost(
-  consumptions: FeedConsumption[],
+  feedConsumptions: FeedConsumption[],
   feedTypes: FeedType[]
 ): number {
   const priceMap = new Map(feedTypes.map(ft => [ft.id!, ft.pricePerKg]));
-  return consumptions.reduce((s, c) => {
-    const price = priceMap.get(c.feedTypeId) ?? 0;
-    return s + c.consumedKg * price;
+  return feedConsumptions.reduce((s, fc) => {
+    const price = priceMap.get(fc.feedTypeId) ?? 0;
+    return s + fc.consumedKg * price;
   }, 0);
+}
+
+/** @deprecated – używaj calcTotalFeedKg(dailyEntries) */
+export function calcTotalFeedKgFromConsumptions(consumptions: FeedConsumption[]): number {
+  return consumptions.reduce((s, c) => s + c.consumedKg, 0);
 }
 
 export function calcFCR(

@@ -87,7 +87,7 @@ export function DailyEntryListPage() {
         open={deleteTarget != null}
         onClose={() => setDeleteTarget(null)}
         onConfirm={async () => {
-          if (deleteTarget?.id != null) await dailyEntryService.delete(deleteTarget.id);
+          if (deleteTarget?.id != null) await dailyEntryService.deleteWithConsumptions(deleteTarget.id);
         }}
         message="Usunąć ten wpis dzienny?"
         danger

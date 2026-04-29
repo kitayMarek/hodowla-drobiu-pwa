@@ -34,13 +34,14 @@ export const HEALTH_EVENT_LABELS: Record<HealthEventType, string> = {
   profilaktyka: 'Profilaktyka',
 };
 
-export type SaleType = 'jaja' | 'ptaki_zywe' | 'tuszki' | 'elementy';
+export type SaleType = 'jaja' | 'ptaki_zywe' | 'tuszki' | 'elementy' | 'jaja_wewn';
 
 export const SALE_TYPE_LABELS: Record<SaleType, string> = {
   jaja: 'Jaja',
   ptaki_zywe: 'Ptaki żywe',
   tuszki: 'Tuszki',
   elementy: 'Elementy (części)',
+  jaja_wewn: 'Jaja → Wylęgarnia',
 };
 
 export type ExpenseCategory =
@@ -110,9 +111,59 @@ export const LITTER_CONDITION_LABELS: Record<LitterCondition, string> = {
   zla: 'Zła',
 };
 
+export type IncubationStatus = 'incubating' | 'lockdown' | 'completed' | 'cancelled';
+
+export const INCUBATION_STATUS_LABELS: Record<IncubationStatus, string> = {
+  incubating: 'Inkubacja',
+  lockdown:   'Lockdown / Klucie',
+  completed:  'Zakończony',
+  cancelled:  'Anulowany',
+};
+
+export const INCUBATION_STATUS_COLORS: Record<IncubationStatus, string> = {
+  incubating: 'bg-amber-100 text-amber-800',
+  lockdown:   'bg-orange-100 text-orange-800',
+  completed:  'bg-green-100 text-green-800',
+  cancelled:  'bg-gray-100 text-gray-500',
+};
+
+// Domyślne parametry inkubacji per gatunek
+export interface IncubationDefaults {
+  totalDays: number;
+  lockdownDay: number;
+  incubationTempC: number;
+  incubationHumidityPct: number;
+  lockdownTempC: number;
+  lockdownHumidityPct: number;
+}
+
+export const INCUBATION_DEFAULTS: Record<string, IncubationDefaults> = {
+  brojler: { totalDays: 21, lockdownDay: 18, incubationTempC: 37.5, incubationHumidityPct: 55, lockdownTempC: 37.2, lockdownHumidityPct: 70 },
+  nioska:  { totalDays: 21, lockdownDay: 18, incubationTempC: 37.5, incubationHumidityPct: 55, lockdownTempC: 37.2, lockdownHumidityPct: 70 },
+  kaczka:  { totalDays: 28, lockdownDay: 25, incubationTempC: 37.5, incubationHumidityPct: 55, lockdownTempC: 37.2, lockdownHumidityPct: 80 },
+  indyk:   { totalDays: 28, lockdownDay: 25, incubationTempC: 37.5, incubationHumidityPct: 55, lockdownTempC: 37.2, lockdownHumidityPct: 70 },
+  ges:     { totalDays: 30, lockdownDay: 27, incubationTempC: 37.5, incubationHumidityPct: 55, lockdownTempC: 37.2, lockdownHumidityPct: 80 },
+};
+
 export type SourceType = 'zakupione' | 'wlasny_wyleg';
 
 export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   zakupione: 'Zakupione',
   wlasny_wyleg: 'Własny wylęg',
+};
+
+export type OrderType = 'jaja' | 'ptaki_zywe' | 'tuszki';
+
+export const ORDER_TYPE_LABELS: Record<OrderType, string> = {
+  jaja:       'Jaja',
+  ptaki_zywe: 'Ptaki żywe',
+  tuszki:     'Tuszki',
+};
+
+export type OrderStatus = 'oczekujace' | 'zrealizowane' | 'anulowane';
+
+export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
+  oczekujace:   'Oczekujące',
+  zrealizowane: 'Zrealizowane',
+  anulowane:    'Anulowane',
 };

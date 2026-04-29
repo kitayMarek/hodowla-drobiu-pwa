@@ -94,6 +94,7 @@ export function WeighingListPage() {
             color="#15803d"
             height={200}
             formatValue={v => `${v}g`}
+            xFormatter={x => `${x}d`}
           />
           <p className="text-xs text-gray-400 text-center mt-1">Oś X: wiek w dniach</p>
         </Card>
