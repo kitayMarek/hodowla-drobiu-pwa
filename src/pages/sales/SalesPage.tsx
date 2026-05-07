@@ -8,6 +8,8 @@ import {
   orderSchema,          type OrderFormValues,
 } from '@/utils/validation';
 import { saleService }  from '@/services/sale.service';
+import { financialEventService } from '@/services/financialEvent.service';
+import { batchService } from '@/services/batch.service';
 import { orderService } from '@/services/order.service';
 import { hatchingEggService } from '@/services/hatchingEgg.service';
 import { Button }       from '@/components/ui/Button';
@@ -26,6 +28,7 @@ import {
   SALE_TYPE_LABELS,
   ORDER_TYPE_LABELS,
   ORDER_STATUS_LABELS,
+  type SaleType,
 } from '@/constants/phases';
 import { isLayerSpecies } from '@/constants/species';
 import { useActiveBatches } from '@/hooks/useBatch';
@@ -80,6 +83,9 @@ function DaysChip({ dateStr }: { dateStr: string }) {
 export function SalesPage() {
   const [activeTab, setActiveTab] = useState<Tab>('sprzedaz');
 
+  // Modal szczegółów sprzedaży
+  const [salesModal, setSalesModal] = useState<'przychod' | 'miesiac' | null>(null);
+
   // Stan sprzedaży
   const [showSaleForm,  setShowSaleForm]  = useState(false);
   const [showBuyForm,   setShowBuyForm]   = useState(false);
@@ -91,10 +97,18 @@ export function SalesPage() {
   // Stan zamówień
   const [showOrderForm,     setShowOrderForm]     = useState(false);
   const [fulfillOrderTarget, setFulfillOrderTarget] = useState<Order | null>(null);
+  const [fulfillData, setFulfillData] = useState({
+    saleDate: '', quantity: '', weightKg: '', pricePerUnit: '', totalRevenuePln: '', invoiceNumber: '', notes: '',
+  });
   const [cancelOrderTarget,  setCancelOrderTarget]  = useState<Order | null>(null);
   const [deleteOrderTarget,  setDeleteOrderTarget]  = useState<Order | null>(null);
 
+  // Stan rozliczenia kasowego (dla formularza sprzedaży)
+  const [salePayment,   setSalePayment]   = useState<'pending' | 'immediate'>('pending');
+  const [saleAccountId, setSaleAccountId] = useState('');
+
   // ─── Live queries ─────────────────────────────────────────────────────────
+  const cashAccounts       = useLiveQuery(() => db.cashAccounts.filter(a => a.isActive).toArray(), []) ?? [];
   const sales              = useLiveQuery(() => db.sales.orderBy('saleDate').reverse().toArray(), []) ?? [];
   const orders             = useLiveQuery(() => db.orders.orderBy('plannedDate').toArray(), []) ?? [];
   const allBatches         = useLiveQuery(() => db.batches.toArray(), []) ?? [];
@@ -196,7 +210,28 @@ export function SalesPage() {
         return;
       }
     }
-    await saleService.create(data);
+    const saleId = await saleService.create(data) as number;
+    if (data.saleType === 'ptaki_zywe' && data.batchId) {
+      await batchService.checkAndAutoClose(Number(data.batchId));
+    }
+
+    // ── Rozliczenie kasowe ──────────────────────────────────────────────────
+    const desc = `Sprzedaż${data.buyerName ? ` – ${data.buyerName}` : ''}${data.invoiceNumber ? ` (${data.invoiceNumber})` : ''}`;
+    if (salePayment === 'pending') {
+      await financialEventService.create({
+        date: data.saleDate, type: 'income', amountPln: data.totalRevenuePln,
+        description: desc, sourceType: 'sale', sourceId: saleId,
+      });
+    } else if (salePayment === 'immediate' && saleAccountId) {
+      await db.cashTransactions.add({
+        accountId: Number(saleAccountId), date: data.saleDate, type: 'income',
+        scope: 'business', category: 'Sprzedaż', description: desc,
+        amountPln: data.totalRevenuePln, createdAt: new Date().toISOString(),
+      });
+    }
+
+    setSalePayment('pending');
+    setSaleAccountId('');
     reset();
     setShowSaleForm(false);
   };
@@ -348,6 +383,66 @@ export function SalesPage() {
     }
   };
 
+  // ─── Realizacja zamówienia ────────────────────────────────────────────────
+  const openFulfill = (o: Order) => {
+    setFulfillOrderTarget(o);
+    setFulfillData({
+      saleDate: todayISO(),
+      quantity: o.quantity != null ? String(o.quantity) : '',
+      weightKg: o.weightKg != null ? String(o.weightKg) : '',
+      pricePerUnit: o.pricePerUnit != null ? String(o.pricePerUnit) : '',
+      totalRevenuePln: o.estimatedPricePln > 0 ? String(o.estimatedPricePln) : '',
+      invoiceNumber: '',
+      notes: '',
+    });
+  };
+
+  const fulfillRecompute = (field: 'quantity' | 'weightKg' | 'pricePerUnit', val: string) => {
+    setFulfillData(prev => {
+      const upd = { ...prev, [field]: val };
+      const isEggs = fulfillOrderTarget?.orderType === 'jaja';
+      if (isEggs) {
+        const qty = Number(upd.quantity); const price = Number(upd.pricePerUnit);
+        if (qty > 0 && price > 0) upd.totalRevenuePln = String(r2(qty * price));
+      } else {
+        const kg = Number(upd.weightKg); const price = Number(upd.pricePerUnit);
+        if (kg > 0 && price > 0) upd.totalRevenuePln = String(r2(kg * price));
+      }
+      return upd;
+    });
+  };
+
+  const onFulfillConfirm = async () => {
+    if (!fulfillOrderTarget) return;
+    const o = fulfillOrderTarget;
+    const totalRev = Number(fulfillData.totalRevenuePln);
+    if (!totalRev) return;
+
+    const sale: Omit<Sale, 'id' | 'createdAt'> = {
+      batchId: o.batchId,
+      saleDate: fulfillData.saleDate || todayISO(),
+      saleType: o.orderType as SaleType,
+      totalRevenuePln: totalRev,
+      buyerName: o.buyerName,
+      invoiceNumber: fulfillData.invoiceNumber || undefined,
+      notes: fulfillData.notes || o.notes || undefined,
+    };
+    if (o.orderType === 'jaja') {
+      if (fulfillData.quantity)    sale.eggsCount    = Number(fulfillData.quantity);
+      if (fulfillData.pricePerUnit) sale.eggPricePln  = Number(fulfillData.pricePerUnit);
+    } else {
+      if (fulfillData.weightKg)    sale.weightKg      = Number(fulfillData.weightKg);
+      if (fulfillData.quantity)    sale.birdCount     = Number(fulfillData.quantity);
+      if (fulfillData.pricePerUnit) sale.pricePerKgPln = Number(fulfillData.pricePerUnit);
+    }
+    await saleService.create(sale);
+    await orderService.updateStatus(o.id!, 'zrealizowane');
+    if (o.orderType === 'ptaki_zywe') {
+      await batchService.checkAndAutoClose(o.batchId);
+    }
+    setFulfillOrderTarget(null);
+  };
+
   const onOrderSubmit = async (data: OrderFormValues) => {
     let finalData = { ...data };
     // Jeśli zamówienie przekracza dostępne ptaki lub zostanie < 10 szt. → adnotacja
@@ -416,8 +511,10 @@ export function SalesPage() {
       {activeTab === 'sprzedaz' && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <KPICard label="Łączny przychód" value={formatPln(totalRevenue)}     icon="💰" color="green" />
-            <KPICard label="Ten miesiąc"     value={formatPln(thisMonthRevenue)} icon="📅" color="blue"  />
+            <KPICard label="Łączny przychód" value={formatPln(totalRevenue)}     icon="💰" color="green"
+              onClick={() => setSalesModal('przychod')} />
+            <KPICard label="Ten miesiąc"     value={formatPln(thisMonthRevenue)} icon="📅" color="blue"
+              onClick={() => setSalesModal('miesiac')} />
           </div>
 
           {/* ── Magazyn jaj ─────────────────────────────────────────────── */}
@@ -592,10 +689,10 @@ export function SalesPage() {
                         </div>
                         <div className="flex gap-2 mt-2">
                           <button
-                            onClick={() => setFulfillOrderTarget(o)}
+                            onClick={() => openFulfill(o)}
                             className="text-xs text-green-700 hover:text-green-800 font-medium border border-green-200 bg-green-50 hover:bg-green-100 rounded-lg px-2.5 py-1 transition-colors"
                           >
-                            ✓ Zrealizowane
+                            ✓ Zrealizuj i zaksięguj
                           </button>
                           <button
                             onClick={() => setCancelOrderTarget(o)}
@@ -648,6 +745,87 @@ export function SalesPage() {
           )}
         </>
       )}
+
+      {/* ═══ MODAL SZCZEGÓŁÓW SPRZEDAŻY ═══ */}
+      {salesModal != null && (() => {
+        const visibleSales = sales.filter(s => s.saleType !== 'jaja_wewn');
+        const monthSales = visibleSales.filter(s => s.saleDate >= new Date().toISOString().slice(0, 7));
+        const displaySales = salesModal === 'miesiac' ? monthSales : visibleSales;
+        const title = salesModal === 'miesiac' ? 'Sprzedaż – bieżący miesiąc' : 'Łączny przychód – szczegóły';
+
+        const byType = Object.entries(SALE_TYPE_LABELS).map(([type, label]) => {
+          const typeSales = displaySales.filter(s => s.saleType === type);
+          const total = typeSales.reduce((s, x) => s + x.totalRevenuePln, 0);
+          return { type, label, total, count: typeSales.length };
+        }).filter(x => x.total > 0);
+
+        const grandTotal = displaySales.reduce((s, x) => s + x.totalRevenuePln, 0);
+
+        return (
+          <Modal open onClose={() => setSalesModal(null)} title={title} size="lg">
+            {displaySales.length === 0 ? (
+              <div className="text-sm text-gray-400 py-4 text-center">Brak transakcji</div>
+            ) : (
+              <div className="space-y-4">
+                {/* Podsumowanie wg typów */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Wg rodzaju produktu</div>
+                  <div className="divide-y divide-gray-50">
+                    {byType.map(({ type, label, total, count }) => (
+                      <div key={type} className="flex items-center justify-between py-2">
+                        <div>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                            saleTypeBadge[type] === 'yellow' ? 'bg-yellow-100 text-yellow-700'
+                            : saleTypeBadge[type] === 'green' ? 'bg-green-100 text-green-700'
+                            : saleTypeBadge[type] === 'blue' ? 'bg-blue-100 text-blue-700'
+                            : saleTypeBadge[type] === 'orange' ? 'bg-orange-100 text-orange-700'
+                            : 'bg-gray-100 text-gray-600'
+                          }`}>{label}</span>
+                          <span className="text-xs text-gray-400 ml-2">{count} transakcji</span>
+                        </div>
+                        <span className="font-semibold text-gray-900">{formatPln(total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-between font-bold text-green-800 border-t border-gray-200 pt-2">
+                    <span>Łącznie</span><span>{formatPln(grandTotal)}</span>
+                  </div>
+                </div>
+
+                {/* Lista transakcji */}
+                <div>
+                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Transakcje</div>
+                  <div className="divide-y divide-gray-50 max-h-72 overflow-y-auto">
+                    {displaySales.map(s => (
+                      <div key={s.id} className="flex items-center gap-2 py-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                              saleTypeBadge[s.saleType] === 'yellow' ? 'bg-yellow-100 text-yellow-700'
+                              : saleTypeBadge[s.saleType] === 'green' ? 'bg-green-100 text-green-700'
+                              : saleTypeBadge[s.saleType] === 'blue' ? 'bg-blue-100 text-blue-700'
+                              : saleTypeBadge[s.saleType] === 'orange' ? 'bg-orange-100 text-orange-700'
+                              : 'bg-gray-100 text-gray-600'
+                            }`}>{SALE_TYPE_LABELS[s.saleType]}</span>
+                            <span className="text-xs text-gray-400">{formatDate(s.saleDate)}</span>
+                            {s.buyerName && <span className="text-xs text-gray-500">{s.buyerName}</span>}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {s.batchId && batchMap.get(s.batchId) && <span>{batchMap.get(s.batchId)}</span>}
+                            {s.saleType === 'jaja' && s.eggsCount != null && <span className="ml-1">· {s.eggsCount.toLocaleString('pl-PL')} jaj</span>}
+                            {s.saleType !== 'jaja' && s.weightKg != null && <span className="ml-1">· {s.weightKg} kg</span>}
+                          </div>
+                        </div>
+                        <span className="font-semibold text-sm text-gray-900">{formatPln(s.totalRevenuePln)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
 
       {/* ══════════════════════════════════════════════════════════════════════
           MODALE – SPRZEDAŻ
@@ -702,6 +880,34 @@ export function SalesPage() {
           <Input label="Klient"         {...register('buyerName')} />
           <Input label="Numer faktury"  {...register('invoiceNumber')} />
           <Textarea label="Uwagi"       {...register('notes')} />
+
+          {/* ── Rozliczenie kasowe ─────────────────────────────────────────── */}
+          {cashAccounts.length > 0 && (
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Kasa i bank</div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                <button type="button" onClick={() => setSalePayment('pending')}
+                  className={`flex-1 py-2 transition-colors ${salePayment === 'pending' ? 'bg-orange-50 text-orange-700 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}>
+                  📅 Do rozliczenia
+                </button>
+                <button type="button" onClick={() => setSalePayment('immediate')}
+                  className={`flex-1 py-2 border-l border-gray-200 transition-colors ${salePayment === 'immediate' ? 'bg-green-50 text-green-700 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}>
+                  💰 Opłacono od razu
+                </button>
+              </div>
+              {salePayment === 'immediate' && (
+                <select value={saleAccountId} onChange={e => setSaleAccountId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="">— Wybierz konto —</option>
+                  {cashAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              )}
+              {salePayment === 'pending' && (
+                <p className="text-xs text-orange-600">Pojawi się w Kasie i Banku → Do rozliczenia. Zatwierdź gdy wpłyną pieniądze.</p>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3">
             <Button type="submit" loading={isSubmitting} className="flex-1">Zapisz</Button>
             <Button variant="outline" type="button" onClick={() => setShowSaleForm(false)}>Anuluj</Button>
@@ -929,14 +1135,136 @@ export function SalesPage() {
         message="Usunąć to przekazanie do wylęgu?"
         danger
       />
-      <ConfirmDialog
+      {/* ── Modal realizacji zamówienia ──────────────────────────────────── */}
+      <Modal
         open={fulfillOrderTarget != null}
         onClose={() => setFulfillOrderTarget(null)}
-        onConfirm={async () => {
-          if (fulfillOrderTarget?.id) await orderService.updateStatus(fulfillOrderTarget.id, 'zrealizowane');
-        }}
-        message={`Oznaczyć zamówienie ${fulfillOrderTarget?.buyerName ? `klienta "${fulfillOrderTarget.buyerName}"` : ''} jako zrealizowane?`}
-      />
+        title="Realizacja zamówienia"
+        size="lg"
+      >
+        {fulfillOrderTarget && (() => {
+          const o = fulfillOrderTarget;
+          const isEggs = o.orderType === 'jaja';
+          const totalOk = Number(fulfillData.totalRevenuePln) > 0;
+          return (
+            <div className="space-y-4">
+              {/* Podsumowanie zamówienia */}
+              <div className="bg-gray-50 rounded-xl px-4 py-3 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Badge color={orderTypeBadge[o.orderType]}>{ORDER_TYPE_LABELS[o.orderType]}</Badge>
+                  {o.buyerName && <span className="text-sm font-medium text-gray-800">{o.buyerName}</span>}
+                  {o.phone && <span className="text-xs text-gray-400">📞 {o.phone}</span>}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Planowana data: {formatDate(o.plannedDate)}
+                  {o.notes && <span className="ml-2 italic">{o.notes}</span>}
+                </div>
+                <div className="text-xs text-gray-400">
+                  {batchMap.get(o.batchId)}
+                  {o.quantity != null && <span className="ml-2">· zamówiono: {o.quantity.toLocaleString('pl-PL')} {isEggs ? 'szt. jaj' : 'szt.'}</span>}
+                  {o.weightKg != null && !isEggs && <span className="ml-2">· {o.weightKg} kg/szt.</span>}
+                </div>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2 text-xs text-blue-700">
+                Uzupełnij faktyczne dane dostawy – na ich podstawie zostanie automatycznie zaksięgowana sprzedaż.
+              </div>
+
+              {/* Formularz */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Data sprzedaży *"
+                    type="date"
+                    value={fulfillData.saleDate}
+                    onChange={e => setFulfillData(p => ({ ...p, saleDate: e.target.value }))}
+                  />
+                  <Input
+                    label="Numer faktury"
+                    value={fulfillData.invoiceNumber}
+                    onChange={e => setFulfillData(p => ({ ...p, invoiceNumber: e.target.value }))}
+                    placeholder="FV/2026/001"
+                  />
+                </div>
+
+                {isEggs ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      label="Liczba jaj (szt.) *"
+                      type="number" min={1}
+                      value={fulfillData.quantity}
+                      onChange={e => fulfillRecompute('quantity', e.target.value)}
+                      placeholder={o.quantity != null ? String(o.quantity) : ''}
+                    />
+                    <Input
+                      label="Cena za jajko (PLN)"
+                      type="number" step="0.0001"
+                      value={fulfillData.pricePerUnit}
+                      onChange={e => fulfillRecompute('pricePerUnit', e.target.value)}
+                      placeholder={o.pricePerUnit != null ? String(o.pricePerUnit) : ''}
+                    />
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-3">
+                    <Input
+                      label="Masa łączna (kg) *"
+                      type="number" step="0.1"
+                      value={fulfillData.weightKg}
+                      onChange={e => fulfillRecompute('weightKg', e.target.value)}
+                      placeholder={o.weightKg != null ? String(o.weightKg) : ''}
+                    />
+                    <Input
+                      label="Cena (PLN/kg)"
+                      type="number" step="0.01"
+                      value={fulfillData.pricePerUnit}
+                      onChange={e => fulfillRecompute('pricePerUnit', e.target.value)}
+                      placeholder={o.pricePerUnit != null ? String(o.pricePerUnit) : ''}
+                    />
+                    <Input
+                      label="Liczba sztuk"
+                      type="number" min={1}
+                      value={fulfillData.quantity}
+                      onChange={e => setFulfillData(p => ({ ...p, quantity: e.target.value }))}
+                      placeholder={o.quantity != null ? String(o.quantity) : ''}
+                    />
+                  </div>
+                )}
+
+                <Input
+                  label="Wartość sprzedaży (PLN) *"
+                  type="number" step="0.01"
+                  value={fulfillData.totalRevenuePln}
+                  onChange={e => setFulfillData(p => ({ ...p, totalRevenuePln: e.target.value }))}
+                  placeholder={String(o.estimatedPricePln)}
+                />
+
+                <Textarea
+                  label="Uwagi do faktury"
+                  value={fulfillData.notes}
+                  onChange={e => setFulfillData(p => ({ ...p, notes: e.target.value }))}
+                  placeholder="Opcjonalne uwagi..."
+                />
+              </div>
+
+              <div className="flex gap-3 pt-1">
+                <Button
+                  onClick={onFulfillConfirm}
+                  disabled={!totalOk}
+                  className="flex-1"
+                >
+                  ✓ Zaksięguj sprzedaż
+                </Button>
+                <Button variant="outline" onClick={() => setFulfillOrderTarget(null)}>
+                  Anuluj
+                </Button>
+              </div>
+              {!totalOk && (
+                <p className="text-xs text-red-500 text-center">Wpisz wartość sprzedaży aby zatwierdzić</p>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
       <ConfirmDialog
         open={cancelOrderTarget != null}
         onClose={() => setCancelOrderTarget(null)}

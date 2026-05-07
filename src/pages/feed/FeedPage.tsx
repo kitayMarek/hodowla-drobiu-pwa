@@ -6,6 +6,7 @@ import {
   feedDeliverySchema, type FeedDeliveryFormValues,
 } from '@/utils/validation';
 import { feedService } from '@/services/feed.service';
+import { financialEventService } from '@/services/financialEvent.service';
 import { useAllBatchKPIs } from '@/hooks/useKPIs';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -58,6 +59,9 @@ export function FeedPage() {
   const [editDelivery, setEditDelivery] = useState<FeedDelivery | null>(null);
   const [deleteDelivery, setDeleteDelivery] = useState<FeedDelivery | null>(null);
 
+  // Modal szczegółów zużycia
+  const [feedModal, setFeedModal] = useState<{batchId: number; type: 'zuzycie'|'koszt'|'fcr'|'perBird'}|null>(null);
+
   // Dane
   const feedTypes          = useLiveQuery(() => db.feedTypes.orderBy('name').toArray(), []) ?? [];
   const deliveries         = useLiveQuery(() => db.feedDeliveries.orderBy('deliveryDate').reverse().toArray(), []) ?? [];
@@ -66,6 +70,8 @@ export function FeedPage() {
   const allWeighings       = useLiveQuery(() => db.weighings.toArray(), []) ?? [];
   const allBatches         = useLiveQuery(() => db.batches.toArray(), []) ?? [];
   const batchKPIs          = useAllBatchKPIs();
+  const allSlaughter       = useLiveQuery(() => db.slaughterRecords.toArray(), []) ?? [];
+  const allSales           = useLiveQuery(() => db.sales.toArray(), []) ?? [];
 
   // ─── Obliczenia magazynowe ──────────────────────────────────────────────────
   const today = todayISO();
@@ -130,6 +136,10 @@ export function FeedPage() {
 
   // Stan pomocniczy cena/kg (nie jest częścią schematu – przeliczana pomocniczo)
   const [delPricePerKg, setDelPricePerKg] = useState('');
+  // Rozliczenie kasowe dostawy
+  const [delPayment,   setDelPayment]   = useState<'pending' | 'immediate'>('pending');
+  const [delAccountId, setDelAccountId] = useState('');
+  const cashAccounts = useLiveQuery(() => db.cashAccounts.filter(a => a.isActive).toArray(), []) ?? [];
 
   const openEditType = (ft: FeedType) => {
     setEditType(ft);
@@ -191,8 +201,29 @@ export function FeedPage() {
   };
 
   const onDeliverySubmit = async (data: FeedDeliveryFormValues) => {
-    if (editDelivery?.id != null) await feedService.updateDelivery(editDelivery.id, data);
-    else await feedService.createDelivery(data);
+    if (editDelivery?.id != null) {
+      await feedService.updateDelivery(editDelivery.id, data);
+    } else {
+      const delivId = await feedService.createDelivery(data) as number;
+
+      // ── Rozliczenie kasowe ──────────────────────────────────────────────
+      const feedName = feedTypeMap[data.feedTypeId]?.name ?? `Pasza #${data.feedTypeId}`;
+      const desc = `Dostawa paszy – ${feedName}${data.supplierName ? ` (${data.supplierName})` : ''}${data.invoiceNumber ? ` FV: ${data.invoiceNumber}` : ''}`;
+      if (delPayment === 'pending') {
+        await financialEventService.create({
+          date: data.deliveryDate, type: 'expense', amountPln: data.totalCostPln,
+          description: desc, sourceType: 'feed_delivery', sourceId: delivId,
+        });
+      } else if (delPayment === 'immediate' && delAccountId) {
+        await db.cashTransactions.add({
+          accountId: Number(delAccountId), date: data.deliveryDate, type: 'expense',
+          scope: 'business', category: 'Pasza', description: desc,
+          amountPln: data.totalCostPln, createdAt: new Date().toISOString(),
+        });
+      }
+    }
+    setDelPayment('pending');
+    setDelAccountId('');
     resetDel(); setEditDelivery(null); setShowDeliveryForm(false);
   };
 
@@ -368,27 +399,33 @@ export function FeedPage() {
 
                   {/* KPI zużycia */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-                    <div className="bg-blue-50 rounded-lg p-2 text-center">
+                    <div className="bg-blue-50 rounded-lg p-2 text-center cursor-pointer hover:bg-blue-100 active:scale-[0.98] transition-all"
+                      onClick={() => setFeedModal({ batchId: kpi.batchId, type: 'zuzycie' })}>
                       <div className="text-xs text-blue-600">Zużycie łącznie</div>
                       <div className="font-bold text-blue-800 text-sm">{kpi.totalFeedKg.toFixed(1)} kg</div>
+                      <div className="text-xs text-blue-300 mt-0.5">szczegóły →</div>
                     </div>
-                    <div className="bg-green-50 rounded-lg p-2 text-center">
+                    <div className="bg-green-50 rounded-lg p-2 text-center cursor-pointer hover:bg-green-100 active:scale-[0.98] transition-all"
+                      onClick={() => setFeedModal({ batchId: kpi.batchId, type: 'koszt' })}>
                       <div className="text-xs text-green-600">Koszt paszy</div>
                       <div className="font-bold text-green-800 text-sm">{formatPln(kpi.feedCostPln)}</div>
+                      <div className="text-xs text-green-300 mt-0.5">szczegóły →</div>
                     </div>
-                    <div className={`rounded-lg p-2 text-center ${
-                      kpi.fcr != null && kpi.fcr > 2.5 ? 'bg-orange-50' : 'bg-gray-50'
-                    }`}>
+                    <div className={`rounded-lg p-2 text-center cursor-pointer active:scale-[0.98] transition-all ${
+                      kpi.fcr != null && kpi.fcr > 2.5 ? 'bg-orange-50 hover:bg-orange-100' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                      onClick={() => setFeedModal({ batchId: kpi.batchId, type: 'fcr' })}>
                       <div className="text-xs text-gray-500">FCR</div>
                       <div className="font-bold text-gray-800 text-sm">{formatFCR(kpi.fcr)}</div>
-                      <div className="text-xs text-gray-400">kg paszy/kg przyrostu</div>
+                      <div className="text-xs text-gray-300 mt-0.5">szczegóły →</div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-2 text-center">
+                    <div className="bg-gray-50 rounded-lg p-2 text-center cursor-pointer hover:bg-gray-100 active:scale-[0.98] transition-all"
+                      onClick={() => setFeedModal({ batchId: kpi.batchId, type: 'perBird' })}>
                       <div className="text-xs text-gray-500">Pasza/ptak</div>
                       <div className="font-bold text-gray-800 text-sm">
                         {feedPerBird != null ? `${feedPerBird.toFixed(2)} kg` : '—'}
                       </div>
-                      <div className="text-xs text-gray-400">łącznie/szt.</div>
+                      <div className="text-xs text-gray-300 mt-0.5">szczegóły →</div>
                     </div>
                   </div>
 
@@ -433,7 +470,10 @@ export function FeedPage() {
                       dailyEntries={allDailyEntries.filter(e => e.batchId === kpi.batchId)}
                       feedConsumptions={allFeedConsumptions.filter(fc => fc.batchId === kpi.batchId)}
                       weighings={allWeighings.filter(w => w.batchId === kpi.batchId)}
-                      birdCount={kpi.currentBirdCount}
+                      initialBirdCount={allBatches.find(b => b.id === kpi.batchId)?.initialCount ?? kpi.currentBirdCount}
+                      initialWeightGrams={allBatches.find(b => b.id === kpi.batchId)?.initialWeightGrams ?? 42}
+                      slaughterRecords={allSlaughter.filter(r => r.batchId === kpi.batchId)}
+                      sales={allSales.filter(s => s.batchId === kpi.batchId)}
                     />
                   )}
 
@@ -562,6 +602,183 @@ export function FeedPage() {
         </div>
       )}
 
+      {/* ═══ MODAL SZCZEGÓŁÓW ZUŻYCIA ═══ */}
+      {feedModal != null && (() => {
+        const mk = batchKPIs.find(k => k.batchId === feedModal.batchId);
+        const mb = allBatches.find(b => b.id === feedModal.batchId);
+        if (!mk || !mb) return null;
+        const bCons = allFeedConsumptions.filter(fc => fc.batchId === feedModal.batchId);
+        const bEntries = allDailyEntries.filter(e => e.batchId === feedModal.batchId);
+        const bSlaughter = allSlaughter.filter(r => r.batchId === feedModal.batchId);
+        const bSales = allSales.filter(s => s.batchId === feedModal.batchId);
+        const perTypeMdl = feedTypes.map(ft => {
+          const kg = bCons.filter(fc => fc.feedTypeId === ft.id).reduce((s, fc) => s + fc.consumedKg, 0);
+          return { ft, kg, cost: kg * ft.pricePerKg };
+        }).filter(x => x.kg > 0);
+        const feedPerBirdMdl = mk.currentBirdCount > 0 ? mk.totalFeedKg / mk.currentBirdCount : null;
+        const initKg = ((mb.initialWeightGrams ?? 42) * mb.initialCount) / 1000;
+        const slaughterKg = bSlaughter.reduce((s, r) => s + r.liveWeightTotalKg, 0);
+        const liveSalesKg = bSales.filter(s => s.saleType === 'ptaki_zywe').reduce((s, sale) => {
+          if (sale.weightKg) return s + sale.weightKg;
+          return s + (sale.birdCount ?? 0) * (mk.currentAvgWeightGrams ?? (mb.initialWeightGrams ?? 42)) / 1000;
+        }, 0);
+        const remainingKg = mk.currentAvgWeightGrams != null ? (mk.currentAvgWeightGrams * mk.currentBirdCount) / 1000 : 0;
+        const gainKg = slaughterKg + liveSalesKg + remainingKg - initKg;
+        const titles: Record<string, string> = {
+          zuzycie: 'Zużycie paszy – szczegóły',
+          koszt: 'Koszt paszy – szczegóły',
+          fcr: 'FCR – jak jest liczony',
+          perBird: 'Pasza na ptaka',
+        };
+        return (
+          <Modal open onClose={() => setFeedModal(null)} title={titles[feedModal.type]} size="lg">
+            <div className="text-xs text-gray-400 mb-3">{mb.name} · {mk.ageInDays} dni</div>
+
+            {feedModal.type === 'zuzycie' && (
+              <div className="space-y-2">
+                {perTypeMdl.length > 0 ? (
+                  <>
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Zużycie wg rodzajów pasz</div>
+                    {(() => {
+                      const total = perTypeMdl.reduce((s, x) => s + x.kg, 0);
+                      return (
+                        <>
+                          <div className="divide-y divide-gray-50">
+                            {perTypeMdl.map(({ ft, kg }) => (
+                              <div key={ft.id} className="flex items-center gap-2 py-2">
+                                <div className="flex-1">
+                                  <span className="text-sm text-gray-800">{ft.name}</span>
+                                  <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                                    phaseBadge[ft.phase] === 'blue' ? 'bg-blue-100 text-blue-700'
+                                    : phaseBadge[ft.phase] === 'green' ? 'bg-green-100 text-green-700'
+                                    : phaseBadge[ft.phase] === 'orange' ? 'bg-orange-100 text-orange-700'
+                                    : 'bg-gray-100 text-gray-600'
+                                  }`}>{FEED_PHASE_LABELS[ft.phase]}</span>
+                                </div>
+                                <span className="font-semibold text-sm text-blue-800">{kg.toFixed(1)} kg</span>
+                                <span className="text-xs text-gray-400 w-10 text-right">
+                                  {total > 0 ? `${((kg / total) * 100).toFixed(0)}%` : ''}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex justify-between font-bold text-blue-900 border-t border-gray-100 pt-2">
+                            <span>Łącznie</span><span>{total.toFixed(1)} kg</span>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Wpisy dzienne</div>
+                    <div className="divide-y divide-gray-50 max-h-64 overflow-y-auto">
+                      {bEntries.filter(e => (e.feedConsumedKg ?? 0) > 0).sort((a, b) => a.date.localeCompare(b.date)).map(e => (
+                        <div key={e.id} className="flex justify-between py-1.5 text-sm">
+                          <span className="text-gray-500">{formatDate(e.date)}</span>
+                          <span className="font-medium text-blue-800">{(e.feedConsumedKg ?? 0).toFixed(1)} kg</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between font-bold text-blue-900 border-t border-gray-100 pt-2">
+                      <span>Łącznie</span><span>{mk.totalFeedKg.toFixed(1)} kg</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {feedModal.type === 'koszt' && (
+              <div className="space-y-2">
+                {perTypeMdl.length > 0 ? (
+                  <>
+                    <div className="divide-y divide-gray-50">
+                      {perTypeMdl.map(({ ft, kg, cost }) => (
+                        <div key={ft.id} className="flex items-center gap-2 py-2">
+                          <div className="flex-1">
+                            <div className="text-sm text-gray-800">{ft.name}</div>
+                            <div className="text-xs text-gray-400">{kg.toFixed(1)} kg × {formatPln(ft.pricePerKg)}/kg</div>
+                          </div>
+                          <span className="font-semibold text-sm text-red-700">{formatPln(cost)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex justify-between font-bold text-red-800 border-t border-gray-100 pt-2">
+                      <span>Łączny koszt paszy</span><span>{formatPln(mk.feedCostPln)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 text-center">Brak danych o zużyciu wg rodzajów pasz</div>
+                )}
+              </div>
+            )}
+
+            {feedModal.type === 'fcr' && (
+              <div className="space-y-2">
+                <div className="bg-blue-50 rounded-xl p-3 text-xs text-blue-700">
+                  FCR = łączna masa spożytej paszy ÷ przyrost masy żywca
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 mb-1">① Masa startowa stada</div>
+                  <div className="text-sm">{mb.initialCount} szt. × {mb.initialWeightGrams ?? 42} g = <strong>{initKg.toFixed(2)} kg</strong></div>
+                  {(mb.initialWeightGrams == null || mb.initialWeightGrams === 42) && (
+                    <div className="text-xs text-amber-600 mt-1">⚠️ Użyto domyślnej masy 42 g – w ustawieniach stada możesz podać rzeczywistą masę piskląt</div>
+                  )}
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 mb-1">② Łączna masa żywca wyprodukowana przez stado</div>
+                  {slaughterKg > 0 && <div className="text-sm">Ubój (masa żywca): <strong>{slaughterKg.toFixed(2)} kg</strong></div>}
+                  {liveSalesKg > 0 && <div className="text-sm">Sprzedaż żywych ptaków: <strong>{liveSalesKg.toFixed(2)} kg</strong></div>}
+                  {remainingKg > 0 && <div className="text-sm">Pozostałe w stadzie: <strong>{remainingKg.toFixed(2)} kg</strong></div>}
+                  <div className="text-sm font-semibold border-t border-gray-200 mt-1 pt-1">
+                    Przyrost = suma − masa startowa = <strong className={gainKg >= 0 ? 'text-green-700' : 'text-red-600'}>{gainKg.toFixed(2)} kg</strong>
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 mb-1">③ Spożyta pasza łącznie</div>
+                  <div className="text-sm"><strong>{mk.totalFeedKg.toFixed(1)} kg</strong></div>
+                </div>
+                <div className={`rounded-lg p-3 ${mk.fcr != null && mk.fcr <= 2.0 ? 'bg-green-50' : mk.fcr != null && mk.fcr <= 2.5 ? 'bg-blue-50' : 'bg-orange-50'}`}>
+                  <div className="text-xs text-gray-500 mb-1">④ Wynik FCR</div>
+                  <div className="text-sm">{mk.totalFeedKg.toFixed(1)} ÷ {gainKg.toFixed(2)} = <strong className="text-xl">{mk.fcr != null ? mk.fcr.toFixed(2) : '—'}</strong></div>
+                  {mk.fcr != null && (
+                    <div className="text-xs mt-1">
+                      {mk.fcr <= 1.8 ? '✅ Doskonały wynik' : mk.fcr <= 2.2 ? '✅ Dobry wynik' : mk.fcr <= 2.6 ? '⚠️ Wynik przeciętny' : '❌ Wynik wymaga poprawy'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {feedModal.type === 'perBird' && (
+              <div className="space-y-3">
+                <div className="bg-gray-50 rounded-xl p-3">
+                  <div className="text-xs text-gray-500 mb-1">Obliczenie</div>
+                  <div className="text-sm">
+                    {mk.totalFeedKg.toFixed(1)} kg ÷ {mk.currentBirdCount.toLocaleString('pl-PL')} ptaków
+                    {' '}= <strong className="text-lg">{feedPerBirdMdl != null ? `${feedPerBirdMdl.toFixed(2)} kg/ptak` : '—'}</strong>
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">Łączne zużycie od początku hodowli na bieżącą liczbę ptaków</div>
+                </div>
+                {perTypeMdl.length > 0 && (
+                  <div>
+                    <div className="text-xs font-medium text-gray-500 mb-2">Wg rodzajów pasz</div>
+                    <div className="divide-y divide-gray-50">
+                      {perTypeMdl.map(({ ft, kg }) => (
+                        <div key={ft.id} className="flex justify-between py-2 text-sm">
+                          <span className="text-gray-700">{ft.name}</span>
+                          <span className="font-medium">{mk.currentBirdCount > 0 ? `${(kg / mk.currentBirdCount).toFixed(2)} kg/ptak` : '—'}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </Modal>
+        );
+      })()}
+
       {/* ═══ MODALS ═══ */}
       <Modal open={showTypeForm} onClose={() => { setShowTypeForm(false); setEditType(null); resetType(); }}
         title={editType ? 'Edytuj paszę' : 'Nowy rodzaj paszy'} size="lg">
@@ -628,6 +845,34 @@ export function FeedPage() {
             <Input label="Numer faktury" {...regDel('invoiceNumber')} placeholder="FV/2026/001" />
           </div>
           <Textarea label="Uwagi" {...regDel('notes')} />
+
+          {/* ── Rozliczenie kasowe (tylko nowe dostawy) ────────────────────── */}
+          {!editDelivery && cashAccounts.length > 0 && (
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Kasa i bank</div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                <button type="button" onClick={() => setDelPayment('pending')}
+                  className={`flex-1 py-2 transition-colors ${delPayment === 'pending' ? 'bg-orange-50 text-orange-700 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}>
+                  📅 Do rozliczenia
+                </button>
+                <button type="button" onClick={() => setDelPayment('immediate')}
+                  className={`flex-1 py-2 border-l border-gray-200 transition-colors ${delPayment === 'immediate' ? 'bg-red-50 text-red-700 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}>
+                  💸 Zapłacono od razu
+                </button>
+              </div>
+              {delPayment === 'immediate' && (
+                <select value={delAccountId} onChange={e => setDelAccountId(e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="">— Wybierz konto —</option>
+                  {cashAccounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              )}
+              {delPayment === 'pending' && (
+                <p className="text-xs text-orange-600">Pojawi się w Kasie i Banku → Do rozliczenia. Zatwierdź gdy zapłacisz dostawcy.</p>
+              )}
+            </div>
+          )}
+
           <div className="flex gap-3 pt-1">
             <Button type="submit" loading={delSubmitting} className="flex-1">
               {editDelivery ? 'Zapisz zmiany' : 'Dodaj dostawę'}

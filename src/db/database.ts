@@ -17,6 +17,7 @@ import type { Incubation, IncubationEggGroup } from '@/models/incubation.model';
 import type { BirdTransfer } from '@/models/birdTransfer.model';
 import type { HatchingEggLot } from '@/models/hatchingEgg.model';
 import type { CashAccount, CashTransaction } from '@/models/cashFlow.model';
+import type { FinancialEvent } from '@/models/financialEvent.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -42,6 +43,7 @@ export class FarmDatabase extends Dexie {
   hatchingEggLots!: Table<HatchingEggLot, number>;
   cashAccounts!: Table<CashAccount, number>;
   cashTransactions!: Table<CashTransaction, number>;
+  financialEvents!: Table<FinancialEvent, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -136,6 +138,11 @@ export class FarmDatabase extends Dexie {
     this.version(11).stores({
       cashAccounts:     '++id, type, scope',
       cashTransactions: '++id, accountId, date, type, scope, category, [accountId+date], [scope+date]',
+    });
+
+    // v12: Dokumenty finansowe – powiązanie sprzedaży/zakupów z kasą (memoriał vs kasa)
+    this.version(12).stores({
+      financialEvents: '++id, date, type, status, sourceType, sourceId, [status+type]',
     });
   }
 }

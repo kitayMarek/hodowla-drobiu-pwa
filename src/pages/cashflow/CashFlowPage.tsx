@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { db } from '@/db/database';
 import { cashFlowService } from '@/services/cashFlow.service';
+import { financialEventService } from '@/services/financialEvent.service';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Input, Textarea } from '@/components/ui/Input';
@@ -10,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln } from '@/utils/format';
 import type { CashAccount, CashTransaction, TxType, TxScope, AccountType, AccountScope } from '@/models/cashFlow.model';
+import type { FinancialEvent } from '@/models/financialEvent.model';
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
 
@@ -98,14 +100,25 @@ const emptyTxForm = (defaultAccountId?: number): TxFormState => ({
 // ─── Komponent ────────────────────────────────────────────────────────────────
 
 export function CashFlowPage() {
+  const [activeTab, setActiveTab] = useState<'dziennik' | 'rozliczenia'>('dziennik');
   const [accounts, setAccounts] = useState<CashAccount[]>([]);
   const [allTxs,   setAllTxs]   = useState<CashTransaction[]>([]);
+  const [pending,  setPending]  = useState<FinancialEvent[]>([]);
   const [rev, setRev] = useState(0);
   const reload = useCallback(() => setRev(r => r + 1), []);
+
+  // Stan modalu rozliczenia
+  const [settleTarget,    setSettleTarget]    = useState<FinancialEvent | null>(null);
+  const [settleAccountId, setSettleAccountId] = useState('');
+  const [settleDate,      setSettleDate]      = useState(todayISO());
+  const [settling,        setSettling]        = useState(false);
+  const [deleteEvent,     setDeleteEvent]     = useState<FinancialEvent | null>(null);
 
   useEffect(() => {
     db.cashAccounts.toArray().then(r => setAccounts(r.sort((a, b) => a.name.localeCompare(b.name)))).catch(() => {});
     db.cashTransactions.toArray().then(r => setAllTxs(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
+    db.financialEvents.where('status').equals('pending').toArray()
+      .then(r => setPending(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
   }, [rev]);
 
   // Filtry
@@ -204,6 +217,17 @@ export function CashFlowPage() {
 
   const txCategories = txForm.scope === 'personal' ? PERSONAL_CATEGORIES : BUSINESS_CATEGORIES;
 
+  const onSettle = async () => {
+    if (!settleTarget || !settleAccountId) return;
+    setSettling(true);
+    await financialEventService.settle(settleTarget.id!, Number(settleAccountId), settleDate);
+    setSettling(false);
+    setSettleTarget(null);
+    setSettleAccountId('');
+    setSettleDate(todayISO());
+    reload();
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-5">
@@ -220,6 +244,28 @@ export function CashFlowPage() {
           </Button>
         </div>
       </div>
+
+      {/* ── Zakładki ──────────────────────────────────────────────────────── */}
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
+        <button onClick={() => setActiveTab('dziennik')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'dziennik' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          💳 Dziennik kasowy
+        </button>
+        <button onClick={() => setActiveTab('rozliczenia')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-sm font-medium transition-all ${activeTab === 'rozliczenia' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+          📅 Do rozliczenia
+          {pending.length > 0 && (
+            <span className={`text-xs rounded-full px-1.5 py-0.5 font-bold ${activeTab === 'rozliczenia' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-600'}`}>
+              {pending.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          TAB: DZIENNIK KASOWY
+      ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'dziennik' && (<>
 
       {/* Karty kont */}
       {accounts.length === 0 ? (
@@ -390,6 +436,150 @@ export function CashFlowPage() {
           </Card>
         )
       )}
+
+      </>)} {/* koniec TAB: dziennik */}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          TAB: DO ROZLICZENIA
+      ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'rozliczenia' && (
+        <div className="space-y-4">
+          {pending.length === 0 ? (
+            <EmptyState
+              icon="✅"
+              title="Wszystko rozliczone"
+              description="Żadnych oczekujących płatności. Dodaj sprzedaż lub wydatek z opcją &quot;Do rozliczenia&quot;."
+            />
+          ) : (
+            <>
+              <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2.5">
+                💡 Poniżej są faktury i operacje, które zostały zarejestrowane, ale pieniądze jeszcze nie wpłynęły / nie wyszły z konta.
+                Kliknij <strong>Rozlicz</strong> gdy płatność zostanie zrealizowana.
+              </div>
+
+              {/* Należności (income) */}
+              {pending.filter(e => e.type === 'income').length > 0 && (
+                <Card title={`📥 Należności – do otrzymania (${pending.filter(e => e.type === 'income').length})`} padding="none">
+                  <div className="divide-y divide-gray-50">
+                    {pending.filter(e => e.type === 'income').map(ev => (
+                      <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{ev.description}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {formatDate(ev.date)}
+                            <span className="ml-2">
+                              {ev.sourceType === 'sale' ? '🛒 Sprzedaż' : ev.sourceType === 'expense' ? '💸 Wydatek' : '🌾 Dostawa pasz'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-green-700 text-sm">+{formatPln(ev.amountPln)}</span>
+                          <button
+                            onClick={() => { setSettleTarget(ev); setSettleDate(todayISO()); setSettleAccountId(''); }}
+                            className="text-xs bg-green-600 hover:bg-green-700 text-white px-2.5 py-1 rounded-lg transition-colors font-medium"
+                          >
+                            Rozlicz
+                          </button>
+                          <button onClick={() => setDeleteEvent(ev)} className="text-gray-300 hover:text-red-400 text-xs p-1">✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-2 bg-green-50 border-t border-green-100 text-xs text-green-700 font-medium">
+                    Do otrzymania: {formatPln(pending.filter(e => e.type === 'income').reduce((s, e) => s + e.amountPln, 0))}
+                  </div>
+                </Card>
+              )}
+
+              {/* Zobowiązania (expense) */}
+              {pending.filter(e => e.type === 'expense').length > 0 && (
+                <Card title={`📤 Zobowiązania – do zapłaty (${pending.filter(e => e.type === 'expense').length})`} padding="none">
+                  <div className="divide-y divide-gray-50">
+                    {pending.filter(e => e.type === 'expense').map(ev => (
+                      <div key={ev.id} className="flex items-start gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900 truncate">{ev.description}</div>
+                          <div className="text-xs text-gray-400 mt-0.5">
+                            {formatDate(ev.date)}
+                            <span className="ml-2">
+                              {ev.sourceType === 'sale' ? '🛒 Sprzedaż' : ev.sourceType === 'expense' ? '💸 Wydatek' : '🌾 Dostawa pasz'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="font-bold text-red-600 text-sm">−{formatPln(ev.amountPln)}</span>
+                          <button
+                            onClick={() => { setSettleTarget(ev); setSettleDate(todayISO()); setSettleAccountId(''); }}
+                            className="text-xs bg-red-600 hover:bg-red-700 text-white px-2.5 py-1 rounded-lg transition-colors font-medium"
+                          >
+                            Rozlicz
+                          </button>
+                          <button onClick={() => setDeleteEvent(ev)} className="text-gray-300 hover:text-red-400 text-xs p-1">✕</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="px-4 py-2 bg-red-50 border-t border-red-100 text-xs text-red-700 font-medium">
+                    Do zapłaty: {formatPln(pending.filter(e => e.type === 'expense').reduce((s, e) => s + e.amountPln, 0))}
+                  </div>
+                </Card>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── Modal rozliczenia ────────────────────────────────────────────── */}
+      <Modal open={settleTarget != null} onClose={() => setSettleTarget(null)}
+        title={settleTarget?.type === 'income' ? '💰 Rozlicz należność' : '💸 Rozlicz zobowiązanie'} size="sm">
+        {settleTarget && (
+          <div className="space-y-4">
+            <div className={`rounded-xl px-4 py-3 ${settleTarget.type === 'income' ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'}`}>
+              <div className="text-sm font-medium text-gray-800">{settleTarget.description}</div>
+              <div className={`text-xl font-bold mt-1 ${settleTarget.type === 'income' ? 'text-green-700' : 'text-red-600'}`}>
+                {settleTarget.type === 'income' ? '+' : '−'}{formatPln(settleTarget.amountPln)}
+              </div>
+              <div className="text-xs text-gray-400 mt-1">Zarejestrowano: {formatDate(settleTarget.date)}</div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                {settleTarget.type === 'income' ? 'Pieniądze wpłynęły na konto' : 'Płatność wyszła z konta'}
+              </label>
+              <select value={settleAccountId} onChange={e => setSettleAccountId(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                <option value="">— Wybierz konto —</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data rozliczenia</label>
+              <input type="date" value={settleDate} onChange={e => setSettleDate(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button className="flex-1" loading={settling} disabled={!settleAccountId} onClick={onSettle}>
+                ✓ Zatwierdź rozliczenie
+              </Button>
+              <Button variant="outline" onClick={() => setSettleTarget(null)}>Anuluj</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteEvent != null}
+        onClose={() => setDeleteEvent(null)}
+        onConfirm={async () => {
+          if (deleteEvent?.id) { await financialEventService.delete(deleteEvent.id); reload(); }
+        }}
+        title="Usuń dokument"
+        message={`Usunąć "${deleteEvent?.description}"?`}
+        confirmLabel="Usuń"
+        danger
+      />
 
       {/* ── Modal: nowe konto ─────────────────────────────────────────────── */}
       <Modal open={showAccountForm} onClose={() => setShowAccountForm(false)} title="Nowe konto" size="sm">
