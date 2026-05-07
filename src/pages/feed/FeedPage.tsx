@@ -217,7 +217,7 @@ export function FeedPage() {
       } else if (delPayment === 'immediate' && delAccountId) {
         await db.cashTransactions.add({
           accountId: Number(delAccountId), date: data.deliveryDate, type: 'expense',
-          scope: 'business', category: 'Pasza', description: desc,
+          scope: 'drob', category: 'Pasza', description: desc,
           amountPln: data.totalCostPln, createdAt: new Date().toISOString(),
         });
       }

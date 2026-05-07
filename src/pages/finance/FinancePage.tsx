@@ -83,7 +83,7 @@ export function FinancePage() {
     } else if (expPayment === 'immediate' && expAccountId) {
       await db.cashTransactions.add({
         accountId: Number(expAccountId), date: data.expenseDate, type: 'expense',
-        scope: 'business', category: EXPENSE_CATEGORY_LABELS[data.category] ?? 'Inne',
+        scope: 'drob', category: EXPENSE_CATEGORY_LABELS[data.category] ?? 'Inne',
         description: desc, amountPln: data.amountPln, createdAt: new Date().toISOString(),
       });
     }

@@ -225,7 +225,7 @@ export function SalesPage() {
     } else if (salePayment === 'immediate' && saleAccountId) {
       await db.cashTransactions.add({
         accountId: Number(saleAccountId), date: data.saleDate, type: 'income',
-        scope: 'business', category: 'Sprzedaż', description: desc,
+        scope: 'drob', category: 'Sprzedaż drobiu', description: desc,
         amountPln: data.totalRevenuePln, createdAt: new Date().toISOString(),
       });
     }

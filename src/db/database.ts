@@ -16,7 +16,7 @@ import type { Order } from '@/models/order.model';
 import type { Incubation, IncubationEggGroup } from '@/models/incubation.model';
 import type { BirdTransfer } from '@/models/birdTransfer.model';
 import type { HatchingEggLot } from '@/models/hatchingEgg.model';
-import type { CashAccount, CashTransaction } from '@/models/cashFlow.model';
+import type { CashAccount, CashTransaction, CashCategory } from '@/models/cashFlow.model';
 import type { FinancialEvent } from '@/models/financialEvent.model';
 
 export class FarmDatabase extends Dexie {
@@ -43,6 +43,7 @@ export class FarmDatabase extends Dexie {
   hatchingEggLots!: Table<HatchingEggLot, number>;
   cashAccounts!: Table<CashAccount, number>;
   cashTransactions!: Table<CashTransaction, number>;
+  cashCategories!: Table<CashCategory, number>;
   financialEvents!: Table<FinancialEvent, number>;
 
   constructor() {
@@ -143,6 +144,55 @@ export class FarmDatabase extends Dexie {
     // v12: Dokumenty finansowe – powiązanie sprzedaży/zakupów z kasą (memoriał vs kasa)
     this.version(12).stores({
       financialEvents: '++id, date, type, status, sourceType, sourceId, [status+type]',
+    });
+
+    // v13: Kategorie transakcji z podziałem na działalności; migracja zakresów
+    this.version(13).stores({
+      cashCategories: '++id, name, scope, type',
+    }).upgrade(async tx => {
+      // Migruj zakresy: business → drob, personal → osobiste
+      await tx.table('cashAccounts').toCollection().modify((acc: { scope: string }) => {
+        if (acc.scope === 'business') acc.scope = 'drob';
+        else if (acc.scope === 'personal') acc.scope = 'osobiste';
+      });
+      await tx.table('cashTransactions').toCollection().modify((t: { scope: string }) => {
+        if (t.scope === 'business') t.scope = 'drob';
+        else if (t.scope === 'personal') t.scope = 'osobiste';
+      });
+
+      // Wstaw domyślne kategorie
+      const now = new Date().toISOString();
+      const cats = [
+        // Drób
+        { name: 'Sprzedaż drobiu',        scope: 'drob',          type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Sprzedaż jaj',           scope: 'drob',          type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Zakup piskląt',          scope: 'drob',          type: 'expense', isSystem: true, createdAt: now },
+        { name: 'Pasza',                  scope: 'drob',          type: 'expense', isSystem: true, createdAt: now },
+        { name: 'Leki i weterynarz',      scope: 'drob',          type: 'expense', isSystem: true, createdAt: now },
+        { name: 'Szczepienia',            scope: 'drob',          type: 'expense', isSystem: true, createdAt: now },
+        // Sery
+        { name: 'Sprzedaż serów',         scope: 'sery',          type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Zakup mleka',            scope: 'sery',          type: 'expense', isSystem: true, createdAt: now },
+        { name: 'Podpuszczka i kultury',  scope: 'sery',          type: 'expense', isSystem: true, createdAt: now },
+        // Agroturystyka
+        { name: 'Noclegi',                scope: 'agroturystyka', type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Wyżywienie gości',       scope: 'agroturystyka', type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Wynajem sali',           scope: 'agroturystyka', type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Wyposażenie i remonty',  scope: 'agroturystyka', type: 'expense', isSystem: true, createdAt: now },
+        { name: 'Reklama i marketing',    scope: 'agroturystyka', type: 'expense', isSystem: true, createdAt: now },
+        // Osobiste
+        { name: 'Wynagrodzenie właściciela', scope: 'osobiste',   type: 'income',  isSystem: true, createdAt: now },
+        { name: 'Zakupy osobiste',        scope: 'osobiste',      type: 'expense', isSystem: true, createdAt: now },
+        { name: 'Dom i mieszkanie',       scope: 'osobiste',      type: 'expense', isSystem: true, createdAt: now },
+        // Wspólne (scope = null = dla wszystkich)
+        { name: 'Energia i media',        scope: null,            type: null,      isSystem: true, createdAt: now },
+        { name: 'Pracownicy',             scope: null,            type: null,      isSystem: true, createdAt: now },
+        { name: 'Transport',              scope: null,            type: null,      isSystem: true, createdAt: now },
+        { name: 'Naprawy i konserwacja',  scope: null,            type: null,      isSystem: true, createdAt: now },
+        { name: 'Podatki i ubezpieczenia', scope: null,           type: null,      isSystem: true, createdAt: now },
+        { name: 'Inne',                   scope: null,            type: null,      isSystem: true, createdAt: now },
+      ];
+      await tx.table('cashCategories').bulkAdd(cats);
     });
   }
 }

@@ -1,7 +1,7 @@
 export type AccountType  = 'bank' | 'cash';
-export type AccountScope = 'business' | 'personal' | 'shared';
+export type AccountScope = 'drob' | 'sery' | 'agroturystyka' | 'osobiste' | 'shared';
 export type TxType       = 'income' | 'expense' | 'transfer';
-export type TxScope      = 'business' | 'personal';
+export type TxScope      = 'drob' | 'sery' | 'agroturystyka' | 'osobiste';
 
 export interface CashAccount {
   id?: number;
@@ -25,4 +25,13 @@ export interface CashTransaction {
   toAccountId?: number;    // tylko przy type === 'transfer'
   notes?:      string;
   createdAt:   string;
+}
+
+export interface CashCategory {
+  id?: number;
+  name:      string;
+  scope?:    TxScope;   // undefined = dostępna dla wszystkich działalności
+  type?:     TxType;    // undefined = dla wpływu i wydatku
+  isSystem:  boolean;
+  createdAt: string;
 }

@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln } from '@/utils/format';
-import type { CashAccount, CashTransaction, TxType, TxScope, AccountType, AccountScope } from '@/models/cashFlow.model';
+import type { CashAccount, CashTransaction, CashCategory, TxType, TxScope, AccountType, AccountScope } from '@/models/cashFlow.model';
 import type { FinancialEvent } from '@/models/financialEvent.model';
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
@@ -22,25 +22,27 @@ const TX_TYPE_LABELS: Record<TxType, string> = {
 };
 
 const TX_SCOPE_LABELS: Record<TxScope, string> = {
-  business: 'Firmowe',
-  personal: 'Osobiste',
+  drob:          'Drób',
+  sery:          'Sery',
+  agroturystyka: 'Agroturystyka',
+  osobiste:      'Osobiste',
 };
 
-const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  bank: 'Konto bankowe',
-  cash: 'Kasa gotówkowa',
+const ACCOUNT_SCOPE_LABELS: Record<AccountScope, string> = {
+  drob:          'Drób',
+  sery:          'Sery',
+  agroturystyka: 'Agroturystyka',
+  osobiste:      'Osobiste',
+  shared:        'Wspólne',
 };
 
-const BUSINESS_CATEGORIES = [
-  'Sprzedaż', 'Pasza', 'Pisklęta / jaja wylęgowe', 'Pracownicy', 'Paliwo',
-  'Weterynarz', 'Leki i szczepienia', 'Naprawa i konserwacja', 'Czynsz / dzierżawa',
-  'Energie i media', 'Ubezpieczenie', 'Podatki i składki', 'Inne firmowe',
-];
-
-const PERSONAL_CATEGORIES = [
-  'Wynagrodzenie właściciela', 'Zakupy osobiste', 'Dom i mieszkanie',
-  'Transport prywatny', 'Inne osobiste',
-];
+const SCOPE_BADGE: Record<AccountScope, 'blue' | 'yellow' | 'green' | 'gray' | 'orange'> = {
+  drob:          'blue',
+  sery:          'yellow',
+  agroturystyka: 'green',
+  osobiste:      'gray',
+  shared:        'orange',
+};
 
 // ─── Pomocnicze ───────────────────────────────────────────────────────────────
 
@@ -68,7 +70,7 @@ interface AccountFormState {
 }
 
 const emptyAccountForm = (): AccountFormState => ({
-  name: '', type: 'bank', scope: 'business', openingBalance: '0',
+  name: '', type: 'bank', scope: 'drob', openingBalance: '0',
 });
 
 // ─── Formularz transakcji ────────────────────────────────────────────────────
@@ -89,7 +91,7 @@ const emptyTxForm = (defaultAccountId?: number): TxFormState => ({
   accountId:   defaultAccountId != null ? String(defaultAccountId) : '',
   date:        todayISO(),
   type:        'expense',
-  scope:       'business',
+  scope:       'drob',
   category:    '',
   description: '',
   amountPln:   '',
@@ -101,11 +103,20 @@ const emptyTxForm = (defaultAccountId?: number): TxFormState => ({
 
 export function CashFlowPage() {
   const [activeTab, setActiveTab] = useState<'dziennik' | 'rozliczenia'>('dziennik');
-  const [accounts, setAccounts] = useState<CashAccount[]>([]);
-  const [allTxs,   setAllTxs]   = useState<CashTransaction[]>([]);
-  const [pending,  setPending]  = useState<FinancialEvent[]>([]);
+  const [accounts,   setAccounts]   = useState<CashAccount[]>([]);
+  const [allTxs,     setAllTxs]     = useState<CashTransaction[]>([]);
+  const [pending,    setPending]    = useState<FinancialEvent[]>([]);
+  const [categories, setCategories] = useState<CashCategory[]>([]);
   const [rev, setRev] = useState(0);
   const reload = useCallback(() => setRev(r => r + 1), []);
+
+  // Stan zarządzania kategoriami
+  const [showCatModal,  setShowCatModal]  = useState(false);
+  const [newCatName,    setNewCatName]    = useState('');
+  const [newCatScope,   setNewCatScope]   = useState<TxScope | ''>('');
+  const [newCatType,    setNewCatType]    = useState<TxType | ''>('');
+  const [savingCat,     setSavingCat]     = useState(false);
+  const [deleteCat,     setDeleteCat]     = useState<CashCategory | null>(null);
 
   // Stan modalu rozliczenia
   const [settleTarget,    setSettleTarget]    = useState<FinancialEvent | null>(null);
@@ -119,6 +130,7 @@ export function CashFlowPage() {
     db.cashTransactions.toArray().then(r => setAllTxs(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
     db.financialEvents.where('status').equals('pending').toArray()
       .then(r => setPending(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
+    db.cashCategories.toArray().then(r => setCategories(r.sort((a, b) => a.name.localeCompare(b.name, 'pl')))).catch(() => {});
   }, [rev]);
 
   // Filtry
@@ -148,8 +160,8 @@ export function CashFlowPage() {
 
   // ── Sumy ─────────────────────────────────────────────────────────────────
   const totalBalance = accounts.reduce((s, a) => s + calcBalance(a, allTxs), 0);
-  const businessBalance = accounts
-    .filter(a => a.scope === 'business' || a.scope === 'shared')
+  const drobBalance = accounts
+    .filter(a => a.scope === 'drob' || a.scope === 'shared')
     .reduce((s, a) => s + calcBalance(a, allTxs), 0);
 
   const filteredIncome  = filteredTxs.filter(t => t.type === 'income') .reduce((s, t) => s + t.amountPln, 0);
@@ -215,7 +227,35 @@ export function CashFlowPage() {
     return [...set].sort().reverse();
   }, [allTxs]);
 
-  const txCategories = txForm.scope === 'personal' ? PERSONAL_CATEGORIES : BUSINESS_CATEGORIES;
+  // Kategorie dla formularza transakcji: pasujące do zakresu + ogólne (scope=null)
+  const txCategories = useMemo(() => {
+    const scope = txForm.scope as TxScope;
+    const type  = txForm.type !== 'transfer' ? txForm.type as TxType : undefined;
+    return categories.filter(c => {
+      if (c.scope != null && c.scope !== scope) return false;
+      if (type && c.type != null && c.type !== type) return false;
+      return true;
+    });
+  }, [categories, txForm.scope, txForm.type]);
+
+  // ── Obsługa kategorii ─────────────────────────────────────────────────────
+  const onAddCategory = async () => {
+    if (!newCatName.trim()) return;
+    setSavingCat(true);
+    await cashFlowService.createCategory(
+      newCatName,
+      newCatScope || undefined,
+      newCatType  || undefined,
+    );
+    setSavingCat(false);
+    setNewCatName('');
+    reload();
+  };
+
+  const onDeleteCat = async () => {
+    if (deleteCat?.id) { await cashFlowService.deleteCategory(deleteCat.id); reload(); }
+    setDeleteCat(null);
+  };
 
   const onSettle = async () => {
     if (!settleTarget || !settleAccountId) return;
@@ -235,6 +275,9 @@ export function CashFlowPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Dziennik Kasowy</h1>
         <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowCatModal(true)}>
+            + Kategoria
+          </Button>
           <Button variant="outline" size="sm" onClick={() => { setAccountForm(emptyAccountForm()); setShowAccountForm(true); }}>
             + Konto
           </Button>
@@ -289,8 +332,8 @@ export function CashFlowPage() {
                   {formatPln(bal)}
                 </div>
                 <div className="flex gap-1 flex-wrap">
-                  <Badge color={acc.scope === 'business' ? 'blue' : acc.scope === 'personal' ? 'gray' : 'yellow'}>
-                    {acc.scope === 'business' ? 'Firmowe' : acc.scope === 'personal' ? 'Osobiste' : 'Wspólne'}
+                  <Badge color={SCOPE_BADGE[acc.scope] ?? 'gray'}>
+                    {ACCOUNT_SCOPE_LABELS[acc.scope] ?? acc.scope}
                   </Badge>
                 </div>
               </div>
@@ -304,7 +347,7 @@ export function CashFlowPage() {
               <div className={`text-lg font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-brand-700'}`}>
                 {formatPln(totalBalance)}
               </div>
-              <span className="text-xs text-brand-500">Firmowe: {formatPln(businessBalance)}</span>
+              <span className="text-xs text-brand-500">Drób: {formatPln(drobBalance)}</span>
             </div>
           )}
         </div>
@@ -328,9 +371,11 @@ export function CashFlowPage() {
               onChange={e => setFilterScope(e.target.value)}
               className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
-              <option value="">Firmowe + osobiste</option>
-              <option value="business">Tylko firmowe</option>
-              <option value="personal">Tylko osobiste</option>
+              <option value="">Wszystkie działalności</option>
+              <option value="drob">Drób</option>
+              <option value="sery">Sery</option>
+              <option value="agroturystyka">Agroturystyka</option>
+              <option value="osobiste">Osobiste</option>
             </select>
 
             <select
@@ -405,8 +450,8 @@ export function CashFlowPage() {
                         {tx.type === 'transfer' && tx.toAccountId != null && (
                           <span>→ {accountMap.get(tx.toAccountId)?.name ?? '?'}</span>
                         )}
-                        <Badge color={tx.scope === 'business' ? 'blue' : 'gray'} className="text-xs">
-                          {TX_SCOPE_LABELS[tx.scope]}
+                        <Badge color={SCOPE_BADGE[tx.scope] ?? 'gray'} className="text-xs">
+                          {TX_SCOPE_LABELS[tx.scope] ?? tx.scope}
                         </Badge>
                       </div>
                       {tx.notes && <div className="text-xs text-gray-400 mt-0.5 italic">{tx.notes}</div>}
@@ -614,9 +659,11 @@ export function CashFlowPage() {
                 onChange={e => setAccountForm(f => ({ ...f, scope: e.target.value as AccountScope }))}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
-                <option value="business">Firmowe</option>
-                <option value="personal">Osobiste</option>
-                <option value="shared">Wspólne</option>
+                <option value="drob">🐔 Drób</option>
+                <option value="sery">🧀 Sery</option>
+                <option value="agroturystyka">🏡 Agroturystyka</option>
+                <option value="osobiste">👤 Osobiste</option>
+                <option value="shared">🔗 Wspólne</option>
               </select>
             </div>
           </div>
@@ -665,8 +712,10 @@ export function CashFlowPage() {
                   onChange={e => setTxForm(f => ({ ...f, scope: e.target.value as TxScope, category: '' }))}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
-                  <option value="business">Firmowe</option>
-                  <option value="personal">Osobiste</option>
+                  <option value="drob">🐔 Drób</option>
+                  <option value="sery">🧀 Sery</option>
+                  <option value="agroturystyka">🏡 Agroturystyka</option>
+                  <option value="osobiste">👤 Osobiste</option>
                 </select>
               </div>
             )}
@@ -732,14 +781,23 @@ export function CashFlowPage() {
           {/* Kategoria (nie dla przelewu) */}
           {txForm.type !== 'transfer' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Kategoria</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-gray-700">Kategoria</label>
+                <button
+                  type="button"
+                  onClick={() => { setShowTxForm(false); setShowCatModal(true); }}
+                  className="text-xs text-brand-600 hover:text-brand-700 underline"
+                >
+                  ⚙ Zarządzaj
+                </button>
+              </div>
               <select
                 value={txForm.category}
                 onChange={e => setTxForm(f => ({ ...f, category: e.target.value }))}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="">— Wybierz kategorię —</option>
-                {txCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                {txCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
               </select>
             </div>
           )}
@@ -781,6 +839,106 @@ export function CashFlowPage() {
         onConfirm={() => { if (deleteTarget?.id != null) { cashFlowService.deleteTransaction(deleteTarget.id).then(reload); } }}
         title="Usuń transakcję"
         message={`Czy usunąć "${deleteTarget?.description}" (${deleteTarget ? formatPln(deleteTarget.amountPln) : ''})?`}
+        confirmLabel="Usuń"
+        danger
+      />
+
+      {/* ── Modal: zarządzanie kategoriami ───────────────────────────────── */}
+      <Modal open={showCatModal} onClose={() => setShowCatModal(false)} title="Kategorie transakcji" size="md">
+        <div className="space-y-4">
+          {/* Formularz nowej kategorii */}
+          <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+            <div className="text-sm font-medium text-gray-700">Dodaj nową kategorię</div>
+            <input
+              type="text"
+              value={newCatName}
+              onChange={e => setNewCatName(e.target.value)}
+              placeholder="Nazwa kategorii"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              onKeyDown={e => e.key === 'Enter' && onAddCategory()}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Działalność (opcjonalne)</label>
+                <select
+                  value={newCatScope}
+                  onChange={e => setNewCatScope(e.target.value as TxScope | '')}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Wszystkie</option>
+                  <option value="drob">🐔 Drób</option>
+                  <option value="sery">🧀 Sery</option>
+                  <option value="agroturystyka">🏡 Agroturystyka</option>
+                  <option value="osobiste">👤 Osobiste</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Rodzaj (opcjonalne)</label>
+                <select
+                  value={newCatType}
+                  onChange={e => setNewCatType(e.target.value as TxType | '')}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                >
+                  <option value="">Wpływ i wydatek</option>
+                  <option value="income">▲ Wpływ</option>
+                  <option value="expense">▼ Wydatek</option>
+                </select>
+              </div>
+            </div>
+            <Button size="sm" loading={savingCat} onClick={onAddCategory} disabled={!newCatName.trim()}>
+              + Dodaj kategorię
+            </Button>
+          </div>
+
+          {/* Lista kategorii */}
+          <div className="max-h-72 overflow-y-auto divide-y divide-gray-100">
+            {categories.length === 0 ? (
+              <div className="text-sm text-gray-400 text-center py-4">Brak kategorii</div>
+            ) : (
+              categories.map(cat => (
+                <div key={cat.id} className="flex items-center gap-2 py-2">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm text-gray-800">{cat.name}</span>
+                    <div className="flex gap-1 mt-0.5 flex-wrap">
+                      {cat.scope && (
+                        <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                          {TX_SCOPE_LABELS[cat.scope]}
+                        </span>
+                      )}
+                      {cat.type && (
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${cat.type === 'income' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                          {cat.type === 'income' ? '▲ Wpływ' : '▼ Wydatek'}
+                        </span>
+                      )}
+                      {cat.isSystem && (
+                        <span className="text-xs text-gray-300 italic">systemowa</span>
+                      )}
+                    </div>
+                  </div>
+                  {!cat.isSystem && (
+                    <button
+                      onClick={() => setDeleteCat(cat)}
+                      className="text-gray-300 hover:text-red-400 transition-colors p-1 shrink-0"
+                      title="Usuń kategorię"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          <Button variant="outline" className="w-full" onClick={() => setShowCatModal(false)}>Zamknij</Button>
+        </div>
+      </Modal>
+
+      <ConfirmDialog
+        open={deleteCat != null}
+        onClose={() => setDeleteCat(null)}
+        onConfirm={onDeleteCat}
+        title="Usuń kategorię"
+        message={`Usunąć kategorię "${deleteCat?.name}"?`}
         confirmLabel="Usuń"
         danger
       />
