@@ -16,6 +16,7 @@ import type { Order } from '@/models/order.model';
 import type { Incubation, IncubationEggGroup } from '@/models/incubation.model';
 import type { BirdTransfer } from '@/models/birdTransfer.model';
 import type { HatchingEggLot } from '@/models/hatchingEgg.model';
+import type { CashAccount, CashTransaction } from '@/models/cashFlow.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -39,6 +40,8 @@ export class FarmDatabase extends Dexie {
   incubationEggGroups!: Table<IncubationEggGroup, number>;
   birdTransfers!: Table<BirdTransfer, number>;
   hatchingEggLots!: Table<HatchingEggLot, number>;
+  cashAccounts!: Table<CashAccount, number>;
+  cashTransactions!: Table<CashTransaction, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -127,6 +130,12 @@ export class FarmDatabase extends Dexie {
     this.version(10).stores({
       eggHatchTransfers: '++id, transferDate, sourceBatchId, hatchingEggLotId',
       hatchingEggLots:   '++id, entryDate, species, sourceType, sourceBatchId, eggHatchTransferId',
+    });
+
+    // v11: Dziennik Kasowy – konta i transakcje
+    this.version(11).stores({
+      cashAccounts:     '++id, type, scope',
+      cashTransactions: '++id, accountId, date, type, scope, category, [accountId+date], [scope+date]',
     });
   }
 }

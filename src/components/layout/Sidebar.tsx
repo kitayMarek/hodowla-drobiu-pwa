@@ -15,6 +15,7 @@ const navItems: NavItem[] = [
   { to: '/pasze', label: pl.nav.feed, icon: '🌾' },
   { to: '/sprzedaz', label: pl.nav.sales, icon: '💰' },
   { to: '/finanse', label: pl.nav.finance, icon: '📈' },
+  { to: '/kasa', label: 'Kasa i Bank', icon: '💳' },
   { to: '/wyleglarnia', label: 'Wylęgarnia', icon: '🥚' },
   { to: '/inwestycje', label: 'Inwestycje', icon: '🏗️' },
   { to: '/raporty', label: pl.nav.reports, icon: '📋' },

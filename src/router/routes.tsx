@@ -20,6 +20,9 @@ import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { HatcheryListPage } from '@/pages/hatchery/HatcheryListPage';
 import { HatcheryFormPage } from '@/pages/hatchery/HatcheryFormPage';
 import { HatcheryDetailPage } from '@/pages/hatchery/HatcheryDetailPage';
+const CashFlowPage = React.lazy(() =>
+  import('@/pages/cashflow/CashFlowPage').then(m => ({ default: m.CashFlowPage }))
+);
 
 export const router = createBrowserRouter([
   {
@@ -68,6 +71,9 @@ export const router = createBrowserRouter([
       { path: 'wyleglarnia/nowy', element: <HatcheryFormPage /> },
       { path: 'wyleglarnia/:id', element: <HatcheryDetailPage /> },
       { path: 'wyleglarnia/:id/edytuj', element: <HatcheryFormPage /> },
+
+      // Dziennik kasowy
+      { path: 'kasa', element: <React.Suspense fallback={null}><CashFlowPage /></React.Suspense> },
 
       // Raporty
       { path: 'raporty', element: <ReportsPage /> },

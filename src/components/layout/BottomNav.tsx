@@ -7,6 +7,7 @@ const items = [
   { to: '/wyleglarnia', icon: '🥚', label: 'Wylęgarnia' },
   { to: '/sprzedaz', icon: '💰', label: 'Sprzedaż' },
   { to: '/finanse', icon: '📈', label: 'Finanse' },
+  { to: '/kasa', icon: '💳', label: 'Kasa' },
 ];
 
 export function BottomNav() {
