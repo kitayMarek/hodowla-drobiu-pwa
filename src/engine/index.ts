@@ -25,12 +25,14 @@ export function calculateAllKPIs(input: BatchKPIInput): BatchKPIResult {
   const mortalityPercent = calcMortalityPercent(batch.initialCount, totalMortality);
 
   // Pasza – preferuj feedConsumptions (per-typ, dokładniejsze źródło);
-  // fallback na dailyEntries.feedConsumedKg gdy brak rekordów per-typ
+  // fallback na dailyEntries.feedConsumedKg gdy brak rekordów per-typ.
+  // Koszt: null gdy brak feedConsumptions (nie znamy cen → nie kłamiemy zerem).
   const totalFeedKgFromConsumptions = feedConsumptions.reduce((s, fc) => s + fc.consumedKg, 0);
-  const totalFeedKg = totalFeedKgFromConsumptions > 0
-    ? totalFeedKgFromConsumptions
-    : calcTotalFeedKg(dailyEntries);
-  const feedCostPln = calcFeedCost(feedConsumptions, feedTypes);
+  const usingFallback = totalFeedKgFromConsumptions === 0;
+  const totalFeedKg = usingFallback
+    ? calcTotalFeedKg(dailyEntries)
+    : totalFeedKgFromConsumptions;
+  const feedCostPln = usingFallback ? null : calcFeedCost(feedConsumptions, feedTypes);
 
   // Wzrost
   const sortedWeighings = [...weighings].sort((a, b) => a.ageAtWeighingDays - b.ageAtWeighingDays);

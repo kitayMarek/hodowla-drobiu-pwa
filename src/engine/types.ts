@@ -31,7 +31,7 @@ export interface BatchKPIResult {
   mortalityPercent: number;
   // Pasza
   totalFeedKg: number;
-  feedCostPln: number;
+  feedCostPln: number | null;  // null gdy brak feedConsumptions (fallback na dailyEntries, brak cen)
   fcr: number | null;
   // Wzrost
   currentAvgWeightGrams: number | null;

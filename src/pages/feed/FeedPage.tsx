@@ -408,7 +408,9 @@ export function FeedPage() {
                     <div className="bg-green-50 rounded-lg p-2 text-center cursor-pointer hover:bg-green-100 active:scale-[0.98] transition-all"
                       onClick={() => setFeedModal({ batchId: kpi.batchId, type: 'koszt' })}>
                       <div className="text-xs text-green-600">Koszt paszy</div>
-                      <div className="font-bold text-green-800 text-sm">{formatPln(kpi.feedCostPln)}</div>
+                      <div className="font-bold text-green-800 text-sm">
+                        {kpi.feedCostPln != null ? formatPln(kpi.feedCostPln) : <span className="text-green-400 font-normal text-xs" title="Brak wpisów zużycia per typ paszy">—</span>}
+                      </div>
                       <div className="text-xs text-green-300 mt-0.5">szczegóły →</div>
                     </div>
                     <div className={`rounded-lg p-2 text-center cursor-pointer active:scale-[0.98] transition-all ${
@@ -704,7 +706,8 @@ export function FeedPage() {
                       ))}
                     </div>
                     <div className="flex justify-between font-bold text-red-800 border-t border-gray-100 pt-2">
-                      <span>Łączny koszt paszy</span><span>{formatPln(mk.feedCostPln)}</span>
+                      <span>Łączny koszt paszy</span>
+                      <span>{mk.feedCostPln != null ? formatPln(mk.feedCostPln) : <span className="text-gray-400 font-normal text-sm">brak cen pasz</span>}</span>
                     </div>
                   </>
                 ) : (

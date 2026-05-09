@@ -24,6 +24,12 @@ const CashFlowPage = React.lazy(() =>
   import('@/pages/cashflow/CashFlowPage').then(m => ({ default: m.CashFlowPage }))
 );
 
+const PageSpinner = () => (
+  <div className="flex items-center justify-center min-h-64">
+    <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
+  </div>
+);
+
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -73,7 +79,7 @@ export const router = createBrowserRouter([
       { path: 'wyleglarnia/:id/edytuj', element: <HatcheryFormPage /> },
 
       // Dziennik kasowy
-      { path: 'kasa', element: <React.Suspense fallback={null}><CashFlowPage /></React.Suspense> },
+      { path: 'kasa', element: <React.Suspense fallback={<PageSpinner />}><CashFlowPage /></React.Suspense> },
 
       // Raporty
       { path: 'raporty', element: <ReportsPage /> },

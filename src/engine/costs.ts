@@ -6,7 +6,7 @@ import type { CostBreakdown } from './types';
 export function calcCostBreakdown(
   batch: Batch,
   expenses: Expense[],
-  feedCostPln: number
+  feedCostPln: number | null  // null = brak danych o cenach pasz (nie liczymy jako 0)
 ): CostBreakdown {
   const byCategory: Record<string, number> = {};
   for (const e of expenses) {
@@ -16,10 +16,11 @@ export function calcCostBreakdown(
   const chickCost =
     (batch.chick_cost_per_unit ?? 0) * batch.initialCount +
     (batch.transport_cost ?? 0);
+  const feedCost = feedCostPln ?? 0;
 
   return {
     piskleta: chickCost + (byCategory['piskleta'] ?? 0),
-    pasza: feedCostPln + (byCategory['pasza'] ?? 0),
+    pasza: feedCost + (byCategory['pasza'] ?? 0),
     leki: byCategory['leki'] ?? 0,
     weterynarz: byCategory['weterynarz'] ?? 0,
     energia: byCategory['energia'] ?? 0,
@@ -29,7 +30,7 @@ export function calcCostBreakdown(
     inne: byCategory['inne'] ?? 0,
     total:
       chickCost +
-      feedCostPln +
+      feedCost +
       Object.values(byCategory).reduce((s, v) => s + v, 0),
   };
 }

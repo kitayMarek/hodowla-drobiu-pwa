@@ -144,7 +144,9 @@ export function FinancePage() {
                 <div className="grid grid-cols-3 gap-2 mt-2">
                   <div className="bg-gray-50 rounded-lg p-2 text-center">
                     <div className="text-xs text-gray-400">Zużycie pasz</div>
-                    <div className="text-xs font-medium">{formatPln(kpi.feedCostPln)}</div>
+                    <div className="text-xs font-medium">
+                      {kpi.feedCostPln != null ? formatPln(kpi.feedCostPln) : <span className="text-gray-300" title="Brak wpisów zużycia per typ paszy">—</span>}
+                    </div>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-2 text-center">
                     <div className="text-xs text-gray-400">Zdrowie</div>
