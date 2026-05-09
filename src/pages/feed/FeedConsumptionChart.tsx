@@ -8,14 +8,19 @@ import {
 import type { FeedType, FeedConsumption } from '@/models/feed.model';
 import type { DailyEntry } from '@/models/dailyEntry.model';
 import type { Weighing } from '@/models/weighing.model';
+import type { SlaughterRecord } from '@/models/slaughter.model';
+import type { Sale } from '@/models/sale.model';
 import { formatDateShort } from '@/utils/date';
 
 interface Props {
-  feedTypes: FeedType[];              // tylko te z kg > 0 dla tego stada
-  dailyEntries: DailyEntry[];         // przefiltrowane – daty i total
-  feedConsumptions: FeedConsumption[]; // przefiltrowane – per typ
+  feedTypes: FeedType[];
+  dailyEntries: DailyEntry[];
+  feedConsumptions: FeedConsumption[];
   weighings: Weighing[];
-  birdCount: number;
+  initialBirdCount: number;
+  initialWeightGrams: number;
+  slaughterRecords: SlaughterRecord[];
+  sales: Sale[];
 }
 
 const FEED_COLORS = ['#2563eb', '#ea580c', '#9333ea', '#0891b2', '#dc2626', '#65a30d'];
@@ -167,11 +172,17 @@ function Chart1({
 function Chart2({
   dailyEntries,
   weighings,
-  birdCount,
+  initialBirdCount,
+  initialWeightGrams,
+  slaughterRecords,
+  sales,
 }: {
   dailyEntries: DailyEntry[];
   weighings: Weighing[];
-  birdCount: number;
+  initialBirdCount: number;
+  initialWeightGrams: number;
+  slaughterRecords: SlaughterRecord[];
+  sales: Sale[];
 }) {
   const { hidden, toggle } = useToggle();
 
@@ -188,6 +199,8 @@ function Chart2({
 
     const data: { date: string; gainG: number | null; fcr: number | null }[] = [];
 
+    const initialWeightKg = (initialBirdCount * initialWeightGrams) / 1000;
+
     for (let i = 1; i < sorted.length; i++) {
       const [d1, g1] = sorted[i - 1];
       const [d2, g2] = sorted[i];
@@ -197,28 +210,50 @@ function Chart2({
       const gainPerBirdG = g2 - g1;
       const dailyGainG   = Math.round((gainPerBirdG / days) * 10) / 10;
 
-      // FCR: kg paszy / kg przyrostu stada
-      let fcr: number | null = null;
-      if (birdCount > 0 && gainPerBirdG > 0) {
-        const feedInPeriod = dailyEntries
-          .filter(e => e.date > d1 && e.date <= d2)
-          .reduce((s, e) => s + e.feedConsumedKg, 0);
-        const totalGainKg = (gainPerBirdG / 1000) * birdCount;
-        fcr = totalGainKg > 0 ? Math.round((feedInPeriod / totalGainKg) * 100) / 100 : null;
-      }
+      // Skumulowany FCR do daty d2 – ta sama formuła co w KPI:
+      // pasza / (żywiec_ubity + sprzedane_żywe + pozostałe − start)
+      const feedSoFar = dailyEntries
+        .filter(e => e.date <= d2)
+        .reduce((s, e) => s + e.feedConsumedKg, 0);
+
+      const slaughterWeightSoFar = slaughterRecords
+        .filter(r => r.slaughterDate <= d2)
+        .reduce((s, r) => s + r.liveWeightTotalKg, 0);
+
+      const deadBefore = dailyEntries
+        .filter(e => e.date <= d2)
+        .reduce((s, e) => s + e.deadCount + e.culledCount, 0);
+      const slaughteredBefore = slaughterRecords
+        .filter(r => r.slaughterDate <= d2)
+        .reduce((s, r) => s + r.birdsSlaughtered, 0);
+      const liveSoldBefore = sales
+        .filter(s => s.saleType === 'ptaki_zywe' && s.saleDate <= d2)
+        .reduce((s, sale) => s + (sale.birdCount ?? 0), 0);
+      const remainingAtD2 = Math.max(0, initialBirdCount - deadBefore - slaughteredBefore - liveSoldBefore);
+
+      const liveSalesWeightSoFar = sales
+        .filter(s => s.saleType === 'ptaki_zywe' && s.saleDate <= d2)
+        .reduce((s, sale) => s + (sale.weightKg ?? (sale.birdCount ?? 0) * g2 / 1000), 0);
+
+      const remainingWeightKg = (remainingAtD2 * g2) / 1000;
+      const totalGainKg = slaughterWeightSoFar + liveSalesWeightSoFar + remainingWeightKg - initialWeightKg;
+
+      const fcr = feedSoFar > 0 && totalGainKg > 0
+        ? Math.round((feedSoFar / totalGainKg) * 100) / 100
+        : null;
 
       data.push({ date: formatDateShort(d2), gainG: dailyGainG, fcr });
     }
 
     return { chartData: data, hasData: data.length > 0 };
-  }, [dailyEntries, weighings, birdCount]);
+  }, [dailyEntries, weighings, initialBirdCount, slaughterRecords, sales]);
 
   if (!hasData) return null;
 
   const hasFCR = chartData.some(d => d.fcr != null);
   const chips: ChipItem[] = [
     { key: 'gainG', label: 'Przyrost dzienny (g/ptak)', color: COLOR_GAIN },
-    ...(hasFCR ? [{ key: 'fcr', label: 'FCR (kg paszy / kg przyrostu)', color: COLOR_FCR }] : []),
+    ...(hasFCR ? [{ key: 'fcr', label: 'FCR skumulowany', color: COLOR_FCR }] : []),
   ];
 
   const showRightAxis = hasFCR && !hidden.has('fcr');
@@ -355,13 +390,23 @@ function Chart3({ dailyEntries }: { dailyEntries: DailyEntry[] }) {
 
 // ─── Główny eksport ───────────────────────────────────────────────────────────
 
-export function FeedConsumptionChart({ feedTypes, dailyEntries, feedConsumptions, weighings, birdCount }: Props) {
+export function FeedConsumptionChart({
+  feedTypes, dailyEntries, feedConsumptions, weighings,
+  initialBirdCount, initialWeightGrams, slaughterRecords, sales,
+}: Props) {
   if (dailyEntries.length < 2) return null;
 
   return (
     <div className="mt-4 border-t border-gray-50 pt-4 space-y-6">
       <Chart1 feedTypes={feedTypes} dailyEntries={dailyEntries} feedConsumptions={feedConsumptions} />
-      <Chart2 dailyEntries={dailyEntries} weighings={weighings} birdCount={birdCount} />
+      <Chart2
+        dailyEntries={dailyEntries}
+        weighings={weighings}
+        initialBirdCount={initialBirdCount}
+        initialWeightGrams={initialWeightGrams}
+        slaughterRecords={slaughterRecords}
+        sales={sales}
+      />
       <Chart3 dailyEntries={dailyEntries} />
     </div>
   );

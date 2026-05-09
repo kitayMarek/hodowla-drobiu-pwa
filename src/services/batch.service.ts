@@ -56,8 +56,49 @@ export const batchService = {
   async getCurrentBirdCount(batchId: number): Promise<number> {
     const batch = await db.batches.get(batchId);
     if (!batch) return 0;
-    const entries = await db.dailyEntries.where('batchId').equals(batchId).toArray();
-    const totalLost = entries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
-    return Math.max(0, batch.initialCount - totalLost);
+    const [entries, sales, slaughter, outTransfers, inTransfers] = await Promise.all([
+      db.dailyEntries.where('batchId').equals(batchId).toArray(),
+      db.sales.where('batchId').equals(batchId).toArray(),
+      db.slaughterRecords.where('batchId').equals(batchId).toArray(),
+      db.birdTransfers.where('fromBatchId').equals(batchId).toArray(),
+      db.birdTransfers.where('toBatchId').equals(batchId).toArray(),
+    ]);
+    const dead        = entries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
+    const soldLive    = sales.filter(s => s.saleType === 'ptaki_zywe').reduce((s, x) => s + (x.birdCount ?? 0), 0);
+    const slaughtered = slaughter.reduce((s, r) => s + r.birdsSlaughtered, 0);
+    const netTransfer = inTransfers.reduce((s, t) => s + t.count, 0) - outTransfers.reduce((s, t) => s + t.count, 0);
+    return Math.max(0, batch.initialCount - dead - soldLive - slaughtered + netTransfer);
+  },
+
+  async checkAndAutoClose(batchId: number): Promise<boolean> {
+    const batch = await db.batches.get(batchId);
+    if (!batch || batch.status !== 'active') return false;
+    const current = await this.getCurrentBirdCount(batchId);
+    if (current === 0) {
+      await db.batches.update(batchId, {
+        status: 'completed',
+        actualEndDate: new Date().toISOString().slice(0, 10),
+        updatedAt: new Date().toISOString(),
+      });
+      return true;
+    }
+    return false;
+  },
+
+  // Przywraca stado do aktywnego jeśli ma ptaki i było zamknięte automatycznie (status 'completed').
+  // Statusów 'sold' i 'archived' nie rusza – te są ustawiane ręcznie.
+  async checkAndAutoReopen(batchId: number): Promise<boolean> {
+    const batch = await db.batches.get(batchId);
+    if (!batch || batch.status !== 'completed') return false;
+    const current = await this.getCurrentBirdCount(batchId);
+    if (current > 0) {
+      await db.batches.update(batchId, {
+        status: 'active',
+        actualEndDate: undefined,
+        updatedAt: new Date().toISOString(),
+      });
+      return true;
+    }
+    return false;
   },
 };

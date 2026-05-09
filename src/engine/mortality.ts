@@ -8,13 +8,14 @@ export function calcCurrentBirdCount(
   entries: DailyEntry[],
   sales: Sale[] = [],
   slaughterRecords: SlaughterRecord[] = [],
+  netTransfer: number = 0,
 ): number {
   const totalDead      = entries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
   const totalSoldLive  = sales
     .filter(s => s.saleType === 'ptaki_zywe')
     .reduce((s, sale) => s + (sale.birdCount ?? 0), 0);
   const totalSlaughtered = slaughterRecords.reduce((s, r) => s + r.birdsSlaughtered, 0);
-  return Math.max(0, initialCount - totalDead - totalSoldLive - totalSlaughtered);
+  return Math.max(0, initialCount - totalDead - totalSoldLive - totalSlaughtered + netTransfer);
 }
 
 export function calcTotalMortality(entries: DailyEntry[]): number {

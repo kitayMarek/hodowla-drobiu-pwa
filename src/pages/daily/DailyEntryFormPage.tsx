@@ -154,10 +154,12 @@ export function DailyEntryFormPage() {
     const dateStr = data.date;
 
     if (isEdit && existing?.id != null) {
+      // Usuń stare feedConsumptions pod STARĄ datą (data mogła się zmienić w edycji)
+      await db.feedConsumptions.where('[batchId+date]').equals([id, existing.date]).delete();
       await dailyEntryService.update(existing.id, entryData);
-      // Usuń stare feedConsumptions dla tej daty i stada
-      await db.feedConsumptions.where('[batchId+date]').equals([id, dateStr]).delete();
     } else {
+      // Usuń ewentualne stare feedConsumptions pod tą datą przed dodaniem nowych
+      await db.feedConsumptions.where('[batchId+date]').equals([id, dateStr]).delete();
       await dailyEntryService.create(entryData);
     }
 

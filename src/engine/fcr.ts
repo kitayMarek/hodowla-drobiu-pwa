@@ -25,19 +25,17 @@ export function calcTotalFeedKgFromConsumptions(consumptions: FeedConsumption[])
   return consumptions.reduce((s, c) => s + c.consumedKg, 0);
 }
 
+/**
+ * FCR = pasza (kg) / przyrost masy żywej (kg).
+ * Przyjmuje gotowy przyrost wyliczony z uwzględnieniem uboju, sprzedaży i transferów
+ * (patrz calcTotalLiveweightGainKg w engine/index.ts).
+ */
 export function calcFCR(
   totalFeedKg: number,
-  initialBirds: number,
-  initialWeightGrams: number,
-  currentBirds: number,
-  currentAvgWeightGrams: number
+  totalWeightGainKg: number,
 ): number | null {
-  if (totalFeedKg <= 0 || currentAvgWeightGrams <= 0) return null;
-  const initialTotalKg = (initialBirds * (initialWeightGrams || 0)) / 1000;
-  const currentTotalKg = (currentBirds * currentAvgWeightGrams) / 1000;
-  const weightGainKg = currentTotalKg - initialTotalKg;
-  if (weightGainKg <= 0) return null;
-  return totalFeedKg / weightGainKg;
+  if (totalFeedKg <= 0 || totalWeightGainKg <= 0) return null;
+  return totalFeedKg / totalWeightGainKg;
 }
 
 export function calcWeeklyFeedTrend(

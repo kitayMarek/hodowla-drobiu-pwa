@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { slaughterSchema, type SlaughterFormValues } from '@/utils/validation';
 import { slaughterService } from '@/services/slaughter.service';
+import { batchService } from '@/services/batch.service';
 import { useBatch } from '@/hooks/useBatch';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -55,6 +56,7 @@ export function SlaughterPage() {
 
   const onSubmit = async (data: SlaughterFormValues) => {
     await slaughterService.create({ ...data, batchId: id });
+    await batchService.checkAndAutoClose(id);
     reset();
     setShowForm(false);
   };

@@ -9,6 +9,7 @@ interface KPICardProps {
   trendLabel?: string;
   color?: 'green' | 'blue' | 'red' | 'orange' | 'gray';
   className?: string;
+  onClick?: () => void;
 }
 
 const colorMap = {
@@ -28,9 +29,13 @@ export function KPICard({
   trendLabel,
   color = 'gray',
   className = '',
+  onClick,
 }: KPICardProps) {
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-2 ${className}`}>
+    <div
+      className={`bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-2 ${className} ${onClick ? 'cursor-pointer hover:shadow-md hover:border-gray-200 transition-all active:scale-[0.98]' : ''}`}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</span>
         {icon && (

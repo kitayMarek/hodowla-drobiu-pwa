@@ -6,6 +6,7 @@ import type { SlaughterRecord } from '@/models/slaughter.model';
 import type { Sale } from '@/models/sale.model';
 import type { Expense } from '@/models/expense.model';
 import type { HealthEvent } from '@/models/health.model';
+import type { BirdTransfer } from '@/models/birdTransfer.model';
 
 export interface BatchKPIInput {
   batch: Batch;
@@ -17,6 +18,7 @@ export interface BatchKPIInput {
   expenses: Expense[];
   slaughterRecords: SlaughterRecord[];
   healthEvents: HealthEvent[];
+  transfers?: BirdTransfer[];
 }
 
 export interface BatchKPIResult {
@@ -40,6 +42,7 @@ export interface BatchKPIResult {
   henDayProductionPercent: number | null;
   eggsPerBirdLifetime: number | null;
   // Ekonomika
+  costBreakdown: CostBreakdown;
   totalRevenuePln: number;
   totalCostPln: number;
   grossMarginPln: number;
