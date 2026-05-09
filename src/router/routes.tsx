@@ -20,14 +20,10 @@ import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { HatcheryListPage } from '@/pages/hatchery/HatcheryListPage';
 import { HatcheryFormPage } from '@/pages/hatchery/HatcheryFormPage';
 import { HatcheryDetailPage } from '@/pages/hatchery/HatcheryDetailPage';
+import { PageSpinner } from '@/components/ui/PageSpinner';
+
 const CashFlowPage = React.lazy(() =>
   import('@/pages/cashflow/CashFlowPage').then(m => ({ default: m.CashFlowPage }))
-);
-
-const PageSpinner = () => (
-  <div className="flex items-center justify-center min-h-64">
-    <div className="w-8 h-8 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin" />
-  </div>
 );
 
 export const router = createBrowserRouter([
