@@ -160,7 +160,10 @@ export class FarmDatabase extends Dexie {
         else if (t.scope === 'personal') t.scope = 'osobiste';
       });
 
-      // Wstaw domyślne kategorie
+      // Wstaw domyślne kategorie – tylko jeśli tabela jest jeszcze pusta (idempotentność)
+      const existing = await tx.table('cashCategories').count();
+      if (existing > 0) return;
+
       const now = new Date().toISOString();
       const cats = [
         // Drób
