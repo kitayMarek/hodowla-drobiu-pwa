@@ -194,6 +194,38 @@ export class FarmDatabase extends Dexie {
       ];
       await tx.table('cashCategories').bulkAdd(cats);
     });
+
+    // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.
+    // Poprzednia wersja createTransfer tworzyła dwa rekordy (jeden per konto).
+    // Teraz przelew = jeden rekord z accountId=źródło, toAccountId=cel.
+    this.version(14).stores({}).upgrade(async tx => {
+      const transfers = await tx.table('cashTransactions')
+        .where('type').equals('transfer')
+        .toArray();
+
+      // Znajdź pary (T1,T2) gdzie T1.accountId=T2.toAccountId i T2.accountId=T1.toAccountId
+      const toDelete = new Set<number>();
+      for (let i = 0; i < transfers.length; i++) {
+        if (toDelete.has(transfers[i].id)) continue;
+        const t1 = transfers[i];
+        // Szukaj lustra: t2.accountId = t1.toAccountId I t2.toAccountId = t1.accountId
+        const mirror = transfers.find(t2 =>
+          t2.id !== t1.id &&
+          !toDelete.has(t2.id) &&
+          t2.accountId   === t1.toAccountId &&
+          t2.toAccountId === t1.accountId   &&
+          t2.date        === t1.date         &&
+          t2.amountPln   === t1.amountPln
+        );
+        if (mirror) {
+          // Usuń rekord z wyższym ID (mirror – drugi z pary)
+          toDelete.add(Math.max(t1.id, mirror.id));
+        }
+      }
+      if (toDelete.size > 0) {
+        await tx.table('cashTransactions').bulkDelete([...toDelete]);
+      }
+    });
   }
 }
 

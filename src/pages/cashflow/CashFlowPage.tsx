@@ -47,17 +47,19 @@ const SCOPE_BADGE: Record<AccountScope, 'blue' | 'yellow' | 'green' | 'gray' | '
 // ─── Pomocnicze ───────────────────────────────────────────────────────────────
 
 function calcBalance(account: CashAccount, txs: CashTransaction[]): number {
-  return txs
-    .filter(t => t.accountId === account.id)
-    .reduce((sum, t) => {
-      if (t.type === 'income')  return sum + t.amountPln;
-      if (t.type === 'expense') return sum - t.amountPln;
-      // transfer: sprawdź czy konto jest źródłem czy celem
-      if (t.type === 'transfer') {
-        return t.toAccountId === account.id ? sum + t.amountPln : sum - t.amountPln;
-      }
-      return sum;
-    }, account.openingBalance);
+  // Przelew to JEDEN rekord: accountId=źródło, toAccountId=cel.
+  // Wypływ: t.accountId === account.id AND type=transfer → minus
+  // Wpływ:  t.toAccountId === account.id AND type=transfer → plus
+  return txs.reduce((sum, t) => {
+    if (t.accountId === account.id) {
+      if (t.type === 'income')   return sum + t.amountPln;
+      if (t.type === 'expense')  return sum - t.amountPln;
+      if (t.type === 'transfer') return sum - t.amountPln; // wypływ
+    } else if (t.type === 'transfer' && t.toAccountId === account.id) {
+      return sum + t.amountPln; // wpływ
+    }
+    return sum;
+  }, account.openingBalance);
 }
 
 // ─── Formularz konta ─────────────────────────────────────────────────────────
@@ -150,10 +152,15 @@ export function CashFlowPage() {
   // ── Przefiltrowane transakcje ─────────────────────────────────────────────
   const filteredTxs = useMemo(() => {
     return allTxs.filter(t => {
-      if (filterAccount && String(t.accountId) !== filterAccount) return false;
-      if (filterScope   && t.scope !== filterScope)   return false;
-      if (filterType    && t.type  !== filterType)    return false;
-      if (filterMonth   && !t.date.startsWith(filterMonth)) return false;
+      // Filtr konta: pokaż transakcję jeśli konto jest źródłem LUB celem przelewu
+      if (filterAccount) {
+        const isOwn      = String(t.accountId)   === filterAccount;
+        const isIncoming = t.type === 'transfer' && String(t.toAccountId) === filterAccount;
+        if (!isOwn && !isIncoming) return false;
+      }
+      if (filterScope && t.scope !== filterScope) return false;
+      if (filterType  && t.type  !== filterType)  return false;
+      if (filterMonth && !t.date.startsWith(filterMonth)) return false;
       return true;
     });
   }, [allTxs, filterAccount, filterScope, filterType, filterMonth]);
@@ -164,7 +171,7 @@ export function CashFlowPage() {
     .filter(a => a.scope === 'drob' || a.scope === 'shared')
     .reduce((s, a) => s + calcBalance(a, allTxs), 0);
 
-  const filteredIncome  = filteredTxs.filter(t => t.type === 'income') .reduce((s, t) => s + t.amountPln, 0);
+  const filteredIncome  = filteredTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amountPln, 0);
   const filteredExpense = filteredTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountPln, 0);
 
   // ── Zapis konta ────────────────────────────────────────────────────────────
@@ -425,34 +432,45 @@ export function CashFlowPage() {
             <div className="divide-y divide-gray-100">
               {filteredTxs.map(tx => {
                 const acc = accountMap.get(tx.accountId);
-                const isTransferOut = tx.type === 'transfer' && tx.toAccountId != null;
+                // Czy w kontekście filtra to jest wpływ na konto?
+                const isIncomingTransfer = tx.type === 'transfer' && filterAccount
+                  ? String(tx.toAccountId) === filterAccount
+                  : false;
                 return (
                   <div key={tx.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     {/* Ikona */}
                     <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
-                      tx.type === 'income'   ? 'bg-green-100'  :
-                      tx.type === 'expense'  ? 'bg-red-100'    : 'bg-blue-100'
+                      tx.type === 'income'                      ? 'bg-green-100' :
+                      tx.type === 'expense'                     ? 'bg-red-100'   :
+                      isIncomingTransfer                        ? 'bg-green-100' : 'bg-blue-100'
                     }`}>
-                      {tx.type === 'income' ? '▲' : tx.type === 'expense' ? '▼' : '⇄'}
+                      {tx.type === 'income'   ? '▲' :
+                       tx.type === 'expense'  ? '▼' :
+                       isIncomingTransfer     ? '▲' : '▼'}
                     </div>
 
                     {/* Opis */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="text-sm font-medium text-gray-900">{tx.description}</span>
-                        {tx.category && (
+                        {tx.category && tx.category !== 'transfer' && (
                           <span className="text-xs text-gray-400">{tx.category}</span>
                         )}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-2">
                         <span>{formatDate(tx.date)}</span>
-                        {acc && <span>{acc.name}</span>}
-                        {tx.type === 'transfer' && tx.toAccountId != null && (
-                          <span>→ {accountMap.get(tx.toAccountId)?.name ?? '?'}</span>
+                        {tx.type === 'transfer' ? (
+                          <span>
+                            {accountMap.get(tx.accountId)?.name ?? '?'} → {accountMap.get(tx.toAccountId!)?.name ?? '?'}
+                          </span>
+                        ) : (
+                          acc && <span>{acc.name}</span>
                         )}
-                        <Badge color={SCOPE_BADGE[tx.scope] ?? 'gray'} className="text-xs">
-                          {TX_SCOPE_LABELS[tx.scope] ?? tx.scope}
-                        </Badge>
+                        {tx.type !== 'transfer' && (
+                          <Badge color={SCOPE_BADGE[tx.scope] ?? 'gray'} className="text-xs">
+                            {TX_SCOPE_LABELS[tx.scope] ?? tx.scope}
+                          </Badge>
+                        )}
                       </div>
                       {tx.notes && <div className="text-xs text-gray-400 mt-0.5 italic">{tx.notes}</div>}
                     </div>
@@ -460,10 +478,13 @@ export function CashFlowPage() {
                     {/* Kwota + usuń */}
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-sm font-bold ${
-                        tx.type === 'income'  ? 'text-green-700' :
-                        tx.type === 'expense' ? 'text-red-600'   : 'text-blue-700'
+                        tx.type === 'income'   ? 'text-green-700' :
+                        tx.type === 'expense'  ? 'text-red-600'   :
+                        isIncomingTransfer     ? 'text-green-700' : 'text-blue-700'
                       }`}>
-                        {tx.type === 'income' ? '+' : tx.type === 'expense' ? '−' : isTransferOut ? '−' : '+'}
+                        {tx.type === 'income'  ? '+' :
+                         tx.type === 'expense' ? '−' :
+                         isIncomingTransfer    ? '+' : '−'}
                         {formatPln(tx.amountPln)}
                       </span>
                       <button

@@ -42,9 +42,19 @@ export const cashFlowService = {
     amountPln: number,
     description: string,
   ): Promise<void> {
-    const base = { date, amountPln, description, category: 'transfer', createdAt: new Date().toISOString() };
-    await db.cashTransactions.add({ ...base, accountId: fromAccountId, toAccountId, type: 'transfer', scope: 'drob' });
-    await db.cashTransactions.add({ ...base, accountId: toAccountId,   toAccountId: fromAccountId, type: 'transfer', scope: 'drob' });
+    // Jeden rekord: accountId = źródło, toAccountId = cel.
+    // Bilans: wypływ z accountId, wpływ na toAccountId – obliczany w calcBalance.
+    await db.cashTransactions.add({
+      accountId: fromAccountId,
+      toAccountId,
+      date,
+      amountPln,
+      description,
+      category: 'transfer',
+      type: 'transfer',
+      scope: 'drob',
+      createdAt: new Date().toISOString(),
+    });
   },
 
   async deleteTransaction(id: number): Promise<void> {
