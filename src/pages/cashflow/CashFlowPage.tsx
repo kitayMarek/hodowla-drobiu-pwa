@@ -47,17 +47,44 @@ const SCOPE_BADGE: Record<AccountScope, 'blue' | 'yellow' | 'green' | 'gray' | '
 // ─── Pomocnicze ───────────────────────────────────────────────────────────────
 
 function calcBalance(account: CashAccount, txs: CashTransaction[]): number {
-  // Przelew to JEDEN rekord: accountId=źródło, toAccountId=cel.
-  // Wypływ: t.accountId === account.id AND type=transfer → minus
-  // Wpływ:  t.toAccountId === account.id AND type=transfer → plus
+  // Obsługuje DWA formaty przelewów:
+  // A) Stary: dwa symetryczne rekordy (T1: A→B + T2: B→A) – para jest liczona JEDEN raz
+  // B) Nowy:  jeden rekord (accountId=źródło, toAccountId=cel)
+  const handled = new Set<number>();
+
   return txs.reduce((sum, t) => {
-    if (t.accountId === account.id) {
-      if (t.type === 'income')   return sum + t.amountPln;
-      if (t.type === 'expense')  return sum - t.amountPln;
-      if (t.type === 'transfer') return sum - t.amountPln; // wypływ
-    } else if (t.type === 'transfer' && t.toAccountId === account.id) {
-      return sum + t.amountPln; // wpływ
+    if (t.type !== 'transfer') {
+      if (t.accountId !== account.id) return sum;
+      return t.type === 'income' ? sum + t.amountPln : sum - t.amountPln;
     }
+
+    if (t.id != null && handled.has(t.id)) return sum;
+
+    // Szukaj lustra: t2 ma odwrócone accountId ↔ toAccountId, tę samą datę i kwotę
+    const mirror = txs.find(m =>
+      m.type === 'transfer' &&
+      m.id !== t.id &&
+      (m.id == null || !handled.has(m.id)) &&
+      m.accountId   === t.toAccountId &&
+      m.toAccountId === t.accountId &&
+      m.date        === t.date &&
+      m.amountPln   === t.amountPln
+    );
+
+    if (mirror) {
+      // Para – liczymy JEDEN raz; niższy id = oryginalny "source → dest"
+      const orig = (t.id ?? 0) < (mirror.id ?? 0) ? t : mirror;
+      if (t.id    != null) handled.add(t.id);
+      if (mirror.id != null) handled.add(mirror.id);
+      if (orig.accountId   === account.id) return sum - t.amountPln; // konto źródłowe
+      if (orig.toAccountId === account.id) return sum + t.amountPln; // konto docelowe
+      return sum; // konto niezaangażowane
+    }
+
+    // Jeden rekord (nowy format)
+    if (t.id != null) handled.add(t.id);
+    if (t.accountId   === account.id) return sum - t.amountPln; // wypływ
+    if (t.toAccountId === account.id) return sum + t.amountPln; // wpływ
     return sum;
   }, account.openingBalance);
 }
@@ -432,10 +459,25 @@ export function CashFlowPage() {
             <div className="divide-y divide-gray-100">
               {filteredTxs.map(tx => {
                 const acc = accountMap.get(tx.accountId);
-                // Czy w kontekście filtra to jest wpływ na konto?
-                const isIncomingTransfer = tx.type === 'transfer' && filterAccount
-                  ? String(tx.toAccountId) === filterAccount
-                  : false;
+                // Ustal kierunek przelewu:
+                // 1. Filtr konta – wpływ jeśli toAccountId = filtrowane konto
+                // 2. Brak filtra z parą mirror – drugi rekord (wyższy ID) = wpływ dla celu
+                let isIncomingTransfer = false;
+                if (tx.type === 'transfer') {
+                  if (filterAccount) {
+                    isIncomingTransfer = String(tx.toAccountId) === filterAccount;
+                  } else {
+                    // Sprawdź czy istnieje lustro – jeśli tak, ten rekord z wyższym ID to wpływ
+                    const mirror = filteredTxs.find(m =>
+                      m.type === 'transfer' && m.id !== tx.id &&
+                      m.accountId === tx.toAccountId && m.toAccountId === tx.accountId &&
+                      m.date === tx.date && m.amountPln === tx.amountPln
+                    );
+                    if (mirror) {
+                      isIncomingTransfer = (tx.id ?? 0) > (mirror.id ?? 0);
+                    }
+                  }
+                }
                 return (
                   <div key={tx.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     {/* Ikona */}
