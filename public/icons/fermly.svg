@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rounded green background -->
+  <rect width="512" height="512" rx="96" fill="#15803d"/>
+  <!-- White "F" as SVG paths (bold, clean) -->
+  <!-- Vertical bar -->
+  <rect x="148" y="112" width="72" height="288" rx="12" fill="white"/>
+  <!-- Top horizontal bar -->
+  <rect x="148" y="112" width="240" height="72" rx="12" fill="white"/>
+  <!-- Middle horizontal bar -->
+  <rect x="148" y="220" width="196" height="64" rx="12" fill="white"/>
+</svg>

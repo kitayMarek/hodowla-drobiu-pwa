@@ -88,7 +88,7 @@ export function DashboardPage() {
 
       {activeBatches.length === 0 ? (
         <EmptyState
-          title="Witaj w Hodowla PL!"
+          title="Witaj w Fermly!"
           description="Nie masz jeszcze żadnych aktywnych stad. Zacznij od dodania pierwszego stada."
           icon="🐓"
           action={{ label: 'Dodaj pierwsze stado', onClick: () => window.location.href = '/stada/nowe' }}

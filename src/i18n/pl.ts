@@ -1,7 +1,7 @@
 export const pl = {
   app: {
-    name: 'Hodowla Drobiu',
-    tagline: 'Menadżer Farmy',
+    name: 'Fermly',
+    tagline: 'Zarządzaj fermą online',
   },
   nav: {
     dashboard: 'Pulpit',

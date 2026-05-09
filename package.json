@@ -1,12 +1,13 @@
 {
-  "name": "hodowla-pl",
-  "version": "0.1.0",
+  "name": "fermly",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "generate:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -22,6 +23,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@types/react": "^18.3.4",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
