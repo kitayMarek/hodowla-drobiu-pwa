@@ -122,13 +122,12 @@ export async function importFromLocalDexie(): Promise<{ imported: number; errors
   const now    = new Date().toISOString();
 
   const ins = async (table: string, row: Record<string, unknown>) => {
-    const { error } = await supabase.from(table).insert({ user_id: user.id, ...row });
+    const { data, error } = await supabase.from(table)
+      .insert({ user_id: user.id, ...row })
+      .select('id').single();
     if (error) { console.error(table, error); errors++; return null as unknown as number; }
     imported++;
-    // Pobierz nowe ID
-    const { data } = await supabase.from(table).select('id').eq('user_id', user.id)
-      .order('id', { ascending: false }).limit(1);
-    return data?.[0]?.id as number;
+    return data.id as number;
   };
 
   // 1. Stada
@@ -338,12 +337,12 @@ export async function importFromJson(file: File): Promise<{ imported: number; er
   const d      = backup.data;
 
   const ins = async (table: string, row: Record<string, unknown>) => {
-    const { error } = await supabase.from(table).insert({ user_id: user.id, ...row });
+    const { data, error } = await supabase.from(table)
+      .insert({ user_id: user.id, ...row })
+      .select('id').single();
     if (error) { console.error(table, error.message); errors++; return null; }
     imported++;
-    const { data } = await supabase.from(table).select('id').eq('user_id', user.id)
-      .order('id', { ascending: false }).limit(1);
-    return data?.[0]?.id as number;
+    return data.id as number;
   };
 
   // Helper: pobierz pole zarówno z formatu snake_case jak i camelCase
@@ -554,4 +553,32 @@ export async function importFromJson(file: File): Promise<{ imported: number; er
   }
 
   return { imported, errors };
+}
+
+// ── Clear all Supabase data ───────────────────────────────────
+
+/**
+ * Usuwa WSZYSTKIE dane zalogowanego użytkownika z Supabase.
+ * Kolejność usuwania jest odwrotnością zależności FK.
+ */
+export async function clearAllSupabaseData(): Promise<void> {
+  const user = await getAuthUser();
+  if (!user) throw new Error('Musisz być zalogowany.');
+
+  // Usuwaj w kolejności odwrotnej do zależności (dzieci przed rodzicami)
+  const tables = [
+    'financial_events', 'cash_transactions', 'cash_categories', 'cash_accounts',
+    'egg_hatch_transfers', 'egg_purchases', 'hatching_egg_lots',
+    'incubation_egg_groups', 'incubations', 'orders',
+    'bird_transfers', 'slaughter_records', 'health_events', 'weighings',
+    'feed_consumptions', 'feed_deliveries', 'daily_entries',
+    'investments', 'expenses', 'sales',
+    'feed_types', 'housing', 'batches',
+    'settings',
+  ];
+
+  for (const table of tables) {
+    const { error } = await supabase.from(table).delete().eq('user_id', user.id);
+    if (error) console.warn(`clearAll: ${table}`, error.message);
+  }
 }

@@ -20,7 +20,7 @@ import { calcDailyEggTrend } from '@/engine/eggs';
 import { DailyCalendar } from '@/components/dashboard/DailyCalendar';
 import { incubationService, calcKeyDates } from '@/services/incubation.service';
 import { useAllExpenses, useAllSales, useAllFeedDeliveries, useWeighingsByBatch } from '@/hooks/useTableData';
-import { useDailyEntries } from '@/hooks/useDailyEntries';
+import { useDailyEntries, useAllDailyEntries } from '@/hooks/useDailyEntries';
 
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
@@ -41,13 +41,16 @@ export function DashboardPage() {
     []
   ) ?? 0;
 
-  // Wpisy dzienne bieżącego miesiąca – dla kalendarza (via istniejący hook)
+  // Wpisy dzienne – dla kalendarza i trendów
   const firstBatchId = activeBatches[0]?.id;
-  const allFirstBatchEntries = useDailyEntries(firstBatchId ?? 0);
+  const allDailyEntries = useAllDailyEntries();
+  const firstBatchEntries = useDailyEntries(firstBatchId ?? 0);
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = `${today.slice(0, 7)}-01`;
-  const monthEntries = allFirstBatchEntries.filter(e => e.date >= monthStart && e.date <= today);
-  const dailyEntries = firstBatchId ? allFirstBatchEntries : [];
+  // Kalendarz: wszystkie stada, bieżący miesiąc
+  const monthEntries = allDailyEntries.filter(e => e.date >= monthStart && e.date <= today);
+  // Wykresy trendów: tylko pierwsze aktywne stado
+  const dailyEntries = firstBatchId ? firstBatchEntries : [];
   const weighings    = useWeighingsByBatch(firstBatchId ?? 0);
 
   const totalBirds = allKPIs.reduce((s, k) => s + k.currentBirdCount, 0);

@@ -33,6 +33,37 @@ async function fetchByBatch(userId: string, batchId: number): Promise<DailyEntry
   return (data ?? []).map(rowToEntry);
 }
 
+async function fetchAll(userId: string): Promise<DailyEntry[]> {
+  const { data } = await supabase.from('daily_entries').select('*')
+    .eq('user_id', userId).order('date', { ascending: false });
+  return (data ?? []).map(rowToEntry);
+}
+
+export function useAllDailyEntries(): DailyEntry[] {
+  const { user } = useAuth();
+
+  const dexie = useLiveQuery(
+    () => !user
+      ? db.dailyEntries.toArray()
+          .then(arr => arr.sort((a, b) => b.date.localeCompare(a.date)))
+      : Promise.resolve([] as DailyEntry[]),
+    [!!user]
+  ) ?? [];
+
+  const [sb, setSb] = useState<DailyEntry[]>([]);
+  useEffect(() => {
+    if (!user) { setSb([]); return; }
+    fetchAll(user.id).then(setSb);
+    const ch = supabase.channel(`daily-all-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_entries' },
+        () => fetchAll(user.id).then(setSb))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+
+  return user ? sb : dexie;
+}
+
 export function useDailyEntries(batchId: number): DailyEntry[] {
   const { user } = useAuth();
 

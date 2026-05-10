@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { settingsService } from '@/services/settings.service';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/contexts/AuthContext';
-import { exportToJson, importFromLocalDexie, importFromJson } from '@/services/migration.service';
+import { exportToJson, importFromLocalDexie, importFromJson, clearAllSupabaseData } from '@/services/migration.service';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -20,7 +20,22 @@ export function SettingsPage() {
   const [migStatus, setMigStatus] = useState<MigStatus>({ type: 'idle' });
   const [exportStatus, setExportStatus] = useState<MigStatus>({ type: 'idle' });
   const [importStatus, setImportStatus] = useState<MigStatus>({ type: 'idle' });
+  const [clearStatus, setClearStatus] = useState<MigStatus>({ type: 'idle' });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleClearData = async () => {
+    const confirmed = window.confirm(
+      'UWAGA! Ta operacja usunie WSZYSTKIE Twoje dane z chmury (stada, wpisy, paszę, finanse…).\n\nTej operacji nie można cofnąć.\n\nCzy na pewno chcesz kontynuować?'
+    );
+    if (!confirmed) return;
+    setClearStatus({ type: 'busy', msg: 'Usuwam dane…' });
+    try {
+      await clearAllSupabaseData();
+      setClearStatus({ type: 'ok', msg: '✓ Dane usunięte. Możesz teraz zaimportować backup.' });
+    } catch (e) {
+      setClearStatus({ type: 'err', msg: (e as Error).message });
+    }
+  };
 
   const handleMigrateFromDexie = async () => {
     setMigStatus({ type: 'busy', msg: 'Trwa migracja danych z tego urządzenia…' });
@@ -182,6 +197,34 @@ export function SettingsPage() {
 
           {user && (
             <>
+              <hr className="border-gray-100" />
+
+              {/* Clear all data */}
+              <div className="flex flex-col gap-2">
+                <div>
+                  <p className="text-sm font-medium text-red-700">Wyczyść dane w chmurze</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Usuwa WSZYSTKIE dane z Twojego konta Supabase. Użyj przed ponownym importem, jeśli poprzedni import się powiódł nieprawidłowo.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={handleClearData}
+                    loading={clearStatus.type === 'busy'}
+                    disabled={clearStatus.type === 'busy'}
+                  >
+                    🗑 Wyczyść wszystkie dane
+                  </Button>
+                  {clearStatus.type !== 'idle' && (
+                    <span className={`text-xs ${clearStatus.type === 'err' ? 'text-red-600' : 'text-green-600'}`}>
+                      {clearStatus.msg}
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <hr className="border-gray-100" />
 
               {/* Import from file */}
