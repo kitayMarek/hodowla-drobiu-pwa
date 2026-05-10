@@ -35,6 +35,7 @@ jobs:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
           local-dir: ./dist/
           server-dir: ${{ secrets.FTP_REMOTE_DIR }}
           # Tylko zmienione pliki (szybszy deploy)
