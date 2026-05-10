@@ -10,17 +10,18 @@
     "generate:icons": "node scripts/gen-icons.mjs"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.0",
-    "react-hook-form": "^7.53.0",
     "@hookform/resolvers": "^3.9.0",
-    "zod": "^3.23.8",
+    "@supabase/supabase-js": "^2.105.4",
+    "date-fns": "^3.6.0",
     "dexie": "^4.0.8",
     "dexie-react-hooks": "^1.1.7",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.53.0",
+    "react-router-dom": "^6.26.0",
     "recharts": "^2.12.7",
-    "date-fns": "^3.6.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

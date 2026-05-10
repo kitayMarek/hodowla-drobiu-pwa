@@ -1,6 +1,7 @@
-import React from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSetting } from '@/hooks/useSettings';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -8,6 +9,31 @@ interface TopBarProps {
 
 export function TopBar({ onMenuClick }: TopBarProps) {
   const farmName = useSetting<string>('farm_name', 'Moja Ferma');
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Zamknij menu po kliknięciu poza nim
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleSignOut = async () => {
+    await signOut();
+    setMenuOpen(false);
+    navigate('/logowanie');
+  };
+
+  const userInitial = user?.user_metadata?.name?.charAt(0)?.toUpperCase()
+    ?? user?.email?.charAt(0)?.toUpperCase()
+    ?? '?';
 
   return (
     <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3 sticky top-0 z-20">
@@ -23,7 +49,9 @@ export function TopBar({ onMenuClick }: TopBarProps) {
       </button>
 
       <div className="flex-1 min-w-0">
-        <span className="text-sm font-medium text-gray-700 truncate">{farmName}</span>
+        <span className="text-sm font-medium text-gray-700 truncate">
+          {user ? farmName : 'Fermly — tryb demo'}
+        </span>
       </div>
 
       {/* Quick add button */}
@@ -36,6 +64,47 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </svg>
         <span className="hidden sm:inline">Stada</span>
       </Link>
+
+      {/* User avatar / login */}
+      {user ? (
+        <div className="relative" ref={menuRef}>
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            className="w-8 h-8 rounded-full bg-green-700 text-white text-sm font-bold flex items-center justify-center hover:bg-green-800 transition-colors"
+            title={user.email ?? ''}
+          >
+            {userInitial}
+          </button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-10 w-52 bg-white border border-gray-200 rounded-xl shadow-lg py-1 z-50">
+              <div className="px-3 py-2 border-b border-gray-100">
+                <p className="text-xs font-medium text-gray-900 truncate">{user.email}</p>
+              </div>
+              <Link
+                to="/ustawienia"
+                onClick={() => setMenuOpen(false)}
+                className="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                Ustawienia
+              </Link>
+              <button
+                onClick={handleSignOut}
+                className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+              >
+                Wyloguj się
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <Link
+          to="/logowanie"
+          className="text-sm text-gray-500 hover:text-green-700 font-medium"
+        >
+          Zaloguj się
+        </Link>
+      )}
     </header>
   );
 }

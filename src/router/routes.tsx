@@ -20,6 +20,8 @@ import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { HatcheryListPage } from '@/pages/hatchery/HatcheryListPage';
 import { HatcheryFormPage } from '@/pages/hatchery/HatcheryFormPage';
 import { HatcheryDetailPage } from '@/pages/hatchery/HatcheryDetailPage';
+import { LoginPage } from '@/pages/auth/LoginPage';
+import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { PageSpinner } from '@/components/ui/PageSpinner';
 
 const CashFlowPage = React.lazy(() =>
@@ -27,6 +29,10 @@ const CashFlowPage = React.lazy(() =>
 );
 
 export const router = createBrowserRouter([
+  // Strony autoryzacji – poza AppShell
+  { path: '/logowanie',   element: <LoginPage /> },
+  { path: '/rejestracja', element: <RegisterPage /> },
+
   {
     path: '/',
     element: <AppShell />,
