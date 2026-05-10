@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +41,7 @@ async function fetchAll(userId: string): Promise<DailyEntry[]> {
 
 export function useAllDailyEntries(): DailyEntry[] {
   const { user } = useAuth();
+  const uid = useId();
 
   const dexie = useLiveQuery(
     () => !user
@@ -54,7 +55,7 @@ export function useAllDailyEntries(): DailyEntry[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     fetchAll(user.id).then(setSb);
-    const ch = supabase.channel(`daily-all-${user.id}`)
+    const ch = supabase.channel(`daily-all-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_entries' },
         () => fetchAll(user.id).then(setSb))
       .subscribe();
@@ -66,6 +67,7 @@ export function useAllDailyEntries(): DailyEntry[] {
 
 export function useDailyEntries(batchId: number): DailyEntry[] {
   const { user } = useAuth();
+  const uid = useId();
 
   const dexie = useLiveQuery(
     () => !user
@@ -79,7 +81,7 @@ export function useDailyEntries(batchId: number): DailyEntry[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     fetchByBatch(user.id, batchId).then(setSb);
-    const ch = supabase.channel(`daily-${batchId}-${user.id}`)
+    const ch = supabase.channel(`daily-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_entries' },
         () => fetchByBatch(user.id, batchId).then(setSb))
       .subscribe();
