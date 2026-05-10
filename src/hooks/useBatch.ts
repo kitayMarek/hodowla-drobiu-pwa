@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { supabase } from '@/lib/supabase';
@@ -51,6 +51,7 @@ async function fetchOne(userId: string, id: number): Promise<Batch | undefined> 
 
 export function useBatches(): Batch[] {
   const { user } = useAuth();
+  const uid = useId();
 
   // Dexie (demo)
   const dexie = useLiveQuery(
@@ -64,7 +65,7 @@ export function useBatches(): Batch[] {
     if (!user) { setSb([]); return; }
     fetchAll(user.id).then(setSb);
 
-    const ch = supabase.channel('batches-' + user.id)
+    const ch = supabase.channel(`batches-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' },
         () => fetchAll(user.id).then(setSb))
       .subscribe();
@@ -76,6 +77,7 @@ export function useBatches(): Batch[] {
 
 export function useActiveBatches(): Batch[] {
   const { user } = useAuth();
+  const uid = useId();
 
   const dexie = useLiveQuery(
     () => !user ? db.batches.where('status').equals('active').toArray() : Promise.resolve([] as Batch[]),
@@ -86,7 +88,7 @@ export function useActiveBatches(): Batch[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     fetchActive(user.id).then(setSb);
-    const ch = supabase.channel('batches-active-' + user.id)
+    const ch = supabase.channel(`batches-active-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' },
         () => fetchActive(user.id).then(setSb))
       .subscribe();
@@ -98,6 +100,7 @@ export function useActiveBatches(): Batch[] {
 
 export function useBatch(id: number): Batch | undefined {
   const { user } = useAuth();
+  const uid = useId();
 
   const dexie = useLiveQuery(
     () => !user ? db.batches.get(id) : Promise.resolve(undefined as Batch | undefined),
@@ -108,7 +111,7 @@ export function useBatch(id: number): Batch | undefined {
   useEffect(() => {
     if (!user) { setSb(undefined); return; }
     fetchOne(user.id, id).then(setSb);
-    const ch = supabase.channel(`batch-${id}-${user.id}`)
+    const ch = supabase.channel(`batch-${id}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'batches', filter: `id=eq.${id}` },
         () => fetchOne(user.id, id).then(setSb))
       .subscribe();
