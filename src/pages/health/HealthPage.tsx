@@ -14,8 +14,8 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { KPICard } from '@/components/charts/KPICard';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/database';
+import { useHealthEventsByBatch } from '@/hooks/useTableData';
+import { useDailyEntries } from '@/hooks/useDailyEntries';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln, formatPercent } from '@/utils/format';
 import { HEALTH_EVENT_LABELS } from '@/constants/phases';
@@ -37,18 +37,11 @@ export function HealthPage() {
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<HealthEvent | null>(null);
 
-  const events = useLiveQuery(
-    async () => {
-      const evts = await db.healthEvents.where('batchId').equals(id).sortBy('eventDate');
-      return evts.reverse();
-    },
-    [id]
-  ) ?? [];
-
-  const batch2 = useLiveQuery(() => db.batches.get(id), [id]);
-  const dailyEntries = useLiveQuery(() => db.dailyEntries.where('batchId').equals(id).toArray(), [id]) ?? [];
-  const totalDead = dailyEntries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
-  const mortalityPct = batch2 ? (totalDead / batch2.initialCount) * 100 : 0;
+  const eventsAsc     = useHealthEventsByBatch(id);
+  const events        = [...eventsAsc].reverse();
+  const dailyEntries  = useDailyEntries(id);
+  const totalDead     = dailyEntries.reduce((s, e) => s + e.deadCount + e.culledCount, 0);
+  const mortalityPct  = batch ? (totalDead / batch.initialCount) * 100 : 0;
   const totalHealthCost = events.reduce((s, e) => s + (e.costPln ?? 0), 0);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<HealthEventFormValues>({

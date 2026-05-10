@@ -14,22 +14,24 @@ import { BATCH_STATUS_COLORS } from '@/constants/phases';
 import { pl } from '@/i18n/pl';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
-import type { DailyEntry } from '@/models/dailyEntry.model';
-import type { Weighing } from '@/models/weighing.model';
 import { calcDailyMortalityTrend } from '@/engine/mortality';
 import { calcWeightGainTrend } from '@/engine/growth';
 import { calcDailyEggTrend } from '@/engine/eggs';
 import { DailyCalendar } from '@/components/dashboard/DailyCalendar';
 import { incubationService, calcKeyDates } from '@/services/incubation.service';
+import { useAllExpenses, useAllSales, useAllFeedDeliveries, useWeighingsByBatch } from '@/hooks/useTableData';
+import { useDailyEntries } from '@/hooks/useDailyEntries';
 
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
   const activeBatches = useActiveBatches();
   const allBatches = useBatches();
 
-  const feedDeliveries = useLiveQuery(() => db.feedDeliveries.toArray(), []) ?? [];
+  const feedDeliveries = useAllFeedDeliveries();
+  const allExpenses    = useAllExpenses();
+  const allSales       = useAllSales();
 
-  // Wylęgarnia – alerty lockdown
+  // Wylęgarnia – alerty lockdown (Dexie-only for now)
   const upcomingLockdowns = useLiveQuery(
     () => incubationService.getUpcomingLockdowns(3),
     []
@@ -38,19 +40,17 @@ export function DashboardPage() {
     () => db.incubations.where('status').anyOf('incubating', 'lockdown').count(),
     []
   ) ?? 0;
-  const allExpenses = useLiveQuery(() => db.expenses.toArray(), []) ?? [];
-  const allSales = useLiveQuery(() => db.sales.toArray(), []) ?? [];
 
-  // Wpisy dzienne bieżącego miesiąca – dla kalendarza
+  // Wpisy dzienne bieżącego miesiąca – dla kalendarza (via istniejący hook)
+  const firstBatchId = activeBatches[0]?.id;
+  const allFirstBatchEntries = useDailyEntries(firstBatchId ?? 0);
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = `${today.slice(0, 7)}-01`;
-  const monthEntries = useLiveQuery(
-    () => db.dailyEntries.where('date').between(monthStart, today, true, true).toArray(),
-    [monthStart, today],
-  ) ?? [];
+  const monthEntries = allFirstBatchEntries.filter(e => e.date >= monthStart && e.date <= today);
+  const dailyEntries = firstBatchId ? allFirstBatchEntries : [];
+  const weighings    = useWeighingsByBatch(firstBatchId ?? 0);
 
   const totalBirds = allKPIs.reduce((s, k) => s + k.currentBirdCount, 0);
-  // Przychody i koszty z pełnych danych – nie tylko aktywnych stad
   const totalRevenue = allSales.reduce((s, x) => s + x.totalRevenuePln, 0);
   const totalFeedDeliveryCost = feedDeliveries.reduce((s, d) => s + d.totalCostPln, 0);
   const totalOtherExpenses = allExpenses.reduce((s, e) => s + e.amountPln, 0);
@@ -60,19 +60,6 @@ export function DashboardPage() {
   );
   const totalCosts = totalFeedDeliveryCost + totalOtherExpenses + totalChickCost;
   const totalMargin = totalRevenue - totalCosts;
-
-  // Wybierz pierwszą aktywną partię do wykresów
-  const firstBatchId = activeBatches[0]?.id;
-
-  const dailyEntries = useLiveQuery<DailyEntry[]>(
-    async () => firstBatchId ? db.dailyEntries.where('batchId').equals(firstBatchId).sortBy('date') : [],
-    [firstBatchId]
-  ) ?? [];
-
-  const weighings = useLiveQuery<Weighing[]>(
-    async () => firstBatchId ? db.weighings.where('batchId').equals(firstBatchId).sortBy('weighingDate') : [],
-    [firstBatchId]
-  ) ?? [];
 
   const mortalityTrend = calcDailyMortalityTrend(dailyEntries).slice(-14);
   const weightTrend = calcWeightGainTrend(weighings);

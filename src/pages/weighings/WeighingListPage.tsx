@@ -14,8 +14,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { KPICard } from '@/components/charts/KPICard';
 import { SimpleArea } from '@/components/charts/TrendChart';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/database';
+import { useWeighingsByBatch } from '@/hooks/useTableData';
 import { formatDate, todayISO, differenceInDays, parseISO } from '@/utils/date';
 import { formatGrams } from '@/utils/format';
 import { buildGrowthCurve, calcDailyWeightGain } from '@/engine/growth';
@@ -30,10 +29,7 @@ export function WeighingListPage() {
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Weighing | null>(null);
 
-  const weighings = useLiveQuery(
-    () => db.weighings.where('batchId').equals(id).sortBy('weighingDate'),
-    [id]
-  ) ?? [];
+  const weighings = useWeighingsByBatch(id);
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<WeighingFormValues>({
     resolver: zodResolver(weighingSchema),

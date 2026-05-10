@@ -155,11 +155,10 @@ export function CashFlowPage() {
   const [deleteEvent,     setDeleteEvent]     = useState<FinancialEvent | null>(null);
 
   useEffect(() => {
-    db.cashAccounts.toArray().then(r => setAccounts(r.sort((a, b) => a.name.localeCompare(b.name)))).catch(() => {});
-    db.cashTransactions.toArray().then(r => setAllTxs(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
-    db.financialEvents.where('status').equals('pending').toArray()
-      .then(r => setPending(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
-    db.cashCategories.toArray().then(r => setCategories(r.sort((a, b) => a.name.localeCompare(b.name, 'pl')))).catch(() => {});
+    cashFlowService.getAccounts().then(r => setAccounts(r.sort((a, b) => a.name.localeCompare(b.name)))).catch(() => {});
+    cashFlowService.getTransactions().then(r => setAllTxs(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
+    financialEventService.getPending().then(r => setPending(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
+    cashFlowService.getAllCategories().then(r => setCategories(r.sort((a, b) => a.name.localeCompare(b.name, 'pl')))).catch(() => {});
   }, [rev]);
 
   // Filtry

@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/database';
+import { useInvestments } from '@/hooks/useTableData';
 import { investmentSchema, type InvestmentFormValues } from '@/utils/validation';
 import { investmentService } from '@/services/investment.service';
 import {
@@ -31,10 +30,7 @@ export function InvestmentPage() {
   const [editTarget, setEditTarget] = useState<Investment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Investment | null>(null);
 
-  const investments = useLiveQuery(
-    () => db.investments.orderBy('purchaseDate').reverse().toArray(),
-    []
-  ) ?? [];
+  const investments = useInvestments();
 
   // KPI
   const totalValue = investments.reduce((s, i) => s + i.amountPln, 0);

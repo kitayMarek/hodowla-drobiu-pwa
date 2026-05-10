@@ -13,27 +13,30 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { KPICard } from '@/components/charts/KPICard';
 import { SimpleBar } from '@/components/charts/TrendChart';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/database';
+import { useAuth } from '@/contexts/AuthContext';
+import { cashFlowService } from '@/services/cashFlow.service';
+import { useAllExpenses, useAllSales, useAllFeedDeliveries, useFeedTypes, useActiveCashAccounts } from '@/hooks/useTableData';
+import { useBatches } from '@/hooks/useBatch';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln, formatPercent } from '@/utils/format';
 import { EXPENSE_CATEGORY_LABELS, SALE_TYPE_LABELS } from '@/constants/phases';
 import type { Expense } from '@/models/expense.model';
 
 export function FinancePage() {
+  const { user } = useAuth();
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Expense | null>(null);
   const [expPayment,   setExpPayment]   = useState<'pending' | 'immediate'>('pending');
   const [expAccountId, setExpAccountId] = useState('');
-  const cashAccounts = useLiveQuery(() => db.cashAccounts.filter(a => a.isActive).toArray(), []) ?? [];
+  const cashAccounts  = useActiveCashAccounts();
   const [financeModal, setFinanceModal] = useState<'przychody'|'koszty'|'marza'|'rentownosc'|{batchId:number}|null>(null);
 
-  const allKPIs = useAllBatchKPIs();
-  const expenses = useLiveQuery(() => db.expenses.orderBy('expenseDate').reverse().toArray(), []) ?? [];
-  const sales = useLiveQuery(() => db.sales.toArray(), []) ?? [];
-  const deliveries = useLiveQuery(() => db.feedDeliveries.orderBy('deliveryDate').reverse().toArray(), []) ?? [];
-  const feedTypes = useLiveQuery(() => db.feedTypes.toArray(), []) ?? [];
-  const allBatches = useLiveQuery(() => db.batches.toArray(), []) ?? [];
+  const allKPIs    = useAllBatchKPIs();
+  const expenses   = useAllExpenses();
+  const sales      = useAllSales();
+  const deliveries = useAllFeedDeliveries();
+  const feedTypes  = useFeedTypes();
+  const allBatches = useBatches();
   const batchMap = new Map(allBatches.map(b => [b.id!, b.name]));
   const feedTypeMap = new Map(feedTypes.map(ft => [ft.id!, ft.name]));
 
@@ -81,10 +84,10 @@ export function FinancePage() {
         description: desc, sourceType: 'expense', sourceId: expId,
       });
     } else if (expPayment === 'immediate' && expAccountId) {
-      await db.cashTransactions.add({
+      await cashFlowService.createTransaction({
         accountId: Number(expAccountId), date: data.expenseDate, type: 'expense',
         scope: 'drob', category: EXPENSE_CATEGORY_LABELS[data.category] ?? 'Inne',
-        description: desc, amountPln: data.amountPln, createdAt: new Date().toISOString(),
+        description: desc, amountPln: data.amountPln,
       });
     }
 

@@ -21,6 +21,12 @@ import { TRANSFER_REASON_LABELS, type TransferReason } from '@/models/birdTransf
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { addDays, parseISO, isAfter } from 'date-fns';
+import {
+  useSalesByBatch, useExpensesByBatch, useSlaughterByBatch,
+  useBirdTransfersByBatch, useHealthEventsByBatch,
+} from '@/hooks/useTableData';
+import { useDailyEntries } from '@/hooks/useDailyEntries';
+import { useBatches } from '@/hooks/useBatch';
 import { BatchPhotosSection } from './BatchPhotosSection';
 import type { BatchKPIResult } from '@/engine/types';
 import type { Batch } from '@/models/batch.model';
@@ -70,35 +76,13 @@ function KPIDetailModal({
 }) {
   const batchId = batch.id!;
 
-  const sales = useLiveQuery(
-    () => db.sales.where('batchId').equals(batchId).sortBy('saleDate'),
-    [batchId]
-  ) ?? [];
-
-  const expenses = useLiveQuery(
-    () => db.expenses.where('batchId').equals(batchId).sortBy('expenseDate'),
-    [batchId]
-  ) ?? [];
-
-  const slaughter = useLiveQuery(
-    () => db.slaughterRecords.where('batchId').equals(batchId).sortBy('slaughterDate'),
-    [batchId]
-  ) ?? [];
-
-  const deaths = useLiveQuery(
-    () => db.dailyEntries
-      .where('batchId').equals(batchId)
-      .filter(e => e.deadCount > 0 || e.culledCount > 0)
-      .sortBy('date'),
-    [batchId]
-  ) ?? [];
-
-  const transfers = useLiveQuery(
-    () => birdTransferService.getByBatch(batchId),
-    [batchId]
-  ) ?? [];
-
-  const allBatches = useLiveQuery(() => db.batches.toArray(), []) ?? [];
+  const sales      = useSalesByBatch(batchId);
+  const expenses   = useExpensesByBatch(batchId);
+  const slaughter  = useSlaughterByBatch(batchId);
+  const allEntries = useDailyEntries(batchId);
+  const deaths     = allEntries.filter(e => e.deadCount > 0 || e.culledCount > 0);
+  const transfers  = useBirdTransfersByBatch(batchId);
+  const allBatches = useBatches();
 
   const titles: Record<KPIModalType, string> = {
     revenue:  'Szczegóły przychodów',
@@ -441,11 +425,8 @@ function KPIDetailModal({
 
 // ── Sekcja przesunięć ptaków ─────────────────────────────────────────────────
 function BirdTransferSection({ batchId }: { batchId: number }) {
-  const transfers = useLiveQuery(
-    () => birdTransferService.getByBatch(batchId),
-    [batchId]
-  ) ?? [];
-  const allBatches = useLiveQuery(() => db.batches.toArray(), []) ?? [];
+  const transfers  = useBirdTransfersByBatch(batchId);
+  const allBatches = useBatches();
 
   const [showModal, setShowModal] = React.useState(false);
   const [date, setDate]         = React.useState(todayISO());
@@ -608,10 +589,15 @@ export function BatchDetailPage() {
   const navigate = useNavigate();
   const [kpiModal, setKpiModal] = React.useState<KPIModalType | null>(null);
 
-  const withdrawals = useLiveQuery(async () => {
-    if (!id) return [];
-    return healthService.getActiveWithdrawals(id);
-  }, [id]) ?? [];
+  const healthEvents = useHealthEventsByBatch(id);
+  const withdrawals = React.useMemo(() => {
+    const today = new Date();
+    return healthEvents.filter(e => {
+      if (!e.withdrawalPeriodDays || e.withdrawalPeriodDays <= 0) return false;
+      const end = addDays(parseISO(e.eventDate), e.withdrawalPeriodDays);
+      return isAfter(end, today);
+    });
+  }, [healthEvents]);
 
   if (!batch) return <PageLoader />;
 

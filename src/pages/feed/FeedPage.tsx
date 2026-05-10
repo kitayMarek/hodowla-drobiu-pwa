@@ -18,6 +18,11 @@ import { KPICard } from '@/components/charts/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
+import {
+  useFeedTypes, useAllFeedDeliveries, useAllFeedConsumptions,
+  useAllWeighings, useAllSales, useAllSlaughter, useActiveCashAccounts,
+} from '@/hooks/useTableData';
+import { useBatches } from '@/hooks/useBatch';
 import { formatPln, formatKg, formatFCR } from '@/utils/format';
 import { formatDate, todayISO } from '@/utils/date';
 import { FEED_PHASE_LABELS } from '@/constants/phases';
@@ -62,16 +67,17 @@ export function FeedPage() {
   // Modal szczegółów zużycia
   const [feedModal, setFeedModal] = useState<{batchId: number; type: 'zuzycie'|'koszt'|'fcr'|'perBird'}|null>(null);
 
-  // Dane
-  const feedTypes          = useLiveQuery(() => db.feedTypes.orderBy('name').toArray(), []) ?? [];
-  const deliveries         = useLiveQuery(() => db.feedDeliveries.orderBy('deliveryDate').reverse().toArray(), []) ?? [];
-  const allDailyEntries    = useLiveQuery(() => db.dailyEntries.toArray(), []) ?? [];
-  const allFeedConsumptions = useLiveQuery(() => db.feedConsumptions.toArray(), []) ?? [];
-  const allWeighings       = useLiveQuery(() => db.weighings.toArray(), []) ?? [];
-  const allBatches         = useLiveQuery(() => db.batches.toArray(), []) ?? [];
-  const batchKPIs          = useAllBatchKPIs();
-  const allSlaughter       = useLiveQuery(() => db.slaughterRecords.toArray(), []) ?? [];
-  const allSales           = useLiveQuery(() => db.sales.toArray(), []) ?? [];
+  // Dane (dual-mode)
+  const feedTypes           = useFeedTypes();
+  const deliveries          = useAllFeedDeliveries();
+  const allFeedConsumptions = useAllFeedConsumptions();
+  const allWeighings        = useAllWeighings();
+  const allBatches          = useBatches();
+  const batchKPIs           = useAllBatchKPIs();
+  const allSlaughter        = useAllSlaughter();
+  const allSales            = useAllSales();
+  // daily entries still from Dexie for now
+  const allDailyEntries     = useLiveQuery(() => db.dailyEntries.toArray(), []) ?? [];
 
   // ─── Obliczenia magazynowe ──────────────────────────────────────────────────
   const today = todayISO();
@@ -139,7 +145,7 @@ export function FeedPage() {
   // Rozliczenie kasowe dostawy
   const [delPayment,   setDelPayment]   = useState<'pending' | 'immediate'>('pending');
   const [delAccountId, setDelAccountId] = useState('');
-  const cashAccounts = useLiveQuery(() => db.cashAccounts.filter(a => a.isActive).toArray(), []) ?? [];
+  const cashAccounts = useActiveCashAccounts();
 
   const openEditType = (ft: FeedType) => {
     setEditType(ft);

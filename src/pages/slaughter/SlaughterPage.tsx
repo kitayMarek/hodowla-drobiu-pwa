@@ -13,8 +13,7 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { KPICard } from '@/components/charts/KPICard';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/database';
+import { useSlaughterByBatch } from '@/hooks/useTableData';
 import { formatDate, todayISO, differenceInDays, parseISO } from '@/utils/date';
 import { formatKg, formatPln, formatPercent } from '@/utils/format';
 import { calcTotalCarcassKg, calcAvgDressingPercent } from '@/engine/costs';
@@ -28,13 +27,8 @@ export function SlaughterPage() {
   const [showForm, setShowForm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SlaughterRecord | null>(null);
 
-  const records = useLiveQuery(
-    async () => {
-      const r = await db.slaughterRecords.where('batchId').equals(id).sortBy('slaughterDate');
-      return r.reverse();
-    },
-    [id]
-  ) ?? [];
+  const recordsAsc = useSlaughterByBatch(id);
+  const records    = [...recordsAsc].reverse();
 
   const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<SlaughterFormValues>({
     resolver: zodResolver(slaughterSchema),

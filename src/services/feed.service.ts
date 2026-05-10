@@ -253,6 +253,16 @@ export const feedService = {
     return db.feedConsumptions.add({ ...data, createdAt: now });
   },
 
+  async getConsumptionsByBatchAndDate(batchId: number, date: string): Promise<FeedConsumption[]> {
+    const all = await this.getConsumptionsByBatch(batchId);
+    return all.filter(c => c.date === date);
+  },
+
+  async deleteConsumptionsByBatchAndDate(batchId: number, date: string): Promise<void> {
+    const items = await this.getConsumptionsByBatchAndDate(batchId, date);
+    await Promise.all(items.map(c => this.deleteConsumption(c.id!)));
+  },
+
   async deleteConsumption(id: number): Promise<void> {
     const user = await getAuthUser();
     if (user) {
@@ -260,6 +270,15 @@ export const feedService = {
       return;
     }
     await db.feedConsumptions.delete(id);
+  },
+
+  async getAllConsumptions(): Promise<FeedConsumption[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('feed_consumptions').select('*').eq('user_id', user.id);
+      return (data ?? []).map(rowToConsumption);
+    }
+    return db.feedConsumptions.toArray();
   },
 
   async getStockLevel(feedTypeId: number): Promise<number> {

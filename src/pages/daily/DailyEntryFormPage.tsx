@@ -14,8 +14,7 @@ import { todayISO } from '@/utils/date';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import type { DailyEntry } from '@/models/dailyEntry.model';
 import type { FeedType } from '@/models/feed.model';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '@/db/database';
+import { useFeedTypes } from '@/hooks/useTableData';
 
 // ─── Typ wiersza paszowego ────────────────────────────────────────────────────
 
@@ -37,12 +36,14 @@ export function DailyEntryFormPage() {
   const navigate = useNavigate();
   const isEdit   = entryId != null;
 
-  const existing = useLiveQuery<DailyEntry | undefined>(
-    () => isEdit ? db.dailyEntries.get(Number(entryId)) : Promise.resolve(undefined),
-    [entryId],
-  );
+  const [existing, setExisting] = useState<DailyEntry | undefined>(undefined);
+  useEffect(() => {
+    if (!isEdit) return;
+    dailyEntryService.getById(Number(entryId)).then(setExisting);
+  }, [entryId, isEdit]);
 
-  const feedTypes: FeedType[] = useLiveQuery(() => feedService.getActiveTypes(), []) ?? [];
+  const allFeedTypes = useFeedTypes();
+  const feedTypes: FeedType[] = allFeedTypes.filter(ft => ft.isActive);
 
   const {
     register,
@@ -106,9 +107,7 @@ export function DailyEntryFormPage() {
     } as DailyEntryFormValues);
 
     // Załaduj wiersze paszowe z feedConsumptions
-    db.feedConsumptions
-      .where('[batchId+date]').equals([id, existing.date])
-      .toArray()
+    feedService.getConsumptionsByBatchAndDate(id, existing.date)
       .then(consumptions => {
         if (consumptions.length > 0) {
           const rows: FeedRow[] = consumptions.map(fc => ({
@@ -155,22 +154,21 @@ export function DailyEntryFormPage() {
 
     if (isEdit && existing?.id != null) {
       // Usuń stare feedConsumptions pod STARĄ datą (data mogła się zmienić w edycji)
-      await db.feedConsumptions.where('[batchId+date]').equals([id, existing.date]).delete();
+      await feedService.deleteConsumptionsByBatchAndDate(id, existing.date);
       await dailyEntryService.update(existing.id, entryData);
     } else {
       // Usuń ewentualne stare feedConsumptions pod tą datą przed dodaniem nowych
-      await db.feedConsumptions.where('[batchId+date]').equals([id, dateStr]).delete();
+      await feedService.deleteConsumptionsByBatchAndDate(id, dateStr);
       await dailyEntryService.create(entryData);
     }
 
     // Zapisz nowe wiersze paszowe
     for (const row of validRows) {
-      await db.feedConsumptions.add({
+      await feedService.createConsumption({
         batchId:    id,
         feedTypeId: row.feedTypeId!,
         date:       dateStr,
         consumedKg: row.kg!,
-        createdAt:  new Date().toISOString(),
       });
     }
 
