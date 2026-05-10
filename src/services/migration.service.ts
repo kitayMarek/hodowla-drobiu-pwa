@@ -470,9 +470,13 @@ export async function importFromJson(file: File): Promise<{ imported: number; er
     rows: Record<string, unknown>[],
     transform: (r: Record<string, unknown>) => Record<string, unknown>
   ) => {
+    const before = { imported, errors };
     for (const r of rows) {
       await ins(table, transform(r));
     }
+    const ok  = imported - before.imported;
+    const err = errors   - before.errors;
+    if (rows.length > 0) console.log(`[import] ${table}: ${ok} ok, ${err} err / ${rows.length} rows`);
   };
 
   await simpleInsert('feed_deliveries', d['feed_deliveries'] ?? [], r => ({
