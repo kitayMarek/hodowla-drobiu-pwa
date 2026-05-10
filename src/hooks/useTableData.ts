@@ -18,6 +18,7 @@ import { weighingService } from '@/services/weighing.service';
 import { healthService } from '@/services/health.service';
 import { birdTransferService } from '@/services/birdTransfer.service';
 import { investmentService } from '@/services/investment.service';
+import { orderService } from '@/services/order.service';
 import type { Expense } from '@/models/expense.model';
 import type { Sale } from '@/models/sale.model';
 import type { FeedType, FeedDelivery, FeedConsumption } from '@/models/feed.model';
@@ -27,6 +28,7 @@ import type { Weighing } from '@/models/weighing.model';
 import type { HealthEvent } from '@/models/health.model';
 import type { BirdTransfer } from '@/models/birdTransfer.model';
 import type { Investment } from '@/models/investment.model';
+import type { Order } from '@/models/order.model';
 
 // ── Expenses ─────────────────────────────────────────────────
 
@@ -349,6 +351,27 @@ export function useInvestments(): Investment[] {
     const ch = supabase.channel(`investments-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'investments' },
         () => investmentService.getAll().then(setSb))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+  return user ? sb : dexie;
+}
+
+// ── Orders ───────────────────────────────────────────────────
+
+export function useOrders(): Order[] {
+  const { user } = useAuth();
+  const dexie = useLiveQuery(
+    () => !user ? db.orders.orderBy('plannedDate').toArray() : Promise.resolve([] as Order[]),
+    [!!user]
+  ) ?? [];
+  const [sb, setSb] = useState<Order[]>([]);
+  useEffect(() => {
+    if (!user) { setSb([]); return; }
+    orderService.getAll().then(setSb);
+    const ch = supabase.channel(`orders-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' },
+        () => orderService.getAll().then(setSb))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);

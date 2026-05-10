@@ -16,12 +16,12 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { KPICard } from '@/components/charts/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import {
   useFeedTypes, useAllFeedDeliveries, useAllFeedConsumptions,
   useAllWeighings, useAllSales, useAllSlaughter, useActiveCashAccounts,
 } from '@/hooks/useTableData';
+import { useAllDailyEntries } from '@/hooks/useDailyEntries';
 import { useBatches } from '@/hooks/useBatch';
 import { formatPln, formatKg, formatFCR } from '@/utils/format';
 import { formatDate, todayISO } from '@/utils/date';
@@ -76,8 +76,7 @@ export function FeedPage() {
   const batchKPIs           = useAllBatchKPIs();
   const allSlaughter        = useAllSlaughter();
   const allSales            = useAllSales();
-  // daily entries still from Dexie for now
-  const allDailyEntries     = useLiveQuery(() => db.dailyEntries.toArray(), []) ?? [];
+  const allDailyEntries     = useAllDailyEntries();
 
   // ─── Obliczenia magazynowe ──────────────────────────────────────────────────
   const today = todayISO();

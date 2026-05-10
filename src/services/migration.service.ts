@@ -298,7 +298,26 @@ export async function importFromLocalDexie(): Promise<{ imported: number; errors
     });
   }
 
-  // 14. Ustawienia
+  // 14. Zamówienia
+  const orders = await db.orders.toArray();
+  for (const o of orders) {
+    const bId = o.batchId ? batchMap.get(o.batchId) ?? null : null;
+    await ins('orders', {
+      batch_id:       bId,
+      customer_name:  o.buyerName ?? '-',
+      customer_phone: o.phone ?? null,
+      planned_date:   o.plannedDate,
+      sale_type:      o.orderType,
+      quantity:       o.quantity ?? 0,
+      price_per_unit: o.pricePerUnit ?? null,
+      status:         o.status,
+      notes:          o.notes ?? null,
+      created_at:     o.createdAt,
+      updated_at:     o.createdAt,
+    });
+  }
+
+  // 15. Ustawienia
   const settings = await db.settings.toArray();
   for (const s of settings) {
     const { error } = await supabase.from('settings')
@@ -481,6 +500,23 @@ export async function importFromJson(file: File): Promise<{ imported: number; er
     amount_pln:  f(r, 'amount_pln', 'amountPln'),
     created_at:  f(r, 'created_at', 'createdAt'),
   }));
+
+  await simpleInsert('orders', d['orders'] ?? [], r => {
+    const createdAt = f(r, 'created_at', 'createdAt') as string;
+    return {
+      batch_id:       batchMap.get(f(r, 'batch_id', 'batchId') as number) ?? null,
+      customer_name:  (f(r, 'customer_name', 'buyerName') as string | undefined) ?? '-',
+      customer_phone: f(r, 'customer_phone', 'phone') ?? null,
+      planned_date:   f(r, 'planned_date', 'plannedDate'),
+      sale_type:      f(r, 'sale_type', 'orderType'),
+      quantity:       (f(r, 'quantity', 'quantity') as number | undefined) ?? 0,
+      price_per_unit: f(r, 'price_per_unit', 'pricePerUnit') ?? null,
+      status:         f(r, 'status', 'status') ?? 'oczekujace',
+      notes:          f(r, 'notes', 'notes') ?? null,
+      created_at:     createdAt,
+      updated_at:     (f(r, 'updated_at', 'updatedAt') as string | undefined) ?? createdAt,
+    };
+  });
 
   // Konta kasowe
   for (const a of d['cash_accounts'] ?? []) {

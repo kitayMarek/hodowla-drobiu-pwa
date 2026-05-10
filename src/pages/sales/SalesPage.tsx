@@ -22,7 +22,9 @@ import { EmptyState }   from '@/components/ui/EmptyState';
 import { KPICard }      from '@/components/charts/KPICard';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db }           from '@/db/database';
-import { useAllSales, useActiveCashAccounts, useAllSlaughter, useAllFeedConsumptions, useAllWeighings } from '@/hooks/useTableData';
+import { useAllSales, useActiveCashAccounts, useAllSlaughter, useAllFeedConsumptions, useAllWeighings, useOrders } from '@/hooks/useTableData';
+import { useAllDailyEntries } from '@/hooks/useDailyEntries';
+import { useBatches } from '@/hooks/useBatch';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln }    from '@/utils/format';
 import {
@@ -113,10 +115,10 @@ export function SalesPage() {
   const sales              = useAllSales();
   const allSlaughter       = useAllSlaughter();
   const activeBatches      = useActiveBatches();
-  // Dexie-only for now (hatchery/orders not yet migrated to Supabase hooks)
-  const orders             = useLiveQuery(() => db.orders.orderBy('plannedDate').toArray(), []) ?? [];
-  const allBatches         = useLiveQuery(() => db.batches.toArray(), []) ?? [];
-  const allDailyEntries    = useLiveQuery(() => db.dailyEntries.toArray(), []) ?? [];
+  const orders             = useOrders();
+  const allBatches         = useBatches();
+  const allDailyEntries    = useAllDailyEntries();
+  // Hatchery tables remain Dexie-only for now
   const eggPurchases       = useLiveQuery(() => db.eggPurchases.orderBy('purchaseDate').reverse().toArray(), []) ?? [];
   const eggHatchTransfers  = useLiveQuery(() => db.eggHatchTransfers.orderBy('transferDate').reverse().toArray(), []) ?? [];
 
