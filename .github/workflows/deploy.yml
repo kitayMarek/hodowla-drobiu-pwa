@@ -29,14 +29,24 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: 🚀 Deploy via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftps
-          local-dir: ./dist/
-          server-dir: ${{ secrets.FTP_REMOTE_DIR }}
-          # Tylko zmienione pliki (szybszy deploy)
-          dangerous-clean-slate: false
+      - name: 📂 Install lftp
+        run: sudo apt-get install -y lftp
+
+      - name: 🚀 Deploy via lftp
+        env:
+          FTP_SERVER:   ${{ secrets.FTP_SERVER }}
+          FTP_USERNAME: ${{ secrets.FTP_USERNAME }}
+          FTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          FTP_DIR:      ${{ secrets.FTP_REMOTE_DIR }}
+        run: |
+          lftp -c "
+            set ftp:ssl-allow yes;
+            set ftp:ssl-force no;
+            set ftp:passive-mode yes;
+            set net:timeout 30;
+            set net:max-retries 5;
+            set net:reconnect-interval-base 5;
+            open ftp://$FTP_USERNAME:$FTP_PASSWORD@$FTP_SERVER;
+            mirror --reverse --delete --verbose ./dist/ $FTP_DIR;
+            bye
+          "
