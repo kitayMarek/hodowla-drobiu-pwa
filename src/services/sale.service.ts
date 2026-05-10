@@ -1,40 +1,118 @@
 import { db } from '@/db/database';
+import { supabase, getAuthUser } from '@/lib/supabase';
 import type { Sale } from '@/models/sale.model';
 import type { SaleType } from '@/constants/phases';
 
+function rowToSale(r: Record<string, unknown>): Sale {
+  return {
+    id:               r.id as number,
+    batchId:          r.batch_id as number,
+    saleDate:         r.sale_date as string,
+    saleType:         r.sale_type as SaleType,
+    eggsCount:        r.eggs_count as number | undefined,
+    eggPricePln:      r.egg_price_pln as number | undefined,
+    birdCount:        r.bird_count as number | undefined,
+    weightKg:         r.weight_kg as number | undefined,
+    pricePerKgPln:    r.price_per_kg_pln as number | undefined,
+    totalRevenuePln:  r.total_revenue_pln as number,
+    buyerName:        r.buyer_name as string | undefined,
+    invoiceNumber:    r.invoice_number as string | undefined,
+    notes:            r.notes as string | undefined,
+    createdAt:        r.created_at as string,
+  };
+}
+
 export const saleService = {
   async getAll(): Promise<Sale[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('sales').select('*')
+        .eq('user_id', user.id).order('sale_date', { ascending: false });
+      return (data ?? []).map(rowToSale);
+    }
     return db.sales.orderBy('saleDate').reverse().toArray();
   },
 
   async getByBatch(batchId: number): Promise<Sale[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('sales').select('*')
+        .eq('user_id', user.id).eq('batch_id', batchId).order('sale_date');
+      return (data ?? []).map(rowToSale);
+    }
     return db.sales.where('batchId').equals(batchId).sortBy('saleDate');
   },
 
   async getByType(saleType: SaleType): Promise<Sale[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('sales').select('*')
+        .eq('user_id', user.id).eq('sale_type', saleType);
+      return (data ?? []).map(rowToSale);
+    }
     return db.sales.where('saleType').equals(saleType).toArray();
   },
 
   async getById(id: number): Promise<Sale | undefined> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('sales').select('*')
+        .eq('user_id', user.id).eq('id', id).single();
+      return data ? rowToSale(data) : undefined;
+    }
     return db.sales.get(id);
   },
 
   async create(data: Omit<Sale, 'id' | 'createdAt'>): Promise<number> {
-    return db.sales.add({ ...data, createdAt: new Date().toISOString() });
+    const user = await getAuthUser();
+    const now = new Date().toISOString();
+    if (user) {
+      const { data: row, error } = await supabase.from('sales').insert({
+        user_id: user.id, batch_id: data.batchId, sale_date: data.saleDate,
+        sale_type: data.saleType, eggs_count: data.eggsCount ?? null,
+        egg_price_pln: data.eggPricePln ?? null, bird_count: data.birdCount ?? null,
+        weight_kg: data.weightKg ?? null, price_per_kg_pln: data.pricePerKgPln ?? null,
+        total_revenue_pln: data.totalRevenuePln, buyer_name: data.buyerName ?? null,
+        invoice_number: data.invoiceNumber ?? null, notes: data.notes ?? null, created_at: now,
+      }).select('id').single();
+      if (error) throw error;
+      return row.id;
+    }
+    return db.sales.add({ ...data, createdAt: now });
   },
 
   async update(id: number, data: Partial<Sale>): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      const row: Record<string, unknown> = {};
+      if (data.saleDate        !== undefined) row.sale_date         = data.saleDate;
+      if (data.saleType        !== undefined) row.sale_type         = data.saleType;
+      if (data.eggsCount       !== undefined) row.eggs_count        = data.eggsCount;
+      if (data.eggPricePln     !== undefined) row.egg_price_pln     = data.eggPricePln;
+      if (data.birdCount       !== undefined) row.bird_count        = data.birdCount;
+      if (data.weightKg        !== undefined) row.weight_kg         = data.weightKg;
+      if (data.pricePerKgPln   !== undefined) row.price_per_kg_pln  = data.pricePerKgPln;
+      if (data.totalRevenuePln !== undefined) row.total_revenue_pln = data.totalRevenuePln;
+      if (data.buyerName       !== undefined) row.buyer_name        = data.buyerName;
+      if (data.invoiceNumber   !== undefined) row.invoice_number    = data.invoiceNumber;
+      if (data.notes           !== undefined) row.notes             = data.notes;
+      await supabase.from('sales').update(row).eq('id', id).eq('user_id', user.id);
+      return;
+    }
     await db.sales.update(id, data);
   },
 
   async delete(id: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('sales').delete().eq('id', id).eq('user_id', user.id);
+      return;
+    }
     await db.sales.delete(id);
   },
 
   async getTotalRevenue(batchId?: number): Promise<number> {
-    const sales = batchId != null
-      ? await this.getByBatch(batchId)
-      : await this.getAll();
+    const sales = batchId != null ? await this.getByBatch(batchId) : await this.getAll();
     return sales.reduce((s, x) => s + x.totalRevenuePln, 0);
   },
 };
