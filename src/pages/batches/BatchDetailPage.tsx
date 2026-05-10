@@ -602,12 +602,14 @@ export function BatchDetailPage() {
     });
   }, [healthEvents]);
 
+  // Wykresy trendów – hooki muszą być przed warunkowym return
+  const dailyEntriesForCharts = useDailyEntries(id);
+  const weighingsForCharts    = useWeighingsByBatch(id);
+
   if (!batch) return <PageLoader />;
 
   const isLayer = isLayerSpecies(batch.species);
 
-  const dailyEntriesForCharts = useDailyEntries(id);
-  const weighingsForCharts    = useWeighingsByBatch(id);
   const mortalityTrend = calcDailyMortalityTrend(dailyEntriesForCharts).slice(-30);
   const weightTrend    = calcWeightGainTrend(weighingsForCharts);
   const eggTrend       = calcDailyEggTrend(dailyEntriesForCharts).slice(-30);
