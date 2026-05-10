@@ -4,7 +4,7 @@
  * Realtime subscriptions keep Supabase data fresh after mutations.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useId } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { supabase } from '@/lib/supabase';
@@ -53,6 +53,7 @@ export function useAllExpenses(): Expense[] {
 
 export function useExpensesByBatch(batchId: number): Expense[] {
   const { user } = useAuth();
+  const uid = useId();
   const dexie = useLiveQuery(
     () => !user ? db.expenses.where('batchId').equals(batchId).toArray() : Promise.resolve([] as Expense[]),
     [!!user, batchId]
@@ -61,7 +62,7 @@ export function useExpensesByBatch(batchId: number): Expense[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     financeService.getExpensesByBatch(batchId).then(setSb);
-    const ch = supabase.channel(`expenses-${batchId}-${user.id}`)
+    const ch = supabase.channel(`expenses-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' },
         () => financeService.getExpensesByBatch(batchId).then(setSb))
       .subscribe();
@@ -93,6 +94,7 @@ export function useAllSales(): Sale[] {
 
 export function useSalesByBatch(batchId: number): Sale[] {
   const { user } = useAuth();
+  const uid = useId();
   const dexie = useLiveQuery(
     () => !user ? db.sales.where('batchId').equals(batchId).sortBy('saleDate') : Promise.resolve([] as Sale[]),
     [!!user, batchId]
@@ -101,7 +103,7 @@ export function useSalesByBatch(batchId: number): Sale[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     saleService.getByBatch(batchId).then(setSb);
-    const ch = supabase.channel(`sales-${batchId}-${user.id}`)
+    const ch = supabase.channel(`sales-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' },
         () => saleService.getByBatch(batchId).then(setSb))
       .subscribe();
@@ -217,6 +219,7 @@ export function useAllCashAccounts(): CashAccount[] {
 
 export function useSlaughterByBatch(batchId: number): SlaughterRecord[] {
   const { user } = useAuth();
+  const uid = useId();
   const dexie = useLiveQuery(
     () => !user ? db.slaughterRecords.where('batchId').equals(batchId).sortBy('slaughterDate') : Promise.resolve([] as SlaughterRecord[]),
     [!!user, batchId]
@@ -225,7 +228,7 @@ export function useSlaughterByBatch(batchId: number): SlaughterRecord[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     slaughterService.getByBatch(batchId).then(setSb);
-    const ch = supabase.channel(`slaughter-${batchId}-${user.id}`)
+    const ch = supabase.channel(`slaughter-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'slaughter_records' },
         () => slaughterService.getByBatch(batchId).then(setSb))
       .subscribe();
@@ -257,6 +260,7 @@ export function useAllSlaughter(): SlaughterRecord[] {
 
 export function useWeighingsByBatch(batchId: number): Weighing[] {
   const { user } = useAuth();
+  const uid = useId();
   const dexie = useLiveQuery(
     () => !user ? db.weighings.where('batchId').equals(batchId).sortBy('weighingDate') : Promise.resolve([] as Weighing[]),
     [!!user, batchId]
@@ -265,7 +269,7 @@ export function useWeighingsByBatch(batchId: number): Weighing[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     weighingService.getByBatch(batchId).then(setSb);
-    const ch = supabase.channel(`weighings-${batchId}-${user.id}`)
+    const ch = supabase.channel(`weighings-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'weighings' },
         () => weighingService.getByBatch(batchId).then(setSb))
       .subscribe();
@@ -292,6 +296,7 @@ export function useAllWeighings(): Weighing[] {
 
 export function useHealthEventsByBatch(batchId: number): HealthEvent[] {
   const { user } = useAuth();
+  const uid = useId();
   const dexie = useLiveQuery(
     () => !user ? db.healthEvents.where('batchId').equals(batchId).sortBy('eventDate') : Promise.resolve([] as HealthEvent[]),
     [!!user, batchId]
@@ -300,7 +305,7 @@ export function useHealthEventsByBatch(batchId: number): HealthEvent[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     healthService.getByBatch(batchId).then(setSb);
-    const ch = supabase.channel(`health-${batchId}-${user.id}`)
+    const ch = supabase.channel(`health-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'health_events' },
         () => healthService.getByBatch(batchId).then(setSb))
       .subscribe();
@@ -313,6 +318,7 @@ export function useHealthEventsByBatch(batchId: number): HealthEvent[] {
 
 export function useBirdTransfersByBatch(batchId: number): BirdTransfer[] {
   const { user } = useAuth();
+  const uid = useId();
   const dexie = useLiveQuery(
     () => {
       if (user) return Promise.resolve([] as BirdTransfer[]);
@@ -327,7 +333,7 @@ export function useBirdTransfersByBatch(batchId: number): BirdTransfer[] {
   useEffect(() => {
     if (!user) { setSb([]); return; }
     birdTransferService.getByBatch(batchId).then(setSb);
-    const ch = supabase.channel(`transfers-${batchId}-${user.id}`)
+    const ch = supabase.channel(`transfers-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bird_transfers' },
         () => birdTransferService.getByBatch(batchId).then(setSb))
       .subscribe();

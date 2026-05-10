@@ -239,7 +239,56 @@ export async function importFromLocalDexie(): Promise<{ imported: number; errors
     });
   }
 
-  // 9. Konta kasowe
+  // 9. Zdarzenia zdrowotne
+  const healthEvents = await db.healthEvents.toArray();
+  for (const e of healthEvents) {
+    const bId = batchMap.get(e.batchId);
+    if (!bId) { errors++; continue; }
+    await ins('health_events', {
+      batch_id: bId, event_date: e.eventDate, event_type: e.eventType,
+      diagnosis: e.diagnosis ?? null, treatment: e.treatment ?? null,
+      medication_name: e.medicationName ?? null, dosage_mg_per_kg: e.dosageMgPerKg ?? null,
+      duration_days: e.durationDays ?? null, withdrawal_period_days: e.withdrawalPeriodDays ?? null,
+      affected_count: e.affectedCount ?? null, cost_pln: e.costPln ?? null,
+      veterinarian_name: e.veterinarianName ?? null, notes: e.notes ?? null,
+      created_at: e.createdAt,
+    });
+  }
+
+  // 10. Ubój
+  const slaughterRecords = await db.slaughterRecords.toArray();
+  for (const s of slaughterRecords) {
+    const bId = batchMap.get(s.batchId);
+    if (!bId) { errors++; continue; }
+    await ins('slaughter_records', {
+      batch_id: bId, slaughter_date: s.slaughterDate,
+      age_at_slaughter_days: s.ageAtSlaughterDays ?? null,
+      birds_slaughtered: s.birdsSlaughtered,
+      live_weight_total_kg: s.liveWeightTotalKg ?? null,
+      carcass_weight_total_kg: s.carcassWeightTotalKg ?? null,
+      dressing_percent: s.dressingPercent ?? null,
+      condemned_count: s.condemnedCount ?? null,
+      condemned_weight_kg: s.condemnedWeightKg ?? null,
+      slaughter_house_id: s.slaughterHouseId ?? null,
+      price_per_kg_pln: s.pricePerKgPln ?? null,
+      total_revenue_pln: s.totalRevenuePln ?? null,
+      notes: s.notes ?? null, created_at: s.createdAt,
+    });
+  }
+
+  // 11. Przesunięcia ptaków
+  const birdTransfers = await db.birdTransfers.toArray();
+  for (const t of birdTransfers) {
+    await ins('bird_transfers', {
+      transfer_date: t.transferDate,
+      from_batch_id: t.fromBatchId ? batchMap.get(t.fromBatchId) ?? null : null,
+      to_batch_id:   t.toBatchId   ? batchMap.get(t.toBatchId)   ?? null : null,
+      count: t.count, reason: t.reason ?? null, notes: t.notes ?? null,
+      created_at: t.createdAt,
+    });
+  }
+
+  // 12a. Konta kasowe
   const accounts = await db.cashAccounts.toArray();
   const accountMap = new Map<number, number>();
   for (const a of accounts) {
@@ -499,6 +548,62 @@ export async function importFromJson(file: File): Promise<{ imported: number; er
     description: f(r, 'description', 'description'),
     amount_pln:  f(r, 'amount_pln', 'amountPln'),
     created_at:  f(r, 'created_at', 'createdAt'),
+  }));
+
+  await simpleInsert('health_events', d['health_events'] ?? [], r => ({
+    batch_id:               batchMap.get(f(r, 'batch_id', 'batchId') as number) ?? null,
+    event_date:             f(r, 'event_date', 'eventDate'),
+    event_type:             f(r, 'event_type', 'eventType'),
+    diagnosis:              f(r, 'diagnosis', 'diagnosis') ?? null,
+    treatment:              f(r, 'treatment', 'treatment') ?? null,
+    medication_name:        f(r, 'medication_name', 'medicationName') ?? null,
+    dosage_mg_per_kg:       f(r, 'dosage_mg_per_kg', 'dosageMgPerKg') ?? null,
+    duration_days:          f(r, 'duration_days', 'durationDays') ?? null,
+    withdrawal_period_days: f(r, 'withdrawal_period_days', 'withdrawalPeriodDays') ?? null,
+    affected_count:         f(r, 'affected_count', 'affectedCount') ?? null,
+    cost_pln:               f(r, 'cost_pln', 'costPln') ?? null,
+    veterinarian_name:      f(r, 'veterinarian_name', 'veterinarianName') ?? null,
+    notes:                  f(r, 'notes', 'notes') ?? null,
+    created_at:             f(r, 'created_at', 'createdAt'),
+  }));
+
+  await simpleInsert('slaughter_records', d['slaughter_records'] ?? [], r => ({
+    batch_id:                    batchMap.get(f(r, 'batch_id', 'batchId') as number) ?? null,
+    slaughter_date:              f(r, 'slaughter_date', 'slaughterDate'),
+    age_at_slaughter_days:       f(r, 'age_at_slaughter_days', 'ageAtSlaughterDays') ?? null,
+    birds_slaughtered:           f(r, 'birds_slaughtered', 'birdsSlaughtered'),
+    live_weight_total_kg:        f(r, 'live_weight_total_kg', 'liveWeightTotalKg') ?? null,
+    carcass_weight_total_kg:     f(r, 'carcass_weight_total_kg', 'carcassWeightTotalKg') ?? null,
+    dressing_percent:            f(r, 'dressing_percent', 'dressingPercent') ?? null,
+    condemned_count:             f(r, 'condemned_count', 'condemnedCount') ?? null,
+    condemned_weight_kg:         f(r, 'condemned_weight_kg', 'condemnedWeightKg') ?? null,
+    slaughter_house_id:          f(r, 'slaughter_house_id', 'slaughterHouseId') ?? null,
+    price_per_kg_pln:            f(r, 'price_per_kg_pln', 'pricePerKgPln') ?? null,
+    total_revenue_pln:           f(r, 'total_revenue_pln', 'totalRevenuePln') ?? null,
+    notes:                       f(r, 'notes', 'notes') ?? null,
+    created_at:                  f(r, 'created_at', 'createdAt'),
+  }));
+
+  await simpleInsert('bird_transfers', d['bird_transfers'] ?? [], r => ({
+    transfer_date:  f(r, 'transfer_date', 'transferDate'),
+    from_batch_id:  batchMap.get(f(r, 'from_batch_id', 'fromBatchId') as number) ?? null,
+    to_batch_id:    batchMap.get(f(r, 'to_batch_id', 'toBatchId') as number) ?? null,
+    count:          f(r, 'count', 'count'),
+    reason:         f(r, 'reason', 'reason') ?? null,
+    notes:          f(r, 'notes', 'notes') ?? null,
+    created_at:     f(r, 'created_at', 'createdAt'),
+  }));
+
+  await simpleInsert('investments', d['investments'] ?? [], r => ({
+    name:             f(r, 'name', 'name'),
+    category:         f(r, 'category', 'category'),
+    purchase_date:    f(r, 'purchase_date', 'purchaseDate'),
+    amount_pln:       f(r, 'amount_pln', 'amountPln') ?? f(r, 'purchase_price_pln', 'purchasePricePln') ?? 0,
+    useful_life_years:f(r, 'useful_life_years', 'usefulLifeYears') ?? null,
+    supplier:         f(r, 'supplier', 'supplier') ?? null,
+    invoice_number:   f(r, 'invoice_number', 'invoiceNumber') ?? null,
+    notes:            f(r, 'notes', 'notes') ?? f(r, 'description', 'description') ?? null,
+    created_at:       f(r, 'created_at', 'createdAt'),
   }));
 
   await simpleInsert('orders', d['orders'] ?? [], r => {
