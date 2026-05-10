@@ -23,11 +23,14 @@ import { db } from '@/db/database';
 import { addDays, parseISO, isAfter } from 'date-fns';
 import {
   useSalesByBatch, useExpensesByBatch, useSlaughterByBatch,
-  useBirdTransfersByBatch, useHealthEventsByBatch,
+  useBirdTransfersByBatch, useHealthEventsByBatch, useWeighingsByBatch,
 } from '@/hooks/useTableData';
 import { useDailyEntries } from '@/hooks/useDailyEntries';
+import { SimpleArea, SimpleBar } from '@/components/charts/TrendChart';
+import { calcDailyMortalityTrend } from '@/engine/mortality';
+import { calcWeightGainTrend } from '@/engine/growth';
+import { calcDailyEggTrend } from '@/engine/eggs';
 import { useBatches } from '@/hooks/useBatch';
-import { BatchPhotosSection } from './BatchPhotosSection';
 import type { BatchKPIResult } from '@/engine/types';
 import type { Batch } from '@/models/batch.model';
 
@@ -603,12 +606,20 @@ export function BatchDetailPage() {
 
   const isLayer = isLayerSpecies(batch.species);
 
+  const dailyEntriesForCharts = useDailyEntries(id);
+  const weighingsForCharts    = useWeighingsByBatch(id);
+  const mortalityTrend = calcDailyMortalityTrend(dailyEntriesForCharts).slice(-30);
+  const weightTrend    = calcWeightGainTrend(weighingsForCharts);
+  const eggTrend       = calcDailyEggTrend(dailyEntriesForCharts).slice(-30);
+  const hasEggs        = eggTrend.some(p => p.value > 0);
+
   const modules = [
     { to: 'dziennik', label: 'Dziennik dzienny', icon: '📅', desc: 'Wpisy dzienne – pasza, jaja, padnięcia' },
     { to: 'wazenia', label: 'Ważenia', icon: '⚖️', desc: 'Historia ważeń i krzywa wzrostu' },
     { to: 'zdrowie', label: 'Zdrowie', icon: '💊', desc: 'Zdarzenia zdrowotne i padnięcia' },
     { to: 'warunki', label: 'Warunki', icon: '🌡️', desc: 'Temperatura, wilgotność, ściółka' },
     { to: 'uboj', label: 'Ubój', icon: '🔪', desc: 'Rekordy uboju i wydajność tuszki' },
+    { to: 'zdjecia', label: 'Galeria zdjęć', icon: '📷', desc: 'Dokumentacja fotograficzna stada' },
   ];
 
   return (
@@ -753,8 +764,42 @@ export function BatchDetailPage() {
         </div>
       </Card>
 
-      {/* Galeria zdjęć */}
-      <BatchPhotosSection batchId={id} />
+      {/* Wykresy trendów */}
+      {(mortalityTrend.length > 1 || weightTrend.length > 1 || (isLayer && hasEggs)) && (
+        <div className="grid md:grid-cols-2 gap-4">
+          {mortalityTrend.length > 1 && (
+            <Card title="Padnięcia (ostatnie 30 dni)">
+              <SimpleBar
+                data={mortalityTrend}
+                label="Padnięcia (szt.)"
+                color="#ef4444"
+                height={180}
+              />
+            </Card>
+          )}
+          {weightTrend.length > 1 && (
+            <Card title="Masa ciała (g)">
+              <SimpleArea
+                data={weightTrend}
+                label="Masa śr. (g)"
+                color="#15803d"
+                height={180}
+                formatValue={v => `${v}g`}
+              />
+            </Card>
+          )}
+          {isLayer && hasEggs && (
+            <Card title="Produkcja jaj (ostatnie 30 dni)">
+              <SimpleBar
+                data={eggTrend}
+                label="Zebrane jaja"
+                color="#f59e0b"
+                height={180}
+              />
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Przesunięcia ptaków */}
       <BirdTransferSection batchId={id} />

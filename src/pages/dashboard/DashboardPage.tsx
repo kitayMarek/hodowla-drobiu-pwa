@@ -4,7 +4,6 @@ import { useAllBatchKPIs } from '@/hooks/useKPIs';
 import { useActiveBatches, useBatches } from '@/hooks/useBatch';
 import { KPICard } from '@/components/charts/KPICard';
 import { Card } from '@/components/ui/Card';
-import { SimpleArea, SimpleBar } from '@/components/charts/TrendChart';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
 import { formatPln, formatPercent, formatFCR, formatGrams, formatCount } from '@/utils/format';
@@ -14,13 +13,10 @@ import { BATCH_STATUS_COLORS } from '@/constants/phases';
 import { pl } from '@/i18n/pl';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
-import { calcDailyMortalityTrend } from '@/engine/mortality';
-import { calcWeightGainTrend } from '@/engine/growth';
-import { calcDailyEggTrend } from '@/engine/eggs';
 import { DailyCalendar } from '@/components/dashboard/DailyCalendar';
 import { incubationService, calcKeyDates } from '@/services/incubation.service';
-import { useAllExpenses, useAllSales, useAllFeedDeliveries, useWeighingsByBatch } from '@/hooks/useTableData';
-import { useDailyEntries, useAllDailyEntries } from '@/hooks/useDailyEntries';
+import { useAllExpenses, useAllSales, useAllFeedDeliveries } from '@/hooks/useTableData';
+import { useAllDailyEntries } from '@/hooks/useDailyEntries';
 
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
@@ -41,17 +37,11 @@ export function DashboardPage() {
     []
   ) ?? 0;
 
-  // Wpisy dzienne – dla kalendarza i trendów
-  const firstBatchId = activeBatches[0]?.id;
+  // Wpisy dzienne – dla kalendarza
   const allDailyEntries = useAllDailyEntries();
-  const firstBatchEntries = useDailyEntries(firstBatchId ?? 0);
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = `${today.slice(0, 7)}-01`;
-  // Kalendarz: wszystkie stada, bieżący miesiąc
   const monthEntries = allDailyEntries.filter(e => e.date >= monthStart && e.date <= today);
-  // Wykresy trendów: tylko pierwsze aktywne stado
-  const dailyEntries = firstBatchId ? firstBatchEntries : [];
-  const weighings    = useWeighingsByBatch(firstBatchId ?? 0);
 
   const totalBirds = allKPIs.reduce((s, k) => s + k.currentBirdCount, 0);
   const totalRevenue = allSales.reduce((s, x) => s + x.totalRevenuePln, 0);
@@ -63,11 +53,6 @@ export function DashboardPage() {
   );
   const totalCosts = totalFeedDeliveryCost + totalOtherExpenses + totalChickCost;
   const totalMargin = totalRevenue - totalCosts;
-
-  const mortalityTrend = calcDailyMortalityTrend(dailyEntries).slice(-14);
-  const weightTrend = calcWeightGainTrend(weighings);
-  const eggTrend = calcDailyEggTrend(dailyEntries).slice(-14);
-  const hasEggs = eggTrend.some(p => p.value > 0);
 
   return (
     <div className="space-y-6">
@@ -210,41 +195,6 @@ export function DashboardPage() {
 
           {/* Kalendarz kompletności wpisów */}
           <DailyCalendar activeBatches={activeBatches} monthEntries={monthEntries} />
-
-          {/* Charts */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {mortalityTrend.length > 1 && (
-              <Card title={`Padnięcia – ${activeBatches[0]?.name ?? ''}`}>
-                <SimpleBar
-                  data={mortalityTrend}
-                  label="Padnięcia (szt.)"
-                  color="#ef4444"
-                  height={180}
-                />
-              </Card>
-            )}
-            {weightTrend.length > 1 && (
-              <Card title="Masa ciała (g)">
-                <SimpleArea
-                  data={weightTrend}
-                  label="Masa śr. (g)"
-                  color="#15803d"
-                  height={180}
-                  formatValue={v => `${v}g`}
-                />
-              </Card>
-            )}
-            {hasEggs && (
-              <Card title="Produkcja jaj (szt./dzień)">
-                <SimpleBar
-                  data={eggTrend}
-                  label="Zebrane jaja"
-                  color="#f59e0b"
-                  height={180}
-                />
-              </Card>
-            )}
-          </div>
 
           {/* All batches list */}
           {allBatches.length > activeBatches.length && (

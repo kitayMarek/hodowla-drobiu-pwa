@@ -5,6 +5,7 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { BatchListPage } from '@/pages/batches/BatchListPage';
 import { BatchFormPage } from '@/pages/batches/BatchFormPage';
 import { BatchDetailPage } from '@/pages/batches/BatchDetailPage';
+import { BatchPhotosPage } from '@/pages/batches/BatchPhotosPage';
 import { DailyEntryListPage } from '@/pages/daily/DailyEntryListPage';
 import { DailyEntryFormPage } from '@/pages/daily/DailyEntryFormPage';
 import { FeedPage } from '@/pages/feed/FeedPage';
@@ -44,6 +45,9 @@ export const router = createBrowserRouter([
       { path: 'stada/nowe', element: <BatchFormPage /> },
       { path: 'stada/:batchId', element: <BatchDetailPage /> },
       { path: 'stada/:batchId/edytuj', element: <BatchFormPage /> },
+
+      // Zdjęcia
+      { path: 'stada/:batchId/zdjecia', element: <BatchPhotosPage /> },
 
       // Dziennik
       { path: 'stada/:batchId/dziennik', element: <DailyEntryListPage /> },
