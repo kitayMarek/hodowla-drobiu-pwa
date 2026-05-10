@@ -10,6 +10,7 @@ import { formatPln, formatPercent, formatFCR, formatGrams, formatCount } from '@
 import { formatDate, ageLabel } from '@/utils/date';
 import { SPECIES_LABELS, SPECIES_EMOJI, isLayerSpecies } from '@/constants/species';
 import { BATCH_STATUS_COLORS } from '@/constants/phases';
+import { Modal } from '@/components/ui/Modal';
 import { pl } from '@/i18n/pl';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
@@ -18,10 +19,13 @@ import { incubationService, calcKeyDates } from '@/services/incubation.service';
 import { useAllExpenses, useAllSales, useAllFeedDeliveries } from '@/hooks/useTableData';
 import { useAllDailyEntries } from '@/hooks/useDailyEntries';
 
+type DashModal = 'stada' | 'ptaki' | 'przychody' | 'marza';
+
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
   const activeBatches = useActiveBatches();
   const allBatches = useBatches();
+  const [dashModal, setDashModal] = React.useState<DashModal | null>(null);
 
   const feedDeliveries = useAllFeedDeliveries();
   const allExpenses    = useAllExpenses();
@@ -118,6 +122,7 @@ export function DashboardPage() {
               value={String(activeBatches.length)}
               icon="🐔"
               color="green"
+              onClick={() => setDashModal('stada')}
             />
             <KPICard
               label="Łączna liczba ptaków"
@@ -125,12 +130,14 @@ export function DashboardPage() {
               sub="szt."
               icon="🐓"
               color="blue"
+              onClick={totalBirds > 0 ? () => setDashModal('ptaki') : undefined}
             />
             <KPICard
               label="Łączne przychody"
               value={formatPln(totalRevenue)}
               icon="💰"
               color="green"
+              onClick={totalRevenue > 0 ? () => setDashModal('przychody') : undefined}
             />
             <KPICard
               label="Marża łącznie"
@@ -138,6 +145,7 @@ export function DashboardPage() {
               icon="📈"
               color={totalMargin >= 0 ? 'green' : 'red'}
               trendLabel={totalRevenue > 0 ? `${formatPercent(totalMargin / totalRevenue * 100)} rentowności` : undefined}
+              onClick={allKPIs.length > 0 ? () => setDashModal('marza') : undefined}
             />
           </div>
 
@@ -220,6 +228,115 @@ export function DashboardPage() {
             </Card>
           )}
         </>
+      )}
+
+      {/* ── Modalne szczegółów KPI ─────────────────────────────────── */}
+      {dashModal && (
+        <Modal
+          open
+          onClose={() => setDashModal(null)}
+          title={
+            dashModal === 'stada'     ? 'Aktywne stada' :
+            dashModal === 'ptaki'     ? 'Ptaki – rozkład wg stad' :
+            dashModal === 'przychody' ? 'Przychody – rozkład wg stad' :
+                                        'Marża – rozkład wg stad'
+          }
+        >
+          {dashModal === 'stada' && (
+            <div className="divide-y divide-gray-50">
+              {activeBatches.map(b => {
+                const kpi = allKPIs.find(k => k.batchId === b.id);
+                return (
+                  <Link
+                    key={b.id}
+                    to={`/stada/${b.id}`}
+                    onClick={() => setDashModal(null)}
+                    className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 hover:bg-gray-50 -mx-1 px-1 rounded-lg transition-colors"
+                  >
+                    <span className="text-2xl">{SPECIES_EMOJI[b.species]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-900">{b.name}</div>
+                      <div className="text-xs text-gray-500">
+                        {kpi ? `${kpi.ageInDays} dni · ${kpi.currentBirdCount.toLocaleString('pl-PL')} szt. · FCR ${formatFCR(kpi.fcr)}` : SPECIES_LABELS[b.species]}
+                      </div>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                );
+              })}
+              {activeBatches.length === 0 && (
+                <p className="text-sm text-gray-400 py-2 text-center">Brak aktywnych stad.</p>
+              )}
+            </div>
+          )}
+
+          {dashModal === 'ptaki' && (
+            <div className="space-y-1">
+              <div className="divide-y divide-gray-50">
+                {allKPIs.map(kpi => (
+                  <div key={kpi.batchId} className="flex justify-between items-center py-2.5">
+                    <div>
+                      <div className="text-sm text-gray-800">{kpi.batchName}</div>
+                      <div className="text-xs text-gray-400">upadki {formatPercent(kpi.mortalityPercent)} · FCR {formatFCR(kpi.fcr)}</div>
+                    </div>
+                    <div className="text-sm font-bold text-gray-900">{kpi.currentBirdCount.toLocaleString('pl-PL')} szt.</div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between font-bold pt-3 border-t border-gray-100">
+                <span className="text-sm">Łącznie</span>
+                <span className="text-sm">{totalBirds.toLocaleString('pl-PL')} szt.</span>
+              </div>
+            </div>
+          )}
+
+          {dashModal === 'przychody' && (
+            <div className="space-y-1">
+              <div className="divide-y divide-gray-50">
+                {allKPIs.map(kpi => (
+                  <div key={kpi.batchId} className="flex justify-between items-center py-2.5">
+                    <span className="text-sm text-gray-800">{kpi.batchName}</span>
+                    <span className="text-sm font-bold text-green-700">{formatPln(kpi.totalRevenuePln)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between font-bold pt-3 border-t border-gray-100">
+                <span className="text-sm">Łącznie</span>
+                <span className="text-sm text-green-700">{formatPln(totalRevenue)}</span>
+              </div>
+            </div>
+          )}
+
+          {dashModal === 'marza' && (
+            <div className="space-y-1">
+              <div className="divide-y divide-gray-50">
+                {allKPIs.map(kpi => (
+                  <div key={kpi.batchId} className="py-2.5">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-900">{kpi.batchName}</span>
+                      <span className={`text-sm font-bold ${kpi.grossMarginPln >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+                        {formatPln(kpi.grossMarginPln)}
+                      </span>
+                    </div>
+                    <div className="flex gap-4 text-xs text-gray-400 mt-0.5">
+                      <span>Przychód: {formatPln(kpi.totalRevenuePln)}</span>
+                      <span>Koszty: {formatPln(kpi.totalCostPln)}</span>
+                      {kpi.grossMarginPercent != null && (
+                        <span>Rentowność: {formatPercent(kpi.grossMarginPercent)}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between font-bold pt-3 border-t border-gray-100 text-sm">
+                <span>Marża łącznie</span>
+                <span className={totalMargin >= 0 ? 'text-green-700' : 'text-red-600'}>{formatPln(totalMargin)}</span>
+              </div>
+            </div>
+          )}
+        </Modal>
       )}
     </div>
   );

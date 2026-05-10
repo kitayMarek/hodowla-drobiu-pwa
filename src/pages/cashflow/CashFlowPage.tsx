@@ -353,35 +353,51 @@ export function CashFlowPage() {
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {accounts.map(acc => {
-            const bal = calcBalance(acc, allTxs);
+            const bal       = calcBalance(acc, allTxs);
+            const isActive  = filterAccount === String(acc.id);
             return (
-              <div key={acc.id}
-                className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-1 shadow-sm">
+              <button
+                key={acc.id}
+                onClick={() => setFilterAccount(isActive ? '' : String(acc.id))}
+                className={`text-left rounded-xl border p-4 flex flex-col gap-1 shadow-sm transition-all active:scale-[0.98] cursor-pointer hover:shadow-md ${
+                  isActive
+                    ? 'bg-brand-50 border-brand-300 ring-2 ring-brand-300'
+                    : 'bg-white border-gray-200 hover:border-gray-300'
+                }`}
+              >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs text-gray-500 truncate">{acc.name}</span>
                   <span className="text-xs">{acc.type === 'bank' ? '🏦' : '💵'}</span>
                 </div>
-                <div className={`text-lg font-bold ${bal < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                <div className={`text-lg font-bold ${bal < 0 ? 'text-red-600' : isActive ? 'text-brand-700' : 'text-gray-900'}`}>
                   {formatPln(bal)}
                 </div>
-                <div className="flex gap-1 flex-wrap">
+                <div className="flex items-center justify-between gap-1">
                   <Badge color={SCOPE_BADGE[acc.scope] ?? 'gray'}>
                     {ACCOUNT_SCOPE_LABELS[acc.scope] ?? acc.scope}
                   </Badge>
+                  {isActive && <span className="text-xs text-brand-500 font-medium">filtruje →</span>}
                 </div>
-              </div>
+              </button>
             );
           })}
 
           {/* Podsumowanie */}
           {accounts.length > 1 && (
-            <div className="bg-brand-50 rounded-xl border border-brand-200 p-4 flex flex-col gap-1 shadow-sm">
+            <button
+              onClick={() => setFilterAccount('')}
+              className={`text-left rounded-xl border p-4 flex flex-col gap-1 shadow-sm transition-all active:scale-[0.98] cursor-pointer hover:shadow-md ${
+                filterAccount === ''
+                  ? 'bg-brand-50 border-brand-300 ring-2 ring-brand-300'
+                  : 'bg-brand-50 border-brand-200 hover:border-brand-300'
+              }`}
+            >
               <span className="text-xs text-brand-600 font-medium">Razem wszystkie</span>
               <div className={`text-lg font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-brand-700'}`}>
                 {formatPln(totalBalance)}
               </div>
               <span className="text-xs text-brand-500">Drób: {formatPln(drobBalance)}</span>
-            </div>
+            </button>
           )}
         </div>
       )}

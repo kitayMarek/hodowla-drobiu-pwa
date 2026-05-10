@@ -64,8 +64,10 @@ export function FeedPage() {
   const [editDelivery, setEditDelivery] = useState<FeedDelivery | null>(null);
   const [deleteDelivery, setDeleteDelivery] = useState<FeedDelivery | null>(null);
 
-  // Modal szczegółów zużycia
+  // Modal szczegółów zużycia (tab Zużycie)
   const [feedModal, setFeedModal] = useState<{batchId: number; type: 'zuzycie'|'koszt'|'fcr'|'perBird'}|null>(null);
+  // Modal KPI magazynowych (tab Magazyn)
+  const [magazynModal, setMagazynModal] = useState<'stock'|'value'|'delivered'|'consumed'|null>(null);
 
   // Dane (dual-mode)
   const feedTypes           = useFeedTypes();
@@ -279,10 +281,14 @@ export function FeedPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <KPICard label="Stan magazynu" value={`${totalStock.toFixed(0)} kg`} icon="📦"
               color={lowStockCount > 0 ? 'red' : 'green'}
-              sub={lowStockCount > 0 ? `⚠️ ${lowStockCount} pasze poniżej 4 dni zapasu` : 'Stan prawidłowy'} />
-            <KPICard label="Wartość zapasów" value={formatPln(totalStockValue)} icon="💰" color="blue" />
-            <KPICard label="Zakupiono łącznie" value={`${totalDelivered.toFixed(0)} kg`} icon="🚛" color="blue" />
-            <KPICard label="Zużyto łącznie" value={`${totalConsumed.toFixed(0)} kg`} icon="📉" color="gray" />
+              sub={lowStockCount > 0 ? `⚠️ ${lowStockCount} pasze poniżej 4 dni zapasu` : 'Stan prawidłowy'}
+              onClick={feedTypes.length > 0 ? () => setMagazynModal('stock') : undefined} />
+            <KPICard label="Wartość zapasów" value={formatPln(totalStockValue)} icon="💰" color="blue"
+              onClick={totalStockValue > 0 ? () => setMagazynModal('value') : undefined} />
+            <KPICard label="Zakupiono łącznie" value={`${totalDelivered.toFixed(0)} kg`} icon="🚛" color="blue"
+              onClick={totalDelivered > 0 ? () => setMagazynModal('delivered') : undefined} />
+            <KPICard label="Zużyto łącznie" value={`${totalConsumed.toFixed(0)} kg`} icon="📉" color="gray"
+              onClick={totalConsumed > 0 ? () => setMagazynModal('consumed') : undefined} />
           </div>
 
           {/* Per rodzaj paszy */}
@@ -607,6 +613,56 @@ export function FeedPage() {
             </Card>
           )}
         </div>
+      )}
+
+      {/* ═══ MODAL KPI MAGAZYNOWYCH ═══ */}
+      {magazynModal && (
+        <Modal
+          open
+          onClose={() => setMagazynModal(null)}
+          title={
+            magazynModal === 'stock'     ? 'Stan magazynu wg pasz' :
+            magazynModal === 'value'     ? 'Wartość zapasów wg pasz' :
+            magazynModal === 'delivered' ? 'Zakupiono łącznie wg pasz' :
+                                           'Zużyto łącznie wg pasz'
+          }
+        >
+          <div className="space-y-1">
+            <div className="divide-y divide-gray-50">
+              {stockData.map(({ ft, stock, stockValue, delivered, consumed, daysOfSupply }) => {
+                const mainValue =
+                  magazynModal === 'stock'     ? `${stock.toFixed(1)} kg` :
+                  magazynModal === 'value'     ? formatPln(stockValue) :
+                  magazynModal === 'delivered' ? `${delivered.toFixed(1)} kg` :
+                                                 `${consumed.toFixed(1)} kg`;
+                const sub =
+                  magazynModal === 'stock' && daysOfSupply != null
+                    ? `≈ ${daysOfSupply.toFixed(0)} dni zapasu`
+                    : magazynModal === 'value'
+                    ? `${stock.toFixed(1)} kg × ${formatPln(ft.pricePerKg)}/kg`
+                    : undefined;
+                return (
+                  <div key={ft.id} className="flex justify-between items-start py-2.5">
+                    <div>
+                      <div className="text-sm text-gray-800">{ft.name}</div>
+                      {sub && <div className="text-xs text-gray-400 mt-0.5">{sub}</div>}
+                    </div>
+                    <span className="text-sm font-bold text-gray-900 ml-3 shrink-0">{mainValue}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between font-bold pt-3 border-t border-gray-100 text-sm">
+              <span>Łącznie</span>
+              <span>
+                {magazynModal === 'stock'     ? `${totalStock.toFixed(1)} kg` :
+                 magazynModal === 'value'     ? formatPln(totalStockValue) :
+                 magazynModal === 'delivered' ? `${totalDelivered.toFixed(1)} kg` :
+                                                `${totalConsumed.toFixed(1)} kg`}
+              </span>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* ═══ MODAL SZCZEGÓŁÓW ZUŻYCIA ═══ */}
