@@ -64,7 +64,7 @@ export function Sidebar({ onNavClick }: SidebarProps) {
       <div className="px-4 py-4 border-b border-gray-100 flex items-center min-h-[60px]">
         {!logoErr ? (
           <img
-            src="/fermly-logo.png"
+            src="/fermly-logo.jpg"
             alt="Fermly.pl"
             className="h-9 w-auto max-w-[160px] object-contain"
             onError={() => setLogoErr(true)}

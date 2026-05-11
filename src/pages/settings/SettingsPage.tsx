@@ -334,7 +334,7 @@ export function SettingsPage() {
           {/* Logo */}
           <div className="flex justify-center pb-2">
             <img
-              src="/fermly-logo.png"
+              src="/fermly-logo.jpg"
               alt="Fermly.pl"
               className="h-10 w-auto object-contain"
               onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
