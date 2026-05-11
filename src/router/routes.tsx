@@ -22,6 +22,7 @@ import { HatcheryListPage } from '@/pages/hatchery/HatcheryListPage';
 import { HatcheryFormPage } from '@/pages/hatchery/HatcheryFormPage';
 import { HatcheryDetailPage } from '@/pages/hatchery/HatcheryDetailPage';
 import { CashFlowPage } from '@/pages/cashflow/CashFlowPage';
+import { QuickEntryPage } from '@/pages/quick/QuickEntryPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 
@@ -79,6 +80,9 @@ export const router = createBrowserRouter([
       { path: 'wyleglarnia/nowy', element: <HatcheryFormPage /> },
       { path: 'wyleglarnia/:id', element: <HatcheryDetailPage /> },
       { path: 'wyleglarnia/:id/edytuj', element: <HatcheryFormPage /> },
+
+      // Szybki wpis
+      { path: 'szybki', element: <QuickEntryPage /> },
 
       // Dziennik kasowy
       { path: 'kasa', element: <CashFlowPage /> },

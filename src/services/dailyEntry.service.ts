@@ -77,6 +77,18 @@ export const dailyEntryService = {
       .toArray();
   },
 
+  async getByBatchAndDate(batchId: number, date: string): Promise<DailyEntry | undefined> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase
+        .from('daily_entries').select('*')
+        .eq('user_id', user.id).eq('batch_id', batchId).eq('date', date)
+        .maybeSingle();
+      return data ? rowToEntry(data) : undefined;
+    }
+    return db.dailyEntries.where('[batchId+date]').equals([batchId, date]).first();
+  },
+
   async getLastEntry(batchId: number): Promise<DailyEntry | undefined> {
     const user = await getAuthUser();
     if (user) {
