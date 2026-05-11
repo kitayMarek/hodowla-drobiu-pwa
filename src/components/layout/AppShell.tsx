@@ -1,14 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { TopBar } from './TopBar';
 import { DemoBanner } from '@/components/ui/DemoBanner';
+import { BackupReminderModal } from '@/components/ui/BackupReminderModal';
 import { useAuth } from '@/contexts/AuthContext';
+import { shouldShowReminder } from '@/services/backupReminder';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showBackup,  setShowBackup]  = useState(false);
   const { user, loading } = useAuth();
+
+  // Sprawdź potrzebę backupu 4 s po zalogowaniu (nie blokuje renderowania)
+  useEffect(() => {
+    if (!user) return;
+    const t = setTimeout(() => {
+      if (shouldShowReminder()) setShowBackup(true);
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [user]);
 
   if (loading) {
     return (
@@ -52,6 +64,9 @@ export function AppShell() {
           <BottomNav />
         </div>
       </div>
+
+      {/* Backup reminder modal */}
+      <BackupReminderModal open={showBackup} onClose={() => setShowBackup(false)} />
     </div>
   );
 }

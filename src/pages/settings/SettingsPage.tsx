@@ -331,6 +331,16 @@ export function SettingsPage() {
       {/* Info section */}
       <Card title="O aplikacji" padding="md">
         <div className="space-y-2 text-sm text-gray-600">
+          {/* Logo */}
+          <div className="flex justify-center pb-2">
+            <img
+              src="/fermly-logo.png"
+              alt="Fermly.pl"
+              className="h-10 w-auto object-contain"
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
+
           <div className="flex justify-between">
             <span>Wersja</span>
             <span className="font-medium">1.0.0</span>
@@ -343,7 +353,32 @@ export function SettingsPage() {
             <span>Baza danych</span>
             <span className="font-medium">{user ? 'PostgreSQL' : 'IndexedDB (lokalnie)'}</span>
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-400">
+
+          {/* Contact */}
+          <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>Kontakt / wsparcie</span>
+              <a
+                href="mailto:marek@fermly.pl"
+                className="font-medium text-brand-600 hover:text-brand-700"
+              >
+                marek@fermly.pl
+              </a>
+            </div>
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>Strona</span>
+              <a
+                href="https://fermly.pl"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-brand-600 hover:text-brand-700"
+              >
+                fermly.pl
+              </a>
+            </div>
+          </div>
+
+          <div className="pt-2 text-xs text-gray-400">
             Roadmapa: v2 Kalkulator receptur · v3 Lęgi · v4 Gęsi i indyki
           </div>
         </div>

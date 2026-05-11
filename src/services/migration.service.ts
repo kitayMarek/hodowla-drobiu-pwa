@@ -7,6 +7,7 @@
 
 import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
+import { recordBackup } from '@/services/backupReminder';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -102,6 +103,7 @@ export async function exportToJson(): Promise<void> {
   }, null, 2);
 
   download(json, `fermly-backup-${new Date().toISOString().slice(0, 10)}.json`);
+  recordBackup();
 }
 
 // ── Migrate Dexie → Supabase ─────────────────────────────────
