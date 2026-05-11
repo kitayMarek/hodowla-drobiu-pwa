@@ -21,13 +21,9 @@ import { SettingsPage } from '@/pages/settings/SettingsPage';
 import { HatcheryListPage } from '@/pages/hatchery/HatcheryListPage';
 import { HatcheryFormPage } from '@/pages/hatchery/HatcheryFormPage';
 import { HatcheryDetailPage } from '@/pages/hatchery/HatcheryDetailPage';
+import { CashFlowPage } from '@/pages/cashflow/CashFlowPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
-import { PageSpinner } from '@/components/ui/PageSpinner';
-
-const CashFlowPage = React.lazy(() =>
-  import('@/pages/cashflow/CashFlowPage').then(m => ({ default: m.CashFlowPage }))
-);
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -85,7 +81,7 @@ export const router = createBrowserRouter([
       { path: 'wyleglarnia/:id/edytuj', element: <HatcheryFormPage /> },
 
       // Dziennik kasowy
-      { path: 'kasa', element: <React.Suspense fallback={<PageSpinner />}><CashFlowPage /></React.Suspense> },
+      { path: 'kasa', element: <CashFlowPage /> },
 
       // Raporty
       { path: 'raporty', element: <ReportsPage /> },
