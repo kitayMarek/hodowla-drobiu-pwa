@@ -23,6 +23,57 @@ import { useAuth } from '@/contexts/AuthContext';
 
 type DashModal = 'stada' | 'ptaki' | 'przychody' | 'marza';
 
+const FB_DISMISSED_KEY = 'fermly_fb_dismissed';
+
+function CommunityCard() {
+  const [dismissed, setDismissed] = React.useState(
+    () => !!localStorage.getItem(FB_DISMISSED_KEY)
+  );
+  if (dismissed) return null;
+
+  return (
+    <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#1877F2] to-[#0a5dc7] text-white px-5 py-5 shadow-md">
+      {/* Zamknij */}
+      <button
+        onClick={() => { localStorage.setItem(FB_DISMISSED_KEY, '1'); setDismissed(true); }}
+        className="absolute top-3 right-3 text-white/50 hover:text-white/90 text-lg leading-none p-1"
+        aria-label="Zamknij"
+      >
+        ✕
+      </button>
+
+      <div className="flex items-start gap-4 pr-6">
+        {/* FB icon */}
+        <div className="shrink-0 w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center text-2xl">
+          👥
+        </div>
+
+        <div className="flex-1 min-w-0 space-y-2">
+          <div>
+            <p className="font-bold text-base leading-tight">Dołącz do społeczności Fermly!</p>
+            <p className="text-white/80 text-sm mt-1 leading-relaxed">
+              Masz pomysł na nową funkcję? Chcesz podzielić się doświadczeniami
+              z hodowli lub zgłosić błąd? Czekamy na Ciebie w naszej grupie na Facebooku.
+            </p>
+          </div>
+
+          <a
+            href="https://www.facebook.com/groups/1351454033578483/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 bg-white text-[#1877F2] font-bold text-sm px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors active:scale-95"
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+            </svg>
+            Dołącz do grupy →
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
   const activeBatches = useActiveBatches();
@@ -252,6 +303,9 @@ export function DashboardPage() {
           )}
         </>
       )}
+
+      {/* ── Społeczność ────────────────────────────────────────────── */}
+      <CommunityCard />
 
       {/* ── Modalne szczegółów KPI ─────────────────────────────────── */}
       {dashModal && (
