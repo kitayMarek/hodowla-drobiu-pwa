@@ -4,6 +4,7 @@ import { settingsService } from '@/services/settings.service';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { exportToJson, importFromLocalDexie, importFromJson, clearAllSupabaseData } from '@/services/migration.service';
+import { clearDemoData, isDemoSeeded } from '@/services/demoData.service';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -292,9 +293,37 @@ export function SettingsPage() {
           )}
 
           {!user && (
-            <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-              Zaloguj się, aby importować dane lub migrować je do chmury.
-            </p>
+            <>
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                Zaloguj się, aby importować dane lub migrować je do chmury.
+              </p>
+
+              {isDemoSeeded() && (
+                <>
+                  <hr className="border-gray-100" />
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Dane przykładowe</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Usuwa przykładowe dane demo z przeglądarki. Możesz potem zacząć od zera lub się zalogować.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={async () => {
+                        if (window.confirm('Usunąć wszystkie dane demo?')) {
+                          await clearDemoData();
+                          window.location.reload();
+                        }
+                      }}
+                    >
+                      🗑 Wyczyść dane demo
+                    </Button>
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
       </Card>

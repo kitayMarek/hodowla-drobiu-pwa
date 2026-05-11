@@ -18,6 +18,8 @@ import { DailyCalendar } from '@/components/dashboard/DailyCalendar';
 import { incubationService, calcKeyDates } from '@/services/incubation.service';
 import { useAllExpenses, useAllSales, useAllFeedDeliveries } from '@/hooks/useTableData';
 import { useAllDailyEntries } from '@/hooks/useDailyEntries';
+import { seedDemoData } from '@/services/demoData.service';
+import { useAuth } from '@/contexts/AuthContext';
 
 type DashModal = 'stada' | 'ptaki' | 'przychody' | 'marza';
 
@@ -26,6 +28,8 @@ export function DashboardPage() {
   const activeBatches = useActiveBatches();
   const allBatches = useBatches();
   const [dashModal, setDashModal] = React.useState<DashModal | null>(null);
+  const [seeding, setSeeding] = React.useState(false);
+  const { user } = useAuth();
 
   const feedDeliveries = useAllFeedDeliveries();
   const allExpenses    = useAllExpenses();
@@ -66,12 +70,31 @@ export function DashboardPage() {
       </div>
 
       {activeBatches.length === 0 ? (
-        <EmptyState
-          title="Witaj w Fermly!"
-          description="Nie masz jeszcze żadnych aktywnych stad. Zacznij od dodania pierwszego stada."
-          icon="🐓"
-          action={{ label: 'Dodaj pierwsze stado', onClick: () => window.location.href = '/stada/nowe' }}
-        />
+        <div className="space-y-3">
+          <EmptyState
+            title="Witaj w Fermly!"
+            description="Nie masz jeszcze żadnych aktywnych stad. Zacznij od dodania pierwszego stada."
+            icon="🐓"
+            action={{ label: 'Dodaj pierwsze stado', onClick: () => window.location.href = '/stada/nowe' }}
+          />
+          {!user && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4 text-center space-y-2">
+              <div className="text-sm font-semibold text-amber-800">Chcesz zobaczyć jak działa aplikacja?</div>
+              <div className="text-xs text-amber-700">Załaduj przykładowe dane — 2 aktywne stada, historię pasz, jaj, kasy i więcej.</div>
+              <button
+                onClick={async () => {
+                  setSeeding(true);
+                  await seedDemoData();
+                  setSeeding(false);
+                }}
+                disabled={seeding}
+                className="mt-1 inline-flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-60"
+              >
+                {seeding ? '⏳ Ładowanie…' : '🚀 Wypróbuj z przykładowymi danymi'}
+              </button>
+            </div>
+          )}
+        </div>
       ) : (
         <>
           {/* Alert lockdown wylęgarni */}
