@@ -5,9 +5,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { todayISO } from '@/utils/date';
 import { useActiveBatches } from '@/hooks/useBatch';
 import { dailyEntryService } from '@/services/dailyEntry.service';
+import { batchPhotoService } from '@/services/batchPhoto.service';
+import { blobToObjectUrl } from '@/utils/imageUtils';
+import { db } from '@/db/database';
+import type { BatchPhoto } from '@/models/batchPhoto.model';
 
 // ── Typy ───────────────────────────────────────────────────────
 
@@ -47,6 +52,127 @@ function nowTime() {
   return new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' });
 }
 
+// ── Miniatura z zarządzanym URL ───────────────────────────────
+
+function MediaThumb({ item, onClick }: { item: BatchPhoto; onClick: () => void }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    const { url, revoke } = blobToObjectUrl(item.thumbData);
+    setSrc(url);
+    return revoke;
+  }, [item.thumbData]);
+
+  return (
+    <button
+      onClick={onClick}
+      className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 active:scale-95 transition-all"
+    >
+      {src
+        ? <img src={src} alt="" className="w-full h-full object-cover" />
+        : <div className="w-full h-full flex items-center justify-center text-gray-300 text-2xl">📷</div>
+      }
+      {item.mediaType === 'video' && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-9 h-9 rounded-full bg-black/50 flex items-center justify-center">
+            <span className="text-white text-lg pl-0.5">▶</span>
+          </div>
+        </div>
+      )}
+    </button>
+  );
+}
+
+// ── Podgląd fullscreen ────────────────────────────────────────
+
+function MediaPreview({
+  items,
+  startIdx,
+  onClose,
+  onDelete,
+}: {
+  items:    BatchPhoto[];
+  startIdx: number;
+  onClose:  () => void;
+  onDelete: (id: number) => void;
+}) {
+  const [idx, setIdx] = useState(startIdx);
+  const [src, setSrc] = useState<string | null>(null);
+  const item = items[idx];
+
+  useEffect(() => {
+    if (!item) return;
+    const { url, revoke } = blobToObjectUrl(item.imageData);
+    setSrc(url);
+    return revoke;
+  }, [item]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft')  setIdx(i => Math.max(0, i - 1));
+      if (e.key === 'ArrowRight') setIdx(i => Math.min(items.length - 1, i + 1));
+      if (e.key === 'Escape')     onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [items.length, onClose]);
+
+  if (!item || !src) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+      {/* Top bar */}
+      <div className="flex items-center justify-between px-4 py-3 text-white bg-black/60">
+        <span className="text-sm text-white/70">{idx + 1} / {items.length}</span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={async () => {
+              if (item.id != null) {
+                await batchPhotoService.delete(item.id);
+                onDelete(item.id);
+                if (items.length <= 1) onClose();
+                else setIdx(i => Math.min(i, items.length - 2));
+              }
+            }}
+            className="text-red-400 hover:text-red-300 text-sm"
+          >
+            🗑️ Usuń
+          </button>
+          <button onClick={onClose} className="text-white/70 hover:text-white text-2xl leading-none">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      {/* Media */}
+      <div className="flex-1 flex items-center justify-center relative min-h-0 px-2">
+        {idx > 0 && (
+          <button onClick={() => setIdx(i => i - 1)}
+            className="absolute left-2 z-10 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">
+            ‹
+          </button>
+        )}
+
+        {item.mediaType === 'video'
+          ? <video src={src} controls playsInline className="max-w-full max-h-full rounded-lg" />
+          : <img src={src} alt="" className="max-w-full max-h-full object-contain rounded-lg select-none" />
+        }
+
+        {idx < items.length - 1 && (
+          <button onClick={() => setIdx(i => i + 1)}
+            className="absolute right-2 z-10 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">
+            ›
+          </button>
+        )}
+      </div>
+
+      {/* Opis */}
+      {item.description && (
+        <p className="text-white/70 text-sm text-center px-4 py-2">{item.description}</p>
+      )}
+    </div>
+  );
+}
+
 // ── Komponent ─────────────────────────────────────────────────
 
 type ModalType = 'feed' | 'dead' | null;
@@ -63,7 +189,26 @@ export function QuickEntryPage() {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [errMsg,     setErrMsg]     = useState('');
   const [alreadySaved, setAlreadySaved] = useState<{ feedKg: number; deadCount: number } | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef    = useRef<HTMLInputElement>(null);
+
+  // Media
+  const [previewIdx,    setPreviewIdx]    = useState<number | null>(null);
+  const [mediaUploading, setMediaUploading] = useState(false);
+  const [mediaError,    setMediaError]    = useState<string | null>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
+
+  // Zdjęcia i filmiki dla wybranego stada z dzisiaj
+  const todayMedia = useLiveQuery(
+    () => batchId !== null
+      ? db.batchPhotos
+          .where('[batchId+photoDate]')
+          .equals([batchId, today])
+          .reverse()
+          .toArray()
+      : Promise.resolve([] as BatchPhoto[]),
+    [batchId, today]
+  ) ?? [];
 
   // Wybierz pierwsze stado domyślnie
   useEffect(() => {
@@ -148,6 +293,22 @@ export function QuickEntryPage() {
     } catch (e) {
       setErrMsg((e as Error).message);
       setSaveStatus('err');
+    }
+  };
+
+  // ── Dodaj media ──────────────────────────────────────────────
+  const handleMediaFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || batchId === null) return;
+    setMediaError(null);
+    setMediaUploading(true);
+    try {
+      await batchPhotoService.createMediaFromFile(batchId, file, today);
+    } catch (err) {
+      setMediaError((err as Error).message);
+    } finally {
+      setMediaUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -306,6 +467,57 @@ export function QuickEntryPage() {
         </div>
       </div>
 
+      {/* ── Kafelek MEDIA ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="bg-gray-700 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📷</span>
+            <div>
+              <p className="text-white font-bold text-lg leading-none">Zdjęcia i filmiki</p>
+              <p className="text-gray-300 text-xs mt-0.5">dokumentacja z kurnika</p>
+            </div>
+          </div>
+          {todayMedia.length > 0 && (
+            <span className="text-white font-bold text-2xl">{todayMedia.length}</span>
+          )}
+        </div>
+
+        {/* Siatka miniatur */}
+        {todayMedia.length > 0 && (
+          <div className="grid grid-cols-4 gap-1.5 p-3">
+            {todayMedia.map((item, i) => (
+              <MediaThumb key={item.id} item={item} onClick={() => setPreviewIdx(i)} />
+            ))}
+          </div>
+        )}
+
+        {mediaError && (
+          <p className="text-sm text-red-600 mx-5 mt-2 bg-red-50 rounded-lg px-3 py-2">{mediaError}</p>
+        )}
+
+        {/* Przyciski */}
+        <div className="px-5 py-4 grid grid-cols-2 gap-3">
+          <button
+            onClick={() => { setMediaError(null); photoRef.current?.click(); }}
+            disabled={mediaUploading}
+            className="py-3.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-600 font-semibold text-base hover:bg-gray-50 hover:border-gray-400 transition-colors active:scale-[0.98] disabled:opacity-50"
+          >
+            {mediaUploading ? '⏳' : '📷'} Zdjęcie
+          </button>
+          <button
+            onClick={() => { setMediaError(null); videoRef.current?.click(); }}
+            disabled={mediaUploading}
+            className="py-3.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-600 font-semibold text-base hover:bg-gray-50 hover:border-gray-400 transition-colors active:scale-[0.98] disabled:opacity-50"
+          >
+            {mediaUploading ? '⏳' : '🎥'} Filmik
+          </button>
+        </div>
+
+        {/* Ukryte inputy — capture otwiera aparat bezpośrednio */}
+        <input ref={photoRef} type="file" accept="image/*"  capture="environment" className="hidden" onChange={handleMediaFile} />
+        <input ref={videoRef} type="file" accept="video/*"  capture="environment" className="hidden" onChange={handleMediaFile} />
+      </div>
+
       {/* ── Zatwierdź ── */}
       {saveStatus === 'ok' ? (
         <div className="bg-green-600 text-white rounded-2xl px-5 py-5 text-center">
@@ -333,6 +545,18 @@ export function QuickEntryPage() {
       <p className="text-xs text-gray-400 text-center">
         Wpisy są tymczasowo przechowywane na tym urządzeniu i nie znikną po zamknięciu przeglądarki.
       </p>
+
+      {/* ── Podgląd mediów ── */}
+      {previewIdx !== null && todayMedia.length > 0 && (
+        <MediaPreview
+          items={todayMedia}
+          startIdx={previewIdx}
+          onClose={() => setPreviewIdx(null)}
+          onDelete={() => {
+            if (todayMedia.length <= 1) setPreviewIdx(null);
+          }}
+        />
+      )}
 
       {/* ── Modal dodawania ── */}
       {modal && (

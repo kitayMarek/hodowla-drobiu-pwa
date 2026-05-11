@@ -54,6 +54,42 @@ export async function makeThumbnail(file: File, size = 220): Promise<Blob> {
   });
 }
 
+/** Generuje miniaturę kwadratową z pierwszej klatki pliku wideo. */
+export async function generateVideoThumbnail(file: File, size = 220): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    const url   = URL.createObjectURL(file);
+    video.muted       = true;
+    video.playsInline = true;
+    video.preload     = 'metadata';
+
+    video.onloadeddata = () => {
+      // Odsuń się od klatki 0 żeby uniknąć czarnego ekranu
+      video.currentTime = Math.min(0.5, video.duration * 0.1);
+    };
+
+    video.onseeked = () => {
+      const { videoWidth: w, videoHeight: h } = video;
+      const side   = Math.min(w, h);
+      const sx     = (w - side) / 2;
+      const sy     = (h - side) / 2;
+      const canvas = document.createElement('canvas');
+      canvas.width  = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(video, sx, sy, side, side, 0, 0, size, size);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(blob => {
+        if (blob) resolve(blob);
+        else reject(new Error('Video thumb toBlob failed'));
+      }, 'image/jpeg', 0.75);
+    };
+
+    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Błąd ładowania wideo')); };
+    video.src = url;
+  });
+}
+
 /** Tworzy tymczasowy object URL z Bloba i zwraca razem z funkcją cleanup. */
 export function blobToObjectUrl(blob: Blob): { url: string; revoke: () => void } {
   const url = URL.createObjectURL(blob);

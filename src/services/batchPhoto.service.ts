@@ -1,6 +1,6 @@
 import { db } from '@/db/database';
 import type { BatchPhoto } from '@/models/batchPhoto.model';
-import { compressImage, makeThumbnail } from '@/utils/imageUtils';
+import { compressImage, makeThumbnail, generateVideoThumbnail } from '@/utils/imageUtils';
 
 export const batchPhotoService = {
   async getByBatch(batchId: number): Promise<BatchPhoto[]> {
@@ -33,6 +33,41 @@ export const batchPhotoService = {
       fileName: file.name,
       createdAt: new Date().toISOString(),
     });
+  },
+
+  /**
+   * Przyjmuje zdjęcie LUB filmik z <input type="file">.
+   * Zdjęcia są kompresowane; wideo trafia surowe (przeglądarki nie oferują kompresji wideo).
+   * Dla obu typów generowana jest miniatura 220×220.
+   */
+  async createMediaFromFile(
+    batchId:     number,
+    file:        File,
+    photoDate:   string,
+    description?: string
+  ): Promise<number> {
+    const isVideo = file.type.startsWith('video/');
+
+    if (isVideo) {
+      const MAX_VIDEO_MB = 200;
+      if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+        throw new Error(`Plik wideo jest zbyt duży (maks. ${MAX_VIDEO_MB} MB).`);
+      }
+      const thumbData = await generateVideoThumbnail(file, 220);
+      return db.batchPhotos.add({
+        batchId,
+        photoDate,
+        description: description?.trim() || undefined,
+        imageData:   file,          // Blob — surowe wideo
+        thumbData,
+        fileName:    file.name,
+        mediaType:   'video',
+        createdAt:   new Date().toISOString(),
+      });
+    }
+
+    // Obraz — kompresja jak dotychczas
+    return this.createFromFile(batchId, file, photoDate, description);
   },
 
   async updateDescription(id: number, description: string): Promise<void> {
