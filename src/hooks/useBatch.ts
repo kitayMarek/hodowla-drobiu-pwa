@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { cacheGet, cacheSet } from '@/lib/sessionCache';
 import type { Batch } from '@/models/batch.model';
 
 // ── helpers ──────────────────────────────────────────────────
@@ -59,15 +60,17 @@ export function useBatches(): Batch[] {
     [!!user]
   ) ?? [];
 
-  // Supabase (zalogowany)
-  const [sb, setSb] = useState<Batch[]>([]);
+  // Supabase (zalogowany) — initialise from sessionStorage cache for instant render
+  const [sb, setSb] = useState<Batch[]>(() =>
+    user ? (cacheGet<Batch[]>(`batches_${user.id}`) ?? []) : []
+  );
   useEffect(() => {
     if (!user) { setSb([]); return; }
-    fetchAll(user.id).then(setSb);
+    fetchAll(user.id).then(data => { setSb(data); cacheSet(`batches_${user.id}`, data); });
 
     const ch = supabase.channel(`batches-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' },
-        () => fetchAll(user.id).then(setSb))
+        () => fetchAll(user.id).then(data => { setSb(data); cacheSet(`batches_${user.id}`, data); }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
@@ -84,13 +87,15 @@ export function useActiveBatches(): Batch[] {
     [!!user]
   ) ?? [];
 
-  const [sb, setSb] = useState<Batch[]>([]);
+  const [sb, setSb] = useState<Batch[]>(() =>
+    user ? (cacheGet<Batch[]>(`batches_active_${user.id}`) ?? []) : []
+  );
   useEffect(() => {
     if (!user) { setSb([]); return; }
-    fetchActive(user.id).then(setSb);
+    fetchActive(user.id).then(data => { setSb(data); cacheSet(`batches_active_${user.id}`, data); });
     const ch = supabase.channel(`batches-active-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'batches' },
-        () => fetchActive(user.id).then(setSb))
+        () => fetchActive(user.id).then(data => { setSb(data); cacheSet(`batches_active_${user.id}`, data); }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);

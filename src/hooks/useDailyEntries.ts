@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { cacheGet, cacheSet } from '@/lib/sessionCache';
 import type { DailyEntry } from '@/models/dailyEntry.model';
 
 function rowToEntry(r: Record<string, unknown>): DailyEntry {
@@ -51,13 +52,15 @@ export function useAllDailyEntries(): DailyEntry[] {
     [!!user]
   ) ?? [];
 
-  const [sb, setSb] = useState<DailyEntry[]>([]);
+  const [sb, setSb] = useState<DailyEntry[]>(() =>
+    user ? (cacheGet<DailyEntry[]>(`daily_all_${user.id}`) ?? []) : []
+  );
   useEffect(() => {
     if (!user) { setSb([]); return; }
-    fetchAll(user.id).then(setSb);
+    fetchAll(user.id).then(data => { setSb(data); cacheSet(`daily_all_${user.id}`, data); });
     const ch = supabase.channel(`daily-all-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_entries' },
-        () => fetchAll(user.id).then(setSb))
+        () => fetchAll(user.id).then(data => { setSb(data); cacheSet(`daily_all_${user.id}`, data); }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
@@ -77,13 +80,15 @@ export function useDailyEntries(batchId: number): DailyEntry[] {
     [!!user, batchId]
   ) ?? [];
 
-  const [sb, setSb] = useState<DailyEntry[]>([]);
+  const [sb, setSb] = useState<DailyEntry[]>(() =>
+    user ? (cacheGet<DailyEntry[]>(`daily_${batchId}_${user.id}`) ?? []) : []
+  );
   useEffect(() => {
     if (!user) { setSb([]); return; }
-    fetchByBatch(user.id, batchId).then(setSb);
+    fetchByBatch(user.id, batchId).then(data => { setSb(data); cacheSet(`daily_${batchId}_${user.id}`, data); });
     const ch = supabase.channel(`daily-${batchId}-${user.id}-${uid}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_entries' },
-        () => fetchByBatch(user.id, batchId).then(setSb))
+        () => fetchByBatch(user.id, batchId).then(data => { setSb(data); cacheSet(`daily_${batchId}_${user.id}`, data); }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id, batchId]);
