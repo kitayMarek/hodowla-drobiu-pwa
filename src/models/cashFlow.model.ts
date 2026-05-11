@@ -15,16 +15,19 @@ export interface CashAccount {
 
 export interface CashTransaction {
   id?: number;
-  accountId:   number;
-  date:        string;     // ISO 'YYYY-MM-DD'
-  type:        TxType;
-  scope:       TxScope;
-  category:    string;
-  description: string;
-  amountPln:   number;     // zawsze > 0; kierunek wyznacza type
+  accountId:    number;
+  date:         string;     // ISO 'YYYY-MM-DD'
+  type:         TxType;
+  scope:        TxScope;
+  category:     string;
+  description:  string;
+  amountPln:    number;     // zawsze > 0; kierunek wyznacza type
   toAccountId?: number;    // tylko przy type === 'transfer'
-  notes?:      string;
-  createdAt:   string;
+  notes?:       string;
+  /** Link do źródła (sprzedaż, dostawa paszy, itp.) – do kaskadowego usuwania */
+  sourceType?:  string;    // np. 'sale' | 'feed_delivery'
+  sourceId?:    number;
+  createdAt:    string;
 }
 
 export interface CashCategory {

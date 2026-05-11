@@ -1,5 +1,6 @@
 import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
+import { cashFlowService } from '@/services/cashFlow.service';
 import type { Sale } from '@/models/sale.model';
 import type { SaleType } from '@/constants/phases';
 
@@ -104,6 +105,32 @@ export const saleService = {
 
   async delete(id: number): Promise<void> {
     const user = await getAuthUser();
+
+    // 1. Usuń powiązane financial_events (pending / settled) i ewentualnie ich transakcje kasowe
+    if (user) {
+      const { data: events } = await supabase
+        .from('financial_events').select('id, cash_transaction_id')
+        .eq('user_id', user.id).eq('source_type', 'sale').eq('source_id', id);
+      for (const ev of events ?? []) {
+        if (ev.cash_transaction_id) {
+          await supabase.from('cash_transactions')
+            .delete().eq('id', ev.cash_transaction_id).eq('user_id', user.id);
+        }
+        await supabase.from('financial_events').delete().eq('id', ev.id).eq('user_id', user.id);
+      }
+    } else {
+      const events = await db.financialEvents
+        .filter(e => e.sourceType === 'sale' && e.sourceId === id).toArray();
+      for (const ev of events) {
+        if (ev.cashTransactionId) await db.cashTransactions.delete(ev.cashTransactionId);
+        await db.financialEvents.delete(ev.id!);
+      }
+    }
+
+    // 2. Usuń bezpośrednie transakcje kasowe (immediate payment)
+    await cashFlowService.deleteBySource('sale', id);
+
+    // 3. Usuń samą sprzedaż
     if (user) {
       await supabase.from('sales').delete().eq('id', id).eq('user_id', user.id);
       return;

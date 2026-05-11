@@ -229,11 +229,13 @@ export function SalesPage() {
       });
     } else if (salePayment === 'immediate' && saleAccountId) {
       await cashFlowService.createTransaction({
-        accountId: Number(saleAccountId), date: data.saleDate, type: 'income',
-        scope: 'drob',
-        category: data.saleType === 'jaja' ? 'Sprzedaż jaj' : 'Sprzedaż drobiu',
+        accountId:  Number(saleAccountId), date: data.saleDate, type: 'income',
+        scope:      'drob',
+        category:   data.saleType === 'jaja' ? 'Sprzedaż jaj' : 'Sprzedaż drobiu',
         description: desc,
-        amountPln: data.totalRevenuePln,
+        amountPln:  data.totalRevenuePln,
+        sourceType: 'sale',
+        sourceId:   saleId,
       });
     }
 

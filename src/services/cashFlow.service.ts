@@ -27,6 +27,8 @@ function rowToTransaction(r: Record<string, unknown>): CashTransaction {
     description: r.description as string,
     amountPln:   r.amount_pln as number,
     toAccountId: r.to_account_id as number | undefined,
+    sourceType:  r.source_type as string | undefined,
+    sourceId:    r.source_id as number | undefined,
     createdAt:   r.created_at as string,
   };
 }
@@ -148,12 +150,31 @@ export const cashFlowService = {
         user_id: user.id, account_id: data.accountId, date: data.date,
         type: data.type, scope: data.scope, category: data.category,
         description: data.description, amount_pln: data.amountPln,
-        to_account_id: data.toAccountId ?? null, created_at: now,
+        to_account_id: data.toAccountId ?? null,
+        source_type: data.sourceType ?? null,
+        source_id:   data.sourceId   ?? null,
+        created_at: now,
       }).select('id').single();
       if (error) throw error;
       return row.id;
     }
     return db.cashTransactions.add({ ...data, createdAt: now });
+  },
+
+  /** Usuwa wszystkie transakcje kasowe powiązane z danym źródłem (np. sprzedaż, dostawa). */
+  async deleteBySource(sourceType: string, sourceId: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('cash_transactions')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('source_type', sourceType)
+        .eq('source_id', sourceId);
+      return;
+    }
+    await db.cashTransactions
+      .filter(t => t.sourceType === sourceType && t.sourceId === sourceId)
+      .delete();
   },
 
   async createTransfer(

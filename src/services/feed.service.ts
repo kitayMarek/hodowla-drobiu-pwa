@@ -1,5 +1,6 @@
 import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
+import { cashFlowService } from '@/services/cashFlow.service';
 import type { FeedType, FeedDelivery, FeedConsumption } from '@/models/feed.model';
 
 // ── mappers ──────────────────────────────────────────────────
@@ -216,6 +217,32 @@ export const feedService = {
 
   async deleteDelivery(id: number): Promise<void> {
     const user = await getAuthUser();
+
+    // 1. Usuń powiązane financial_events (pending / settled) i ich transakcje kasowe
+    if (user) {
+      const { data: events } = await supabase
+        .from('financial_events').select('id, cash_transaction_id')
+        .eq('user_id', user.id).eq('source_type', 'feed_delivery').eq('source_id', id);
+      for (const ev of events ?? []) {
+        if (ev.cash_transaction_id) {
+          await supabase.from('cash_transactions')
+            .delete().eq('id', ev.cash_transaction_id).eq('user_id', user.id);
+        }
+        await supabase.from('financial_events').delete().eq('id', ev.id).eq('user_id', user.id);
+      }
+    } else {
+      const events = await db.financialEvents
+        .filter(e => e.sourceType === 'feed_delivery' && e.sourceId === id).toArray();
+      for (const ev of events) {
+        if (ev.cashTransactionId) await db.cashTransactions.delete(ev.cashTransactionId);
+        await db.financialEvents.delete(ev.id!);
+      }
+    }
+
+    // 2. Usuń bezpośrednie transakcje kasowe (immediate payment)
+    await cashFlowService.deleteBySource('feed_delivery', id);
+
+    // 3. Usuń samą dostawę i przelicz WAC
     if (user) {
       const { data: delivery } = await supabase.from('feed_deliveries').select('feed_type_id')
         .eq('id', id).eq('user_id', user.id).single();

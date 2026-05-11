@@ -224,9 +224,11 @@ export function FeedPage() {
         });
       } else if (delPayment === 'immediate' && delAccountId) {
         await cashFlowService.createTransaction({
-          accountId: Number(delAccountId), date: data.deliveryDate, type: 'expense',
-          scope: 'drob', category: 'Pasza', description: desc,
-          amountPln: data.totalCostPln,
+          accountId:  Number(delAccountId), date: data.deliveryDate, type: 'expense',
+          scope:      'drob', category: 'Pasza', description: desc,
+          amountPln:  data.totalCostPln,
+          sourceType: 'feed_delivery',
+          sourceId:   delivId,
         });
       }
     }
