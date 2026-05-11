@@ -12,6 +12,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { to: '/', label: pl.nav.dashboard, icon: '📊', end: true },
+  { to: '/szybki', label: '⚡ Szybki wpis', icon: '' },
   { to: '/stada', label: pl.nav.batches, icon: '🐔' },
   { to: '/pasze', label: pl.nav.feed, icon: '🌾' },
   { to: '/sprzedaz', label: pl.nav.sales, icon: '💰' },

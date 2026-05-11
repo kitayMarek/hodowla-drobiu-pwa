@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar';
 import { BottomNav } from './BottomNav';
 import { TopBar } from './TopBar';
 import { DemoBanner } from '@/components/ui/DemoBanner';
+import { InstallBanner } from '@/components/ui/InstallBanner';
 import { BackupReminderModal } from '@/components/ui/BackupReminderModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { shouldShowReminder } from '@/services/backupReminder';
@@ -34,6 +35,9 @@ export function AppShell() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Baner demo – widoczny gdy niezalogowany */}
       {!user && <DemoBanner />}
+
+      {/* Baner instalacji PWA – tylko mobile */}
+      <InstallBanner />
 
       <div className="flex flex-1">
         {/* Desktop sidebar */}
