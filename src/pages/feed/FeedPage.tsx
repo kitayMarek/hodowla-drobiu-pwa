@@ -16,7 +16,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { KPICard } from '@/components/charts/KPICard';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { db } from '@/db/database';
+import { db }               from '@/db/database';
+import { cashFlowService } from '@/services/cashFlow.service';
 import {
   useFeedTypes, useAllFeedDeliveries, useAllFeedConsumptions,
   useAllWeighings, useAllSales, useAllSlaughter, useActiveCashAccounts,
@@ -222,10 +223,10 @@ export function FeedPage() {
           description: desc, sourceType: 'feed_delivery', sourceId: delivId,
         });
       } else if (delPayment === 'immediate' && delAccountId) {
-        await db.cashTransactions.add({
+        await cashFlowService.createTransaction({
           accountId: Number(delAccountId), date: data.deliveryDate, type: 'expense',
           scope: 'drob', category: 'Pasza', description: desc,
-          amountPln: data.totalCostPln, createdAt: new Date().toISOString(),
+          amountPln: data.totalCostPln,
         });
       }
     }

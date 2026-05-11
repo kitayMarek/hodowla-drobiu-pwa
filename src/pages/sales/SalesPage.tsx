@@ -21,7 +21,8 @@ import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { EmptyState }   from '@/components/ui/EmptyState';
 import { KPICard }      from '@/components/charts/KPICard';
 import { useLiveQuery } from 'dexie-react-hooks';
-import { db }           from '@/db/database';
+import { db }                from '@/db/database';
+import { cashFlowService }  from '@/services/cashFlow.service';
 import { useAllSales, useActiveCashAccounts, useAllSlaughter, useAllFeedConsumptions, useAllWeighings, useOrders } from '@/hooks/useTableData';
 import { useAllDailyEntries } from '@/hooks/useDailyEntries';
 import { useBatches } from '@/hooks/useBatch';
@@ -227,10 +228,12 @@ export function SalesPage() {
         description: desc, sourceType: 'sale', sourceId: saleId,
       });
     } else if (salePayment === 'immediate' && saleAccountId) {
-      await db.cashTransactions.add({
+      await cashFlowService.createTransaction({
         accountId: Number(saleAccountId), date: data.saleDate, type: 'income',
-        scope: 'drob', category: 'Sprzedaż drobiu', description: desc,
-        amountPln: data.totalRevenuePln, createdAt: new Date().toISOString(),
+        scope: 'drob',
+        category: data.saleType === 'jaja' ? 'Sprzedaż jaj' : 'Sprzedaż drobiu',
+        description: desc,
+        amountPln: data.totalRevenuePln,
       });
     }
 
