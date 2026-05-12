@@ -1,14 +1,17 @@
 /**
  * Szybki wpis — mobilny notatnik dzienny.
- * Kumuluje dosypania paszy i upadki przez cały dzień,
- * po kliknięciu "Zatwierdź" zapisuje / doplutuje do wpisu dziennego.
+ * Kumuluje dosypania paszy (z wyborem typu) i upadki przez cały dzień,
+ * po kliknięciu "Zatwierdź" zapisuje / dolicza do wpisu dziennego
+ * i tworzy wpisy feedConsumptions per typ paszy.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { todayISO } from '@/utils/date';
 import { useActiveBatches } from '@/hooks/useBatch';
+import { useFeedTypes } from '@/hooks/useTableData';
 import { dailyEntryService } from '@/services/dailyEntry.service';
+import { feedService } from '@/services/feed.service';
 import { batchPhotoService } from '@/services/batchPhoto.service';
 import { blobToObjectUrl } from '@/utils/imageUtils';
 import { db } from '@/db/database';
@@ -16,15 +19,22 @@ import type { BatchPhoto } from '@/models/batchPhoto.model';
 
 // ── Typy ───────────────────────────────────────────────────────
 
+interface FeedLogItem {
+  amount:        number;
+  time:          string;
+  feedTypeId?:   number;
+  feedTypeName?: string;
+}
+
 interface LogItem {
   amount: number;
-  time:   string; // "08:15"
+  time:   string;
 }
 
 interface Accumulator {
   batchId:     number;
   date:        string;
-  feedEntries: LogItem[];
+  feedEntries: FeedLogItem[];
   deadEntries: LogItem[];
 }
 
@@ -85,15 +95,9 @@ function MediaThumb({ item, onClick }: { item: BatchPhoto; onClick: () => void }
 // ── Podgląd fullscreen ────────────────────────────────────────
 
 function MediaPreview({
-  items,
-  startIdx,
-  onClose,
-  onDelete,
+  items, startIdx, onClose, onDelete,
 }: {
-  items:    BatchPhoto[];
-  startIdx: number;
-  onClose:  () => void;
-  onDelete: (id: number) => void;
+  items: BatchPhoto[]; startIdx: number; onClose: () => void; onDelete: (id: number) => void;
 }) {
   const [idx, setIdx] = useState(startIdx);
   const [src, setSrc] = useState<string | null>(null);
@@ -120,7 +124,6 @@ function MediaPreview({
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      {/* Top bar */}
       <div className="flex items-center justify-between px-4 py-3 text-white bg-black/60">
         <span className="text-sm text-white/70">{idx + 1} / {items.length}</span>
         <div className="flex items-center gap-4">
@@ -137,35 +140,25 @@ function MediaPreview({
           >
             🗑️ Usuń
           </button>
-          <button onClick={onClose} className="text-white/70 hover:text-white text-2xl leading-none">
-            ✕
-          </button>
+          <button onClick={onClose} className="text-white/70 hover:text-white text-2xl leading-none">✕</button>
         </div>
       </div>
 
-      {/* Media */}
       <div className="flex-1 flex items-center justify-center relative min-h-0 px-2">
         {idx > 0 && (
           <button onClick={() => setIdx(i => i - 1)}
-            className="absolute left-2 z-10 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">
-            ‹
-          </button>
+            className="absolute left-2 z-10 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">‹</button>
         )}
-
         {item.mediaType === 'video'
           ? <video src={src} controls playsInline className="max-w-full max-h-full rounded-lg" />
           : <img src={src} alt="" className="max-w-full max-h-full object-contain rounded-lg select-none" />
         }
-
         {idx < items.length - 1 && (
           <button onClick={() => setIdx(i => i + 1)}
-            className="absolute right-2 z-10 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">
-            ›
-          </button>
+            className="absolute right-2 z-10 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">›</button>
         )}
       </div>
 
-      {/* Opis */}
       {item.description && (
         <p className="text-white/70 text-sm text-center px-4 py-2">{item.description}</p>
       )}
@@ -179,42 +172,42 @@ type ModalType = 'feed' | 'dead' | null;
 type SaveStatus = 'idle' | 'saving' | 'ok' | 'err';
 
 export function QuickEntryPage() {
-  const today   = todayISO();
-  const batches = useActiveBatches();
+  const today    = todayISO();
+  const batches  = useActiveBatches();
+  const feedTypes = useFeedTypes();
+  const activeFeedTypes = feedTypes.filter(f => f.isActive);
 
-  const [batchId,    setBatchId]    = useState<number | null>(null);
-  const [acc,        setAcc]        = useState<Accumulator | null>(null);
-  const [modal,      setModal]      = useState<ModalType>(null);
-  const [inputVal,   setInputVal]   = useState('');
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
-  const [errMsg,     setErrMsg]     = useState('');
+  const [batchId,      setBatchId]      = useState<number | null>(null);
+  const [acc,          setAcc]          = useState<Accumulator | null>(null);
+  const [modal,        setModal]        = useState<ModalType>(null);
+  const [inputVal,     setInputVal]     = useState('');
+  const [saveStatus,   setSaveStatus]   = useState<SaveStatus>('idle');
+  const [errMsg,       setErrMsg]       = useState('');
   const [alreadySaved, setAlreadySaved] = useState<{ feedKg: number; deadCount: number } | null>(null);
-  const inputRef    = useRef<HTMLInputElement>(null);
+
+  // Feed type wybierany w modalu
+  const [selectedFeedTypeId,   setSelectedFeedTypeId]   = useState<number | null>(null);
+  const [selectedFeedTypeName, setSelectedFeedTypeName] = useState<string>('');
+
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Media
-  const [previewIdx,    setPreviewIdx]    = useState<number | null>(null);
+  const [previewIdx,     setPreviewIdx]     = useState<number | null>(null);
   const [mediaUploading, setMediaUploading] = useState(false);
-  const [mediaError,    setMediaError]    = useState<string | null>(null);
+  const [mediaError,     setMediaError]     = useState<string | null>(null);
   const photoRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
 
-  // Zdjęcia i filmiki dla wybranego stada z dzisiaj
   const todayMedia = useLiveQuery(
     () => batchId !== null
-      ? db.batchPhotos
-          .where('[batchId+photoDate]')
-          .equals([batchId, today])
-          .reverse()
-          .toArray()
+      ? db.batchPhotos.where('[batchId+photoDate]').equals([batchId, today]).reverse().toArray()
       : Promise.resolve([] as BatchPhoto[]),
     [batchId, today]
   ) ?? [];
 
   // Wybierz pierwsze stado domyślnie
   useEffect(() => {
-    if (batches.length > 0 && batchId === null) {
-      setBatchId(batches[0].id!);
-    }
+    if (batches.length > 0 && batchId === null) setBatchId(batches[0].id!);
   }, [batches, batchId]);
 
   // Ładuj akumulator gdy zmieni się stado
@@ -223,7 +216,7 @@ export function QuickEntryPage() {
     setAcc(loadAcc(batchId, today));
   }, [batchId, today]);
 
-  // Ładuj istniejący wpis z bazy (co ile danych już jest zapisane)
+  // Ładuj istniejący wpis z bazy
   useEffect(() => {
     if (batchId === null) return;
     dailyEntryService.getByBatchAndDate(batchId, today).then(entry => {
@@ -236,9 +229,27 @@ export function QuickEntryPage() {
     if (modal) setTimeout(() => inputRef.current?.focus(), 80);
   }, [modal]);
 
+  // Przy otwarciu modala paszy — auto-wybierz jedyny typ (jeśli tylko jeden)
+  useEffect(() => {
+    if (modal === 'feed' && activeFeedTypes.length === 1) {
+      setSelectedFeedTypeId(activeFeedTypes[0].id!);
+      setSelectedFeedTypeName(activeFeedTypes[0].name);
+    } else if (modal !== 'feed') {
+      setSelectedFeedTypeId(null);
+      setSelectedFeedTypeName('');
+    }
+  }, [modal]);
+
   const feedTotal = acc?.feedEntries.reduce((s, e) => s + e.amount, 0) ?? 0;
   const deadTotal = acc?.deadEntries.reduce((s, e) => s + e.amount, 0) ?? 0;
   const hasData   = feedTotal > 0 || deadTotal > 0;
+
+  // Podsumowanie paszy per typ
+  const feedByType = (acc?.feedEntries ?? []).reduce<Record<string, number>>((map, e) => {
+    const label = e.feedTypeName ?? '—';
+    map[label] = (map[label] ?? 0) + e.amount;
+    return map;
+  }, {});
 
   // ── Dodaj pozycję ────────────────────────────────────────────
   const handleAdd = () => {
@@ -246,14 +257,25 @@ export function QuickEntryPage() {
     const amount = parseFloat(inputVal.replace(',', '.'));
     if (isNaN(amount) || amount <= 0) return;
 
-    const item: LogItem = { amount, time: nowTime() };
-    const newAcc: Accumulator = modal === 'feed'
-      ? { ...acc, feedEntries: [...acc.feedEntries, item] }
-      : { ...acc, deadEntries: [...acc.deadEntries, item] };
-    saveAcc(newAcc);
-    setAcc(newAcc);
+    if (modal === 'feed') {
+      const item: FeedLogItem = {
+        amount, time: nowTime(),
+        feedTypeId:   selectedFeedTypeId   ?? undefined,
+        feedTypeName: selectedFeedTypeName || undefined,
+      };
+      const newAcc: Accumulator = { ...acc, feedEntries: [...acc.feedEntries, item] };
+      saveAcc(newAcc);
+      setAcc(newAcc);
+    } else {
+      const item: LogItem = { amount, time: nowTime() };
+      const newAcc: Accumulator = { ...acc, deadEntries: [...acc.deadEntries, item] };
+      saveAcc(newAcc);
+      setAcc(newAcc);
+    }
     setModal(null);
     setInputVal('');
+    setSelectedFeedTypeId(null);
+    setSelectedFeedTypeName('');
   };
 
   // ── Usuń pozycję ─────────────────────────────────────────────
@@ -271,6 +293,7 @@ export function QuickEntryPage() {
     if (!acc || !batchId || !hasData) return;
     setSaveStatus('saving');
     try {
+      // 1. Zaktualizuj/utwórz wpis dzienny (łączne kg)
       const existing = await dailyEntryService.getByBatchAndDate(batchId, today);
       if (existing?.id != null) {
         await dailyEntryService.update(existing.id, {
@@ -279,13 +302,31 @@ export function QuickEntryPage() {
         });
       } else {
         await dailyEntryService.create({
-          batchId,
-          date:           today,
+          batchId, date: today,
           feedConsumedKg: Math.round(feedTotal * 100) / 100,
-          deadCount:      deadTotal,
-          culledCount:    0,
+          deadCount: deadTotal, culledCount: 0,
         });
       }
+
+      // 2. Utwórz/zaktualizuj feedConsumptions per typ
+      const byType = new Map<number, number>();
+      let untyped = 0;
+      for (const e of acc.feedEntries) {
+        if (e.feedTypeId != null) {
+          byType.set(e.feedTypeId, (byType.get(e.feedTypeId) ?? 0) + e.amount);
+        } else {
+          untyped += e.amount;
+        }
+      }
+      // Wpisy z typem
+      for (const [ftId, kg] of byType) {
+        await feedService.upsertConsumption(batchId, today, ftId, kg);
+      }
+      // Wpisy bez typu — bierzemy pierwszy aktywny typ jako fallback, jeśli istnieje
+      if (untyped > 0 && activeFeedTypes.length > 0) {
+        await feedService.upsertConsumption(batchId, today, activeFeedTypes[0].id!, untyped);
+      }
+
       clearAcc(batchId, today);
       setAcc(loadAcc(batchId, today));
       setSaveStatus('ok');
@@ -315,7 +356,6 @@ export function QuickEntryPage() {
   const selectedBatch = batches.find(b => b.id === batchId);
 
   // ── Render ─────────────────────────────────────────────────
-
   if (batches.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6 space-y-3">
@@ -343,15 +383,12 @@ export function QuickEntryPage() {
       {batches.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           {batches.map(b => (
-            <button
-              key={b.id}
-              onClick={() => setBatchId(b.id!)}
+            <button key={b.id} onClick={() => setBatchId(b.id!)}
               className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 batchId === b.id
                   ? 'bg-brand-700 text-white'
                   : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'
-              }`}
-            >
+              }`}>
               {b.name}
             </button>
           ))}
@@ -393,26 +430,37 @@ export function QuickEntryPage() {
           </div>
         </div>
 
+        {/* Podsumowanie per typ */}
+        {Object.keys(feedByType).length > 0 && (
+          <div className="px-5 pt-3 pb-1 flex flex-wrap gap-1.5">
+            {Object.entries(feedByType).map(([name, kg]) => (
+              <span key={name} className="text-xs bg-brand-50 text-brand-700 font-medium px-2.5 py-1 rounded-full">
+                {name}: {kg.toFixed(1)} kg
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Historia wpisów */}
         {acc && acc.feedEntries.length > 0 && (
-          <div className="divide-y divide-gray-50">
+          <div className="divide-y divide-gray-50 mt-1">
             {acc.feedEntries.map((e, i) => (
               <div key={i} className="flex items-center justify-between px-5 py-2.5">
-                <span className="text-sm text-gray-500">{e.time}</span>
-                <span className="text-sm font-medium text-gray-800">+{e.amount} kg</span>
-                <button
-                  onClick={() => removeEntry('feed', i)}
-                  className="text-gray-300 hover:text-red-400 text-xs px-2 py-1 rounded"
-                  title="Usuń"
-                >
-                  ✕
-                </button>
+                <span className="text-sm text-gray-500 w-12 shrink-0">{e.time}</span>
+                {e.feedTypeName && (
+                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full flex-1 mx-2 truncate">
+                    {e.feedTypeName}
+                  </span>
+                )}
+                {!e.feedTypeName && <span className="flex-1" />}
+                <span className="text-sm font-medium text-gray-800 shrink-0">+{e.amount} kg</span>
+                <button onClick={() => removeEntry('feed', i)}
+                  className="text-gray-300 hover:text-red-400 text-xs px-2 py-1 rounded ml-1" title="Usuń">✕</button>
               </div>
             ))}
           </div>
         )}
 
-        {/* Przycisk dodaj */}
         <div className="px-5 py-4">
           <button
             onClick={() => { setModal('feed'); setInputVal(''); }}
@@ -445,13 +493,8 @@ export function QuickEntryPage() {
               <div key={i} className="flex items-center justify-between px-5 py-2.5">
                 <span className="text-sm text-gray-500">{e.time}</span>
                 <span className="text-sm font-medium text-gray-800">+{e.amount} szt.</span>
-                <button
-                  onClick={() => removeEntry('dead', i)}
-                  className="text-gray-300 hover:text-red-400 text-xs px-2 py-1 rounded"
-                  title="Usuń"
-                >
-                  ✕
-                </button>
+                <button onClick={() => removeEntry('dead', i)}
+                  className="text-gray-300 hover:text-red-400 text-xs px-2 py-1 rounded" title="Usuń">✕</button>
               </div>
             ))}
           </div>
@@ -482,7 +525,6 @@ export function QuickEntryPage() {
           )}
         </div>
 
-        {/* Siatka miniatur */}
         {todayMedia.length > 0 && (
           <div className="grid grid-cols-4 gap-1.5 p-3">
             {todayMedia.map((item, i) => (
@@ -495,27 +537,21 @@ export function QuickEntryPage() {
           <p className="text-sm text-red-600 mx-5 mt-2 bg-red-50 rounded-lg px-3 py-2">{mediaError}</p>
         )}
 
-        {/* Przyciski */}
         <div className="px-5 py-4 grid grid-cols-2 gap-3">
-          <button
-            onClick={() => { setMediaError(null); photoRef.current?.click(); }}
+          <button onClick={() => { setMediaError(null); photoRef.current?.click(); }}
             disabled={mediaUploading}
-            className="py-3.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-600 font-semibold text-base hover:bg-gray-50 hover:border-gray-400 transition-colors active:scale-[0.98] disabled:opacity-50"
-          >
+            className="py-3.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-600 font-semibold text-base hover:bg-gray-50 hover:border-gray-400 transition-colors active:scale-[0.98] disabled:opacity-50">
             {mediaUploading ? '⏳' : '📷'} Zdjęcie
           </button>
-          <button
-            onClick={() => { setMediaError(null); videoRef.current?.click(); }}
+          <button onClick={() => { setMediaError(null); videoRef.current?.click(); }}
             disabled={mediaUploading}
-            className="py-3.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-600 font-semibold text-base hover:bg-gray-50 hover:border-gray-400 transition-colors active:scale-[0.98] disabled:opacity-50"
-          >
+            className="py-3.5 rounded-xl border-2 border-dashed border-gray-200 text-gray-600 font-semibold text-base hover:bg-gray-50 hover:border-gray-400 transition-colors active:scale-[0.98] disabled:opacity-50">
             {mediaUploading ? '⏳' : '🎥'} Filmik
           </button>
         </div>
 
-        {/* Ukryte inputy — capture otwiera aparat bezpośrednio */}
-        <input ref={photoRef} type="file" accept="image/*"  capture="environment" className="hidden" onChange={handleMediaFile} />
-        <input ref={videoRef} type="file" accept="video/*"  capture="environment" className="hidden" onChange={handleMediaFile} />
+        <input ref={photoRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handleMediaFile} />
+        <input ref={videoRef} type="file" accept="video/*" capture="environment" className="hidden" onChange={handleMediaFile} />
       </div>
 
       {/* ── Zatwierdź ── */}
@@ -525,15 +561,12 @@ export function QuickEntryPage() {
           <p className="text-green-100 text-sm mt-1">Możesz dalej dodawać wpisy — będą doliczone przy następnym zatwierdzeniu.</p>
         </div>
       ) : (
-        <button
-          onClick={handleSubmit}
-          disabled={!hasData || saveStatus === 'saving'}
+        <button onClick={handleSubmit} disabled={!hasData || saveStatus === 'saving'}
           className={`w-full py-5 rounded-2xl font-bold text-lg transition-all ${
             hasData
               ? 'bg-brand-700 text-white hover:bg-brand-800 active:scale-[0.98] shadow-md'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-          }`}
-        >
+          }`}>
           {saveStatus === 'saving' ? '⏳ Zapisuję…' : '✅ Zatwierdź dzień'}
         </button>
       )}
@@ -552,9 +585,7 @@ export function QuickEntryPage() {
           items={todayMedia}
           startIdx={previewIdx}
           onClose={() => setPreviewIdx(null)}
-          onDelete={() => {
-            if (todayMedia.length <= 1) setPreviewIdx(null);
-          }}
+          onDelete={() => { if (todayMedia.length <= 1) setPreviewIdx(null); }}
         />
       )}
 
@@ -567,14 +598,46 @@ export function QuickEntryPage() {
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative w-full max-w-lg bg-white rounded-t-3xl p-6 space-y-5 shadow-2xl">
 
-            {/* Handle */}
             <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto -mt-1" />
 
             <h2 className="text-xl font-bold text-gray-900 text-center">
               {modal === 'feed' ? '🌾 Ile dosypałeś?' : '💀 Ile padło?'}
             </h2>
 
-            {/* Input */}
+            {/* Wybór typu paszy */}
+            {modal === 'feed' && activeFeedTypes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rodzaj paszy</p>
+                <div className="flex flex-wrap gap-2">
+                  {activeFeedTypes.map(ft => (
+                    <button
+                      key={ft.id}
+                      onClick={() => {
+                        if (selectedFeedTypeId === ft.id) {
+                          setSelectedFeedTypeId(null);
+                          setSelectedFeedTypeName('');
+                        } else {
+                          setSelectedFeedTypeId(ft.id!);
+                          setSelectedFeedTypeName(ft.name);
+                        }
+                      }}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        selectedFeedTypeId === ft.id
+                          ? 'bg-brand-700 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {ft.name}
+                    </button>
+                  ))}
+                </div>
+                {!selectedFeedTypeId && (
+                  <p className="text-xs text-gray-400">Nie wybrano — zostanie zapisane bez określenia typu.</p>
+                )}
+              </div>
+            )}
+
+            {/* Input liczby */}
             <div className="relative">
               <input
                 ref={inputRef}
@@ -595,37 +658,24 @@ export function QuickEntryPage() {
 
             {/* Szybkie przyciski */}
             <div className="grid grid-cols-4 gap-2">
-              {(modal === 'feed'
-                ? ['5', '10', '25', '50']
-                : ['1', '2', '5', '10']
-              ).map(v => (
-                <button
-                  key={v}
-                  onClick={() => setInputVal(v)}
+              {(modal === 'feed' ? ['5', '10', '25', '50'] : ['1', '2', '5', '10']).map(v => (
+                <button key={v} onClick={() => setInputVal(v)}
                   className={`py-3 rounded-xl font-semibold text-sm transition-colors ${
-                    inputVal === v
-                      ? 'bg-brand-700 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
+                    inputVal === v ? 'bg-brand-700 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}>
                   {v}
                 </button>
               ))}
             </div>
 
-            {/* Przyciski akcji */}
             <div className="flex gap-3">
-              <button
-                onClick={() => { setModal(null); setInputVal(''); }}
-                className="flex-1 py-4 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50"
-              >
+              <button onClick={() => { setModal(null); setInputVal(''); setSelectedFeedTypeId(null); setSelectedFeedTypeName(''); }}
+                className="flex-1 py-4 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">
                 Anuluj
               </button>
-              <button
-                onClick={handleAdd}
+              <button onClick={handleAdd}
                 disabled={!inputVal || parseFloat(inputVal) <= 0}
-                className="flex-[2] py-4 rounded-xl bg-brand-700 text-white font-bold text-lg hover:bg-brand-800 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all"
-              >
+                className="flex-[2] py-4 rounded-xl bg-brand-700 text-white font-bold text-lg hover:bg-brand-800 disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] transition-all">
                 Dodaj
               </button>
             </div>

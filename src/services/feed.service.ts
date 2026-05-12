@@ -285,6 +285,24 @@ export const feedService = {
     return all.filter(c => c.date === date);
   },
 
+  /** Dodaje kg do istniejącego rekordu (lub tworzy nowy) – używane przez Szybki wpis. */
+  async upsertConsumption(batchId: number, date: string, feedTypeId: number, addKg: number): Promise<void> {
+    const existing = await this.getConsumptionsByBatchAndDate(batchId, date);
+    const match = existing.find(c => c.feedTypeId === feedTypeId);
+    if (match?.id != null) {
+      const newKg = Math.round((match.consumedKg + addKg) * 100) / 100;
+      const user = await getAuthUser();
+      if (user) {
+        await supabase.from('feed_consumptions').update({ consumed_kg: newKg })
+          .eq('id', match.id).eq('user_id', user.id);
+        return;
+      }
+      await db.feedConsumptions.update(match.id, { consumedKg: newKg });
+    } else {
+      await this.createConsumption({ batchId, feedTypeId, date, consumedKg: Math.round(addKg * 100) / 100 });
+    }
+  },
+
   async deleteConsumptionsByBatchAndDate(batchId: number, date: string): Promise<void> {
     const items = await this.getConsumptionsByBatchAndDate(batchId, date);
     await Promise.all(items.map(c => this.deleteConsumption(c.id!)));
