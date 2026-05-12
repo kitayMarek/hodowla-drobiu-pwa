@@ -46,10 +46,18 @@ export const pushNotificationService = {
       throw new Error('Brak zgody na powiadomienia');
     }
 
-    const reg = await navigator.serviceWorker.ready;
+    // Czekaj max 10 sekund na gotowość SW
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Service Worker nie odpowiada. Zamknij i otwórz aplikację ponownie.')), 10000)
+      ),
+    ]) as ServiceWorkerRegistration;
+    const keyBytes = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
+    const keyBuffer = keyBytes.buffer.slice(keyBytes.byteOffset, keyBytes.byteOffset + keyBytes.byteLength);
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
+      applicationServerKey: new Uint8Array(keyBuffer as ArrayBuffer),
     });
 
     const json = sub.toJSON();
