@@ -1,10 +1,11 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { settingsService } from '@/services/settings.service';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/contexts/AuthContext';
 import { exportToJson, importFromLocalDexie, importFromJson, clearAllSupabaseData } from '@/services/migration.service';
 import { clearDemoData, isDemoSeeded } from '@/services/demoData.service';
+import { pushNotificationService } from '@/services/pushNotification.service';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -78,6 +79,53 @@ export function SettingsPage() {
       setImportStatus({ type: 'err', msg: (e as Error).message });
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // ── Push notifications ─────────────────────────────────────
+  type PushStatus = 'loading' | 'unsupported' | 'off' | 'on' | 'busy' | 'error';
+  const [pushStatus, setPushStatus]         = useState<PushStatus>('loading');
+  const [pushNoon, setPushNoon]             = useState(true);
+  const [pushEvening, setPushEvening]       = useState(true);
+  const [pushError, setPushError]           = useState('');
+
+  useEffect(() => {
+    if (!user) { setPushStatus('off'); return; }
+    if (!pushNotificationService.isSupported()) { setPushStatus('unsupported'); return; }
+    pushNotificationService.getSubscription().then(sub => {
+      if (sub) {
+        setPushNoon(sub.remindNoon);
+        setPushEvening(sub.remindEvening);
+        setPushStatus('on');
+      } else {
+        setPushStatus('off');
+      }
+    });
+  }, [user]);
+
+  const handlePushToggle = async () => {
+    setPushError('');
+    if (pushStatus === 'on') {
+      setPushStatus('busy');
+      await pushNotificationService.unsubscribe();
+      setPushStatus('off');
+    } else {
+      setPushStatus('busy');
+      try {
+        await pushNotificationService.subscribe(pushNoon, pushEvening);
+        setPushStatus('on');
+      } catch (e) {
+        setPushError((e as Error).message);
+        setPushStatus('off');
+      }
+    }
+  };
+
+  const handlePushSettings = async (noon: boolean, evening: boolean) => {
+    setPushNoon(noon);
+    setPushEvening(evening);
+    if (pushStatus === 'on') {
+      await pushNotificationService.updateSettings(noon, evening);
     }
   };
 
@@ -165,6 +213,70 @@ export function SettingsPage() {
           {saved && <span className="text-sm text-green-600 font-medium">✓ Zapisano</span>}
         </div>
       </form>
+
+      {/* Push notifications */}
+      {user && pushStatus !== 'unsupported' && (
+        <Card title="🔔 Przypomnienia dzienne" padding="md">
+          <div className="space-y-3">
+            <p className="text-xs text-gray-500">
+              Powiadomienie push na to urządzenie gdy nie ma jeszcze wpisu na dziś.
+              Działa nawet gdy przeglądarka jest zamknięta.
+            </p>
+
+            {/* Toggle on/off */}
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-gray-700">
+                {pushStatus === 'on' ? '✅ Włączone' : '⬜ Wyłączone'}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant={pushStatus === 'on' ? 'danger' : 'secondary'}
+                loading={pushStatus === 'busy' || pushStatus === 'loading'}
+                disabled={pushStatus === 'busy' || pushStatus === 'loading'}
+                onClick={handlePushToggle}
+              >
+                {pushStatus === 'on' ? 'Wyłącz' : 'Włącz'}
+              </Button>
+            </div>
+
+            {/* Time slots (visible only when on or configuring) */}
+            {(pushStatus === 'on' || pushStatus === 'off') && (
+              <div className="space-y-2 pt-1">
+                <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">Godziny przypomnień</p>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-brand-600"
+                    checked={pushNoon}
+                    onChange={e => handlePushSettings(e.target.checked, pushEvening)}
+                  />
+                  <span className="text-sm text-gray-700">🌤 Południe (ok. 12:00)</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 accent-brand-600"
+                    checked={pushEvening}
+                    onChange={e => handlePushSettings(pushNoon, e.target.checked)}
+                  />
+                  <span className="text-sm text-gray-700">🌙 Wieczór (ok. 20:00)</span>
+                </label>
+              </div>
+            )}
+
+            {pushError && (
+              <p className="text-xs text-red-600 bg-red-50 rounded px-3 py-2">⚠ {pushError}</p>
+            )}
+
+            {pushStatus === 'off' && Notification.permission === 'denied' && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded px-3 py-2">
+                Przeglądarka zablokowała powiadomienia. Odblokuj je ręcznie w ustawieniach strony.
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Data management */}
       <Card title="Dane i backup" padding="md">

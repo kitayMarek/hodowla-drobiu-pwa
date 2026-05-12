@@ -7,19 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['icons/*.png', 'favicon.ico'],
-      workbox: {
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [
-          {
-            urlPattern: /^https?:\/\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'app-cache',
-              networkTimeoutSeconds: 3,
-            },
-          },
-        ],
       },
       manifest: {
         name: 'Fermly – Menadżer Farmy',
