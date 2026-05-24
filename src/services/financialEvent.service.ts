@@ -50,15 +50,26 @@ export const financialEventService = {
     description: string;
     sourceType:  FinEventSource;
     sourceId:    number;
+    scope?:      string;
+    category?:   string;
     notes?:      string;
   }): Promise<number> {
     const user = await getAuthUser();
     const now = new Date().toISOString();
     if (user) {
       const { data: row, error } = await supabase.from('financial_events').insert({
-        user_id: user.id, date: data.date, type: data.type, amount_pln: data.amountPln,
-        description: data.description, source_type: data.sourceType, source_id: data.sourceId,
-        status: 'pending', notes: data.notes ?? null, created_at: now,
+        user_id:      user.id,
+        date:         data.date,
+        type:         data.type,
+        amount_pln:   data.amountPln,
+        description:  data.description,
+        source_type:  data.sourceType,
+        source_id:    data.sourceId,
+        scope:        data.scope ?? 'drob',
+        category:     data.category ?? null,
+        status:       'pending',
+        notes:        data.notes ?? null,
+        created_at:   now,
       }).select('id').single();
       if (error) {
         console.error('financial_events insert error:', JSON.stringify(error));
@@ -67,7 +78,6 @@ export const financialEventService = {
       if (!row) throw new Error('financial_events: brak odpowiedzi z Supabase po zapisie');
       return row.id;
     }
-    // tryb offline – Dexie
     return db.financialEvents.add({ ...data, status: 'pending', createdAt: now });
   },
 
