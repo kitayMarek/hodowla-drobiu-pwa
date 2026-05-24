@@ -30,6 +30,8 @@ import type { HealthEvent } from '@/models/health.model';
 import type { BirdTransfer } from '@/models/birdTransfer.model';
 import type { Investment } from '@/models/investment.model';
 import type { Order } from '@/models/order.model';
+import type { Activity } from '@/models/activity.model';
+import { activityService } from '@/services/activity.service';
 
 // ── Expenses ─────────────────────────────────────────────────
 
@@ -413,6 +415,29 @@ export function useOrders(): Order[] {
     const ch = supabase.channel(`orders-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' },
         () => orderService.getAll().then(data => { setSb(data); cacheSet(`orders_${user.id}`, data); }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+  return user ? sb : dexie;
+}
+
+// ── Activities ───────────────────────────────────────────────
+
+export function useActivities(): Activity[] {
+  const { user } = useAuth();
+  const dexie = useLiveQuery(
+    () => !user ? db.activities.orderBy('sortOrder').toArray() : Promise.resolve([] as Activity[]),
+    [!!user]
+  ) ?? [];
+  const [sb, setSb] = useState<Activity[]>(() =>
+    user ? (cacheGet<Activity[]>(`activities_${user.id}`) ?? []) : []
+  );
+  useEffect(() => {
+    if (!user) { setSb([]); return; }
+    activityService.getAll().then(data => { setSb(data); cacheSet(`activities_${user.id}`, data); });
+    const ch = supabase.channel(`activities-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' },
+        () => activityService.getAll().then(data => { setSb(data); cacheSet(`activities_${user.id}`, data); }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);

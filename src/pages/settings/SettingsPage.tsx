@@ -6,10 +6,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { exportToJson, importFromLocalDexie, importFromJson, clearAllSupabaseData } from '@/services/migration.service';
 import { clearDemoData, isDemoSeeded } from '@/services/demoData.service';
 import { pushNotificationService } from '@/services/pushNotification.service';
+import { activityService } from '@/services/activity.service';
+import { useActivities } from '@/hooks/useTableData';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { pl } from '@/i18n/pl';
+import { ACTIVITY_COLORS, ACTIVITY_ICONS } from '@/models/activity.model';
+import type { ActivityColor } from '@/models/activity.model';
 
 type MigStatus = { type: 'idle' } | { type: 'busy'; msg: string } | { type: 'ok'; msg: string } | { type: 'err'; msg: string };
 
@@ -17,6 +21,40 @@ export function SettingsPage() {
   const settings = useSettings();
   const { user } = useAuth();
   const [saved, setSaved] = useState(false);
+
+  // ── Działalności ────────────────────────────────────────────
+  const activities = useActivities();
+  const [showAddActivity,  setShowAddActivity]  = useState(false);
+  const [newActName,       setNewActName]       = useState('');
+  const [newActIcon,       setNewActIcon]       = useState('🏭');
+  const [newActColor,      setNewActColor]      = useState<ActivityColor>('blue');
+  const [actSaving,        setActSaving]        = useState(false);
+  const [actError,         setActError]         = useState('');
+  const [deleteActTarget,  setDeleteActTarget]  = useState<number | null>(null);
+
+  const handleAddActivity = async () => {
+    if (!newActName.trim()) return;
+    setActSaving(true);
+    setActError('');
+    try {
+      await activityService.create({ key: '', name: newActName.trim(), icon: newActIcon, color: newActColor });
+      setNewActName(''); setNewActIcon('🏭'); setNewActColor('blue');
+      setShowAddActivity(false);
+    } catch (e) {
+      setActError(e instanceof Error ? e.message : JSON.stringify(e));
+    } finally {
+      setActSaving(false);
+    }
+  };
+
+  const handleToggleActivity = async (id: number, isActive: boolean) => {
+    await activityService.setActive(id, !isActive);
+  };
+
+  const handleDeleteActivity = async (id: number) => {
+    await activityService.delete(id);
+    setDeleteActTarget(null);
+  };
 
   // ── Data management state ───────────────────────────────────
   const [migStatus, setMigStatus] = useState<MigStatus>({ type: 'idle' });
@@ -160,6 +198,127 @@ export function SettingsPage() {
   return (
     <div className="space-y-4 max-w-lg">
       <h1 className="text-xl font-bold text-gray-900">{pl.settings.title}</h1>
+
+      {/* ── Działalności ─────────────────────────────────────────────── */}
+      <Card title="🏭 Działalności">
+        <div className="space-y-2">
+          {activities.map(act => (
+            <div key={act.id} className={`flex items-center gap-3 py-2 border-b border-gray-50 last:border-0 ${!act.isActive ? 'opacity-50' : ''}`}>
+              <span className="text-xl select-none">{act.icon}</span>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-800">{act.name}</div>
+                {act.isSystem && <div className="text-xs text-gray-400">systemowa</div>}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Toggle aktywności */}
+                {!act.isSystem && (
+                  <button
+                    onClick={() => act.id != null && handleToggleActivity(act.id, act.isActive)}
+                    className={`text-xs px-2 py-1 rounded-lg border font-medium transition-colors ${
+                      act.isActive
+                        ? 'border-green-200 text-green-700 bg-green-50 hover:bg-green-100'
+                        : 'border-gray-200 text-gray-400 bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    {act.isActive ? 'Aktywna' : 'Ukryta'}
+                  </button>
+                )}
+                {/* Usuń – tylko nieaktywne, niesystemowe */}
+                {!act.isSystem && !act.isActive && (
+                  <button
+                    onClick={() => act.id != null && setDeleteActTarget(act.id)}
+                    className="text-xs text-gray-300 hover:text-red-400"
+                  >🗑️</button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Dodaj nową */}
+          {showAddActivity ? (
+            <div className="pt-2 space-y-2 border-t border-gray-100">
+              {actError && (
+                <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">⚠ {actError}</div>
+              )}
+              <input
+                value={newActName}
+                onChange={e => setNewActName(e.target.value)}
+                placeholder="Nazwa działalności (np. Trak)"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+              {/* Ikona */}
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Ikona</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {ACTIVITY_ICONS.map(ico => (
+                    <button
+                      key={ico}
+                      onClick={() => setNewActIcon(ico)}
+                      className={`text-lg p-1 rounded-lg border transition-colors ${newActIcon === ico ? 'border-brand-400 bg-brand-50' : 'border-gray-100 hover:border-gray-300'}`}
+                    >
+                      {ico}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Kolor */}
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Kolor</div>
+                <div className="flex flex-wrap gap-2">
+                  {ACTIVITY_COLORS.map(c => (
+                    <button
+                      key={c.value}
+                      onClick={() => setNewActColor(c.value)}
+                      className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
+                        newActColor === c.value ? 'ring-2 ring-offset-1 ring-brand-400' : ''
+                      } ${
+                        c.value === 'blue'   ? 'bg-blue-100 text-blue-700 border-blue-200'
+                        : c.value === 'green'  ? 'bg-green-100 text-green-700 border-green-200'
+                        : c.value === 'yellow' ? 'bg-yellow-100 text-yellow-700 border-yellow-200'
+                        : c.value === 'orange' ? 'bg-orange-100 text-orange-700 border-orange-200'
+                        : c.value === 'red'    ? 'bg-red-100 text-red-700 border-red-200'
+                        : 'bg-gray-100 text-gray-700 border-gray-200'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button size="sm" loading={actSaving} onClick={handleAddActivity} className="flex-1">
+                  Dodaj działalność
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => { setShowAddActivity(false); setActError(''); }}>
+                  Anuluj
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddActivity(true)}
+              className="mt-1 text-sm text-brand-600 hover:text-brand-700 font-medium"
+            >
+              + Dodaj nową działalność
+            </button>
+          )}
+        </div>
+
+        {/* Confirm delete */}
+        {deleteActTarget != null && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-xl space-y-2">
+            <p className="text-sm text-red-700">Trwale usunąć tę działalność? Istniejące transakcje nie zostaną usunięte.</p>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => handleDeleteActivity(deleteActTarget)} className="bg-red-600 hover:bg-red-700 text-white flex-1">
+                Usuń
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setDeleteActTarget(null)}>
+                Anuluj
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <Card title="Dane fermy">

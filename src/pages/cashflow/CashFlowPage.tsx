@@ -12,6 +12,7 @@ import { formatDate, todayISO } from '@/utils/date';
 import { formatPln } from '@/utils/format';
 import type { CashAccount, CashTransaction, CashCategory, TxType, TxScope, AccountType, AccountScope } from '@/models/cashFlow.model';
 import type { FinancialEvent } from '@/models/financialEvent.model';
+import { useActivities } from '@/hooks/useTableData';
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
 
@@ -19,29 +20,6 @@ const TX_TYPE_LABELS: Record<TxType, string> = {
   income:   'Wpływ',
   expense:  'Wydatek',
   transfer: 'Przelew',
-};
-
-const TX_SCOPE_LABELS: Record<TxScope, string> = {
-  drob:          'Drób',
-  sery:          'Sery',
-  agroturystyka: 'Agroturystyka',
-  osobiste:      'Osobiste',
-};
-
-const ACCOUNT_SCOPE_LABELS: Record<AccountScope, string> = {
-  drob:          'Drób',
-  sery:          'Sery',
-  agroturystyka: 'Agroturystyka',
-  osobiste:      'Osobiste',
-  shared:        'Wspólne',
-};
-
-const SCOPE_BADGE: Record<AccountScope, 'blue' | 'yellow' | 'green' | 'gray' | 'orange'> = {
-  drob:          'blue',
-  sery:          'yellow',
-  agroturystyka: 'green',
-  osobiste:      'gray',
-  shared:        'orange',
 };
 
 // ─── Pomocnicze ───────────────────────────────────────────────────────────────
@@ -138,6 +116,27 @@ export function CashFlowPage() {
   const [categories, setCategories] = useState<CashCategory[]>([]);
   const [rev, setRev] = useState(0);
   const reload = useCallback(() => setRev(r => r + 1), []);
+
+  // ── Dynamiczne działalności ───────────────────────────────────────────────
+  const activities = useActivities();
+  const businessActivities = useMemo(
+    () => activities.filter(a => a.isActive && a.key !== 'shared'),
+    [activities],
+  );
+  const scopeLabel = useMemo(
+    () => Object.fromEntries([
+      ...activities.map(a => [a.key, `${a.icon} ${a.name}`]),
+      ['shared', '🔀 Wspólne'],
+    ]),
+    [activities],
+  );
+  const scopeBadge = useMemo(
+    () => Object.fromEntries([
+      ...activities.map(a => [a.key, a.color]),
+      ['shared', 'orange'],
+    ]) as Record<string, 'blue' | 'green' | 'yellow' | 'orange' | 'red' | 'gray'>,
+    [activities],
+  );
 
   // Stan zarządzania kategoriami
   const [showCatModal,  setShowCatModal]  = useState(false);
@@ -373,8 +372,8 @@ export function CashFlowPage() {
                   {formatPln(bal)}
                 </div>
                 <div className="flex items-center justify-between gap-1">
-                  <Badge color={SCOPE_BADGE[acc.scope] ?? 'gray'}>
-                    {ACCOUNT_SCOPE_LABELS[acc.scope] ?? acc.scope}
+                  <Badge color={scopeBadge[acc.scope] ?? 'gray'}>
+                    {scopeLabel[acc.scope] ?? acc.scope}
                   </Badge>
                   {isActive && <span className="text-xs text-brand-500 font-medium">filtruje →</span>}
                 </div>
@@ -396,7 +395,7 @@ export function CashFlowPage() {
               <div className={`text-lg font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-brand-700'}`}>
                 {formatPln(totalBalance)}
               </div>
-              <span className="text-xs text-brand-500">Drób: {formatPln(drobBalance)}</span>
+              <span className="text-xs text-brand-500">🐔 Drób: {formatPln(drobBalance)}</span>
             </button>
           )}
         </div>
@@ -421,10 +420,9 @@ export function CashFlowPage() {
               className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
             >
               <option value="">Wszystkie działalności</option>
-              <option value="drob">Drób</option>
-              <option value="sery">Sery</option>
-              <option value="agroturystyka">Agroturystyka</option>
-              <option value="osobiste">Osobiste</option>
+              {activities.filter(a => a.isActive).map(a => (
+                <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+              ))}
             </select>
 
             <select
@@ -524,8 +522,8 @@ export function CashFlowPage() {
                           acc && <span>{acc.name}</span>
                         )}
                         {tx.type !== 'transfer' && (
-                          <Badge color={SCOPE_BADGE[tx.scope] ?? 'gray'} className="text-xs">
-                            {TX_SCOPE_LABELS[tx.scope] ?? tx.scope}
+                          <Badge color={scopeBadge[tx.scope] ?? 'gray'} className="text-xs">
+                            {scopeLabel[tx.scope] ?? tx.scope}
                           </Badge>
                         )}
                       </div>
@@ -737,11 +735,10 @@ export function CashFlowPage() {
                 onChange={e => setAccountForm(f => ({ ...f, scope: e.target.value as AccountScope }))}
                 className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
-                <option value="drob">🐔 Drób</option>
-                <option value="sery">🧀 Sery</option>
-                <option value="agroturystyka">🏡 Agroturystyka</option>
-                <option value="osobiste">👤 Osobiste</option>
-                <option value="shared">🔗 Wspólne</option>
+                {activities.filter(a => a.isActive).map(a => (
+                  <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                ))}
+                <option value="shared">🔀 Wspólne</option>
               </select>
             </div>
           </div>
@@ -790,10 +787,9 @@ export function CashFlowPage() {
                   onChange={e => setTxForm(f => ({ ...f, scope: e.target.value as TxScope, category: '' }))}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
-                  <option value="drob">🐔 Drób</option>
-                  <option value="sery">🧀 Sery</option>
-                  <option value="agroturystyka">🏡 Agroturystyka</option>
-                  <option value="osobiste">👤 Osobiste</option>
+                  {businessActivities.map(a => (
+                    <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                  ))}
                 </select>
               </div>
             )}
@@ -944,10 +940,9 @@ export function CashFlowPage() {
                   className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                 >
                   <option value="">Wszystkie</option>
-                  <option value="drob">🐔 Drób</option>
-                  <option value="sery">🧀 Sery</option>
-                  <option value="agroturystyka">🏡 Agroturystyka</option>
-                  <option value="osobiste">👤 Osobiste</option>
+                  {businessActivities.map(a => (
+                    <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -980,7 +975,7 @@ export function CashFlowPage() {
                     <div className="flex gap-1 mt-0.5 flex-wrap">
                       {cat.scope && (
                         <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
-                          {TX_SCOPE_LABELS[cat.scope]}
+                          {scopeLabel[cat.scope] ?? cat.scope}
                         </span>
                       )}
                       {cat.type && (

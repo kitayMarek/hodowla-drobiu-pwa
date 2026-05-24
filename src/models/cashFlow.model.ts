@@ -1,7 +1,7 @@
 export type AccountType  = 'bank' | 'cash';
-export type AccountScope = 'drob' | 'sery' | 'agroturystyka' | 'osobiste' | 'shared';
+export type AccountScope = string;   // dynamiczny – wartość klucza działalności
 export type TxType       = 'income' | 'expense' | 'transfer';
-export type TxScope      = 'drob' | 'sery' | 'agroturystyka' | 'osobiste';
+export type TxScope      = string;   // dynamiczny – wartość klucza działalności
 
 export interface CashAccount {
   id?: number;

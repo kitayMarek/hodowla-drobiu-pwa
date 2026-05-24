@@ -19,6 +19,8 @@ import type { HatchingEggLot } from '@/models/hatchingEgg.model';
 import type { CashAccount, CashTransaction, CashCategory } from '@/models/cashFlow.model';
 import type { FinancialEvent } from '@/models/financialEvent.model';
 import type { FeedRecipe } from '@/models/feedRecipe.model';
+import type { Activity } from '@/models/activity.model';
+import { DEFAULT_ACTIVITIES } from '@/models/activity.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -47,6 +49,7 @@ export class FarmDatabase extends Dexie {
   cashCategories!: Table<CashCategory, number>;
   financialEvents!: Table<FinancialEvent, number>;
   feedRecipes!: Table<FeedRecipe, number>;
+  activities!: Table<Activity, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -203,6 +206,18 @@ export class FarmDatabase extends Dexie {
     // v15: Receptury pasz własnych
     this.version(15).stores({
       feedRecipes: '++id, birdType, isPublic, createdAt',
+    });
+
+    // v16: Działalności – dynamiczne zakresy kasy i finansów
+    this.version(16).stores({
+      activities: '++id, &key, isActive, sortOrder',
+    }).upgrade(async tx => {
+      const existing = await tx.table('activities').count();
+      if (existing > 0) return;
+      const now = new Date().toISOString();
+      await tx.table('activities').bulkAdd(
+        DEFAULT_ACTIVITIES.map(a => ({ ...a, createdAt: now }))
+      );
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.
