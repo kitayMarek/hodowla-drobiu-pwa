@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,6 +31,7 @@ import { FEED_PHASE_LABELS } from '@/constants/phases';
 import { SPECIES_EMOJI } from '@/constants/species';
 import type { FeedType, FeedDelivery } from '@/models/feed.model';
 import { FeedConsumptionChart } from './FeedConsumptionChart';
+import { SimpleArea, SimpleBar } from '@/components/charts/TrendChart';
 
 // ─── Zakładki ────────────────────────────────────────────────────────────────
 type Tab = 'magazyn' | 'zuzycie' | 'dostawy' | 'pasze';
@@ -70,6 +71,8 @@ export function FeedPage() {
   const [feedModal, setFeedModal] = useState<{batchId: number; type: 'zuzycie'|'koszt'|'fcr'|'perBird'}|null>(null);
   // Modal KPI magazynowych (tab Magazyn)
   const [magazynModal, setMagazynModal] = useState<'stock'|'value'|'delivered'|'consumed'|null>(null);
+  // Modal wykresu per pasza
+  const [chartFeedTypeId, setChartFeedTypeId] = useState<number | null>(null);
 
   // Dane (dual-mode)
   const feedTypes           = useFeedTypes();
@@ -124,6 +127,50 @@ export function FeedPage() {
   const totalStock      = stockData.reduce((s, x) => s + x.stock, 0);
   const totalStockValue = stockData.reduce((s, x) => s + x.stockValue, 0);
   const lowStockCount   = stockData.filter(x => x.daysOfSupply !== null && x.daysOfSupply < 4).length;
+
+  // ─── Wykres historii dla wybranej paszy ────────────────────────────────────
+  const feedChartData = useMemo(() => {
+    if (chartFeedTypeId === null) return null;
+    const ft = feedTypes.find(f => f.id === chartFeedTypeId);
+    if (!ft) return null;
+
+    // Zbuduj zdarzenia: dostawy (+) i zużycie (-)
+    const events: Array<{ date: string; delta: number }> = [];
+    deliveries
+      .filter(d => d.feedTypeId === chartFeedTypeId)
+      .forEach(d => events.push({ date: d.deliveryDate, delta: d.quantityKg }));
+    allFeedConsumptions
+      .filter(fc => fc.feedTypeId === chartFeedTypeId)
+      .forEach(fc => events.push({ date: fc.date, delta: -fc.consumedKg }));
+    events.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Bieżące saldo po każdym dniu zdarzenia
+    let running = 0;
+    const stockByDate = new Map<string, number>();
+    for (const ev of events) {
+      running = Math.max(0, running + ev.delta);
+      stockByDate.set(ev.date, running);
+    }
+    const stockHistory = Array.from(stockByDate.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, value]) => ({ date, value }));
+
+    // Dzienne zużycie – ostatnie 60 dni
+    const d60 = new Date();
+    d60.setDate(d60.getDate() - 60);
+    const d60str = d60.toISOString().slice(0, 10);
+    const consumptionMap = new Map<string, number>();
+    allFeedConsumptions
+      .filter(fc => fc.feedTypeId === chartFeedTypeId && fc.date >= d60str)
+      .forEach(fc => {
+        consumptionMap.set(fc.date, (consumptionMap.get(fc.date) ?? 0) + fc.consumedKg);
+      });
+    const consumptionTrend = Array.from(consumptionMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, value]) => ({ date, value }));
+
+    return { ft, stockHistory, consumptionTrend };
+  }, [chartFeedTypeId, feedTypes, deliveries, allFeedConsumptions]);
 
   // ─── Formularze ────────────────────────────────────────────────────────────
   const {
@@ -332,6 +379,14 @@ export function FeedPage() {
                       </div>
                       <div className="text-xs text-gray-400">w magazynie</div>
                       <div className="text-xs text-gray-500 mt-0.5">{formatPln(stockValue)}</div>
+                      {(delivered > 0 || consumed > 0) && (
+                        <button
+                          onClick={() => setChartFeedTypeId(ft.id!)}
+                          className="mt-1.5 text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors"
+                        >
+                          📊 wykres
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -669,6 +724,81 @@ export function FeedPage() {
                                                 `${totalConsumed.toFixed(1)} kg`}
               </span>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* ═══ MODAL WYKRESU PASZY ═══ */}
+      {feedChartData && (
+        <Modal
+          open
+          onClose={() => setChartFeedTypeId(null)}
+          title={`📊 ${feedChartData.ft.name}`}
+          size="lg"
+        >
+          <div className="space-y-5">
+            {/* Stan magazynowy w czasie */}
+            {feedChartData.stockHistory.length > 1 ? (
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Stan magazynowy w czasie
+                </div>
+                <SimpleArea
+                  data={feedChartData.stockHistory}
+                  label="Stan (kg)"
+                  color="#15803d"
+                  height={160}
+                  formatValue={v => `${v.toFixed(0)} kg`}
+                />
+              </div>
+            ) : feedChartData.stockHistory.length === 1 ? (
+              <div className="bg-gray-50 rounded-xl p-3 text-sm text-gray-500 text-center">
+                Za mało punktów danych dla wykresu stanu (potrzebne ≥ 2 różnych dat).
+              </div>
+            ) : null}
+
+            {/* Dzienne zużycie */}
+            {feedChartData.consumptionTrend.length > 1 ? (
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                  Dzienne zużycie (ostatnie 60 dni)
+                </div>
+                <SimpleBar
+                  data={feedChartData.consumptionTrend}
+                  label="Zużycie (kg)"
+                  color="#f59e0b"
+                  height={140}
+                  formatValue={v => `${v.toFixed(1)} kg`}
+                />
+              </div>
+            ) : feedChartData.stockHistory.length <= 1 && feedChartData.consumptionTrend.length <= 1 ? (
+              <p className="text-sm text-gray-400 text-center py-4">
+                Brak wystarczających danych do wykresów. Dodaj dostawy i wpisy dzienne.
+              </p>
+            ) : null}
+
+            {/* Podsumowanie liczbowe */}
+            {(() => {
+              const sd = stockData.find(s => s.ft.id === chartFeedTypeId);
+              if (!sd) return null;
+              return (
+                <div className="grid grid-cols-3 gap-3 border-t border-gray-100 pt-4">
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-0.5">Na stanie</div>
+                    <div className="text-lg font-bold text-green-700">{sd.stock.toFixed(0)} kg</div>
+                    <div className="text-xs text-gray-400">{formatPln(sd.stockValue)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-0.5">Zakupiono łącznie</div>
+                    <div className="text-lg font-bold text-gray-900">{sd.delivered.toFixed(0)} kg</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs text-gray-400 mb-0.5">Zużyto łącznie</div>
+                    <div className="text-lg font-bold text-gray-900">{sd.consumed.toFixed(0)} kg</div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </Modal>
       )}

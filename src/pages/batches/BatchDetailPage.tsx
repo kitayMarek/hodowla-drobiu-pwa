@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useBatch } from '@/hooks/useBatch';
-import { useKPIs } from '@/hooks/useKPIs';
+import { useKPIs, useAllBatchKPIs } from '@/hooks/useKPIs';
 import { KPICard } from '@/components/charts/KPICard';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -20,7 +20,7 @@ import { batchService } from '@/services/batch.service';
 import { TRANSFER_REASON_LABELS, type TransferReason } from '@/models/birdTransfer.model';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
-import { addDays, parseISO, isAfter } from 'date-fns';
+import { addDays, parseISO, isAfter, differenceInDays } from 'date-fns';
 import {
   useSalesByBatch, useExpensesByBatch, useSlaughterByBatch,
   useBirdTransfersByBatch, useHealthEventsByBatch, useWeighingsByBatch,
@@ -61,6 +61,91 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mt-4 mb-1 first:mt-0">
       {children}
+    </div>
+  );
+}
+
+// ── Raport końcowy rzutu ─────────────────────────────────────────────────────
+
+function BatchCloseReport({
+  batch, kpis, durationDays, totalSold, totalSlaughtered,
+}: {
+  batch: Batch;
+  kpis: BatchKPIResult;
+  durationDays: number;
+  totalSold: number;
+  totalSlaughtered: number;
+}) {
+  const isProfit      = kpis.grossMarginPln >= 0;
+  const revenuePerBird = batch.initialCount > 0 ? kpis.totalRevenuePln / batch.initialCount : null;
+  const costPerBird    = batch.initialCount > 0 ? kpis.totalCostPln    / batch.initialCount : null;
+  const marginPerBird  = batch.initialCount > 0 ? kpis.grossMarginPln  / batch.initialCount : null;
+
+  return (
+    <div className="rounded-2xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="text-xl">🏁</span>
+        <h3 className="font-bold text-amber-900">Raport końcowy rzutu</h3>
+        <span className="ml-auto text-xs font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+          {BATCH_STATUS_LABELS[batch.status]}
+        </span>
+      </div>
+
+      {/* Główne metryki */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="bg-white/80 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-gray-900">{durationDays}</div>
+          <div className="text-xs text-gray-500">dni hodowli</div>
+        </div>
+        <div className="bg-white/80 rounded-xl p-3 text-center">
+          <div className="text-sm font-bold text-gray-900">{batch.initialCount} → {totalSold + totalSlaughtered}</div>
+          <div className="text-xs text-gray-500">ptaki (wej./wyj.)</div>
+          {kpis.totalMortality > 0 && (
+            <div className="text-xs text-red-500 mt-0.5">💀 {kpis.totalMortality} upadki</div>
+          )}
+        </div>
+        <div className="bg-white/80 rounded-xl p-3 text-center">
+          <div className="text-2xl font-bold text-gray-900">{formatFCR(kpis.fcr)}</div>
+          <div className="text-xs text-gray-500">FCR</div>
+          <div className="text-xs text-gray-400">{kpis.totalFeedKg.toFixed(0)} kg paszy</div>
+        </div>
+        <div className={`rounded-xl p-3 text-center ${isProfit ? 'bg-green-100/80' : 'bg-red-100/80'}`}>
+          <div className={`text-xl font-bold ${isProfit ? 'text-green-700' : 'text-red-700'}`}>
+            {formatPln(kpis.grossMarginPln)}
+          </div>
+          <div className={`text-xs ${isProfit ? 'text-green-600' : 'text-red-600'}`}>marża brutto</div>
+          {kpis.grossMarginPercent != null && (
+            <div className={`text-xs font-medium ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
+              {formatPercent(kpis.grossMarginPercent)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Na ptaka */}
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-white/80 rounded-lg p-2.5 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">Przychód/ptak</div>
+          <div className="text-sm font-semibold text-gray-900">{revenuePerBird != null ? formatPln(revenuePerBird) : '—'}</div>
+        </div>
+        <div className="bg-white/80 rounded-lg p-2.5 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">Koszt/ptak</div>
+          <div className="text-sm font-semibold text-gray-900">{costPerBird != null ? formatPln(costPerBird) : '—'}</div>
+        </div>
+        <div className="bg-white/80 rounded-lg p-2.5 text-center">
+          <div className="text-xs text-gray-400 mb-0.5">Marża/ptak</div>
+          <div className={`text-sm font-semibold ${isProfit ? 'text-green-700' : 'text-red-700'}`}>
+            {marginPerBird != null ? formatPln(marginPerBird) : '—'}
+          </div>
+        </div>
+      </div>
+
+      {kpis.mortalityPercent > 5 && (
+        <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+          <span>⚠️</span>
+          <span>Wysoka upadkowość: {formatPercent(kpis.mortalityPercent)} — powyżej normy 5%</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -605,10 +690,31 @@ export function BatchDetailPage() {
   // Wykresy trendów – hooki muszą być przed warunkowym return
   const dailyEntriesForCharts = useDailyEntries(id);
   const weighingsForCharts    = useWeighingsByBatch(id);
+  // Raport końcowy + porównanie – hooki muszą być przed warunkowym return
+  const salesForReport        = useSalesByBatch(id);
+  const slaughterForReport    = useSlaughterByBatch(id);
+  const allBatchesData        = useBatches();
+  const allBatchKPIsData      = useAllBatchKPIs();
 
   if (!batch) return <PageLoader />;
 
   const isLayer = isLayerSpecies(batch.species);
+
+  // Raport końcowy – czas trwania i wolumeny
+  const allEndDates = [
+    ...salesForReport.map(s => s.saleDate),
+    ...slaughterForReport.map(r => r.slaughterDate),
+  ].sort();
+  const batchEndDate     = allEndDates.length > 0 ? allEndDates[allEndDates.length - 1] : todayISO();
+  const durationDays     = Math.max(1, differenceInDays(parseISO(batchEndDate), parseISO(batch.startDate)) + 1);
+  const totalSold        = salesForReport.filter(s => s.saleType === 'ptaki_zywe').reduce((s, x) => s + (x.birdCount ?? 0), 0);
+  const totalSlaughtered = slaughterForReport.reduce((s, r) => s + r.birdsSlaughtered, 0);
+
+  // Poprzedni rzut tego samego gatunku (do porównania)
+  const prevBatch = allBatchesData
+    .filter(b => b.id !== id && b.species === batch.species && b.status !== 'active')
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))[0];
+  const prevKpis = prevBatch ? allBatchKPIsData.find(k => k.batchId === prevBatch.id) : undefined;
 
   const mortalityTrend = calcDailyMortalityTrend(dailyEntriesForCharts).slice(-30);
   const weightTrend    = calcWeightGainTrend(weighingsForCharts);
@@ -664,6 +770,17 @@ export function BatchDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Raport końcowy */}
+      {batch.status !== 'active' && kpis && (
+        <BatchCloseReport
+          batch={batch}
+          kpis={kpis}
+          durationDays={durationDays}
+          totalSold={totalSold}
+          totalSlaughtered={totalSlaughtered}
+        />
       )}
 
       {/* KPI strip */}
@@ -743,6 +860,67 @@ export function BatchDetailPage() {
           </button>
         </div>
       )}
+
+      {/* Porównanie z poprzednim rzutem */}
+      {prevBatch && prevKpis && kpis && (() => {
+        const rows = [
+          {
+            label: 'FCR',
+            curr: kpis.fcr != null ? formatFCR(kpis.fcr) : '—',
+            prev: prevKpis.fcr != null ? formatFCR(prevKpis.fcr) : '—',
+            better: kpis.fcr != null && prevKpis.fcr != null ? kpis.fcr < prevKpis.fcr : null,
+          },
+          {
+            label: 'Upadkowość',
+            curr: formatPercent(kpis.mortalityPercent),
+            prev: formatPercent(prevKpis.mortalityPercent),
+            better: kpis.mortalityPercent < prevKpis.mortalityPercent,
+          },
+          {
+            label: 'Marża brutto',
+            curr: formatPln(kpis.grossMarginPln),
+            prev: formatPln(prevKpis.grossMarginPln),
+            better: kpis.grossMarginPln > prevKpis.grossMarginPln,
+          },
+          {
+            label: 'Marża/ptak',
+            curr: batch.initialCount > 0 ? formatPln(kpis.grossMarginPln / batch.initialCount) : '—',
+            prev: prevBatch.initialCount > 0 ? formatPln(prevKpis.grossMarginPln / prevBatch.initialCount) : '—',
+            better: batch.initialCount > 0 && prevBatch.initialCount > 0
+              ? (kpis.grossMarginPln / batch.initialCount) > (prevKpis.grossMarginPln / prevBatch.initialCount)
+              : null,
+          },
+        ];
+        return (
+          <Card title="📊 Porównanie z poprzednim rzutem">
+            <div className="text-xs text-gray-400 mb-3">
+              {SPECIES_EMOJI[prevBatch.species]} {prevBatch.name} · {formatDate(prevBatch.startDate)}
+            </div>
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100 text-xs text-gray-400">
+              <span className="flex-1">Wskaźnik</span>
+              <span className="w-24 text-right font-medium text-brand-700">Ten rzut</span>
+              <span className="w-24 text-right">Poprzedni</span>
+              <span className="w-14" />
+            </div>
+            <div className="divide-y divide-gray-50">
+              {rows.map(row => (
+                <div key={row.label} className="flex items-center gap-2 py-2">
+                  <span className="flex-1 text-xs text-gray-600">{row.label}</span>
+                  <span className="w-24 text-right text-sm font-semibold text-gray-900">{row.curr}</span>
+                  <span className="w-24 text-right text-xs text-gray-400">{row.prev}</span>
+                  <div className="w-14 text-right">
+                    {row.better !== null && (
+                      <span className={`text-xs font-semibold ${row.better ? 'text-green-600' : 'text-red-500'}`}>
+                        {row.better ? '↑ lepiej' : '↓ gorzej'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        );
+      })()}
 
       {/* Module navigation */}
       <Card title="Moduły" padding="none">
