@@ -208,41 +208,50 @@ export function SalesPage() {
     }
   };
 
+  const [saleSubmitError, setSaleSubmitError] = useState('');
+
   const onSaleSubmit = async (data: SaleFormValues) => {
+    setSaleSubmitError('');
     if (data.saleType === 'jaja' && (data.eggsCount ?? 0) > 0) {
       if ((data.eggsCount ?? 0) > eggStats.available) {
         setError('eggsCount', { message: `Niewystarczający stan. Dostępnych: ${eggStats.available.toLocaleString('pl-PL')} jaj` });
         return;
       }
     }
-    const saleId = await saleService.create(data) as number;
-    if (data.saleType === 'ptaki_zywe' && data.batchId) {
-      await batchService.checkAndAutoClose(Number(data.batchId));
-    }
 
-    // ── Rozliczenie kasowe ──────────────────────────────────────────────────
-    const desc = `Sprzedaż${data.buyerName ? ` – ${data.buyerName}` : ''}${data.invoiceNumber ? ` (${data.invoiceNumber})` : ''}`;
-    if (salePayment === 'pending') {
-      await financialEventService.create({
-        date: data.saleDate, type: 'income', amountPln: data.totalRevenuePln,
-        description: desc, sourceType: 'sale', sourceId: saleId,
-      });
-    } else if (salePayment === 'immediate' && saleAccountId) {
-      await cashFlowService.createTransaction({
-        accountId:  Number(saleAccountId), date: data.saleDate, type: 'income',
-        scope:      'drob',
-        category:   data.saleType === 'jaja' ? 'Sprzedaż jaj' : 'Sprzedaż drobiu',
-        description: desc,
-        amountPln:  data.totalRevenuePln,
-        sourceType: 'sale',
-        sourceId:   saleId,
-      });
-    }
+    try {
+      const saleId = await saleService.create(data) as number;
+      if (data.saleType === 'ptaki_zywe' && data.batchId) {
+        await batchService.checkAndAutoClose(Number(data.batchId));
+      }
 
-    setSalePayment('pending');
-    setSaleAccountId('');
-    reset();
-    setShowSaleForm(false);
+      // ── Rozliczenie kasowe ────────────────────────────────────────────────
+      const desc = `Sprzedaż${data.buyerName ? ` – ${data.buyerName}` : ''}${data.invoiceNumber ? ` (${data.invoiceNumber})` : ''}`;
+      if (salePayment === 'pending') {
+        await financialEventService.create({
+          date: data.saleDate, type: 'income', amountPln: data.totalRevenuePln,
+          description: desc, sourceType: 'sale', sourceId: saleId,
+        });
+      } else if (salePayment === 'immediate' && saleAccountId) {
+        await cashFlowService.createTransaction({
+          accountId:   Number(saleAccountId), date: data.saleDate, type: 'income',
+          scope:       'drob',
+          category:    data.saleType === 'jaja' ? 'Sprzedaż jaj' : 'Sprzedaż drobiu',
+          description: desc,
+          amountPln:   data.totalRevenuePln,
+          sourceType:  'sale',
+          sourceId:    saleId,
+        });
+      }
+
+      setSalePayment('pending');
+      setSaleAccountId('');
+      reset();
+      setShowSaleForm(false);
+    } catch (e) {
+      console.error('Błąd zapisu sprzedaży:', e);
+      setSaleSubmitError('Błąd zapisu: ' + (e instanceof Error ? e.message : String(e)));
+    }
   };
 
   // ─── Formularz zakupu jaj ─────────────────────────────────────────────────
@@ -914,6 +923,12 @@ export function SalesPage() {
               {salePayment === 'pending' && (
                 <p className="text-xs text-orange-600">Pojawi się w Kasie i Banku → Do rozliczenia. Zatwierdź gdy wpłyną pieniądze.</p>
               )}
+            </div>
+          )}
+
+          {saleSubmitError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+              ⚠ {saleSubmitError}
             </div>
           )}
 
