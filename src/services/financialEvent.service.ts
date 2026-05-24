@@ -60,9 +60,14 @@ export const financialEventService = {
         description: data.description, source_type: data.sourceType, source_id: data.sourceId,
         status: 'pending', notes: data.notes ?? null, created_at: now,
       }).select('id').single();
-      if (error) throw error;
+      if (error) {
+        console.error('financial_events insert error:', JSON.stringify(error));
+        throw new Error(error.message ?? JSON.stringify(error));
+      }
+      if (!row) throw new Error('financial_events: brak odpowiedzi z Supabase po zapisie');
       return row.id;
     }
+    // tryb offline – Dexie
     return db.financialEvents.add({ ...data, status: 'pending', createdAt: now });
   },
 
