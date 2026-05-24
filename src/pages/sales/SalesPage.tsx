@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -39,6 +39,9 @@ import { useActiveBatches } from '@/hooks/useBatch';
 import type { Sale }    from '@/models/sale.model';
 import type { Order, OrderStatus } from '@/models/order.model';
 import type { EggPurchase, EggHatchTransfer } from '@/models/egg.model';
+import type { FinancialEvent } from '@/models/financialEvent.model';
+
+type SortBy = 'date' | 'buyer' | 'type';
 
 // ─── Typy zakładek ────────────────────────────────────────────────────────────
 type Tab = 'sprzedaz' | 'zamowienia';
@@ -111,6 +114,17 @@ export function SalesPage() {
   const [salePayment,   setSalePayment]   = useState<'pending' | 'immediate'>('pending');
   const [saleAccountId, setSaleAccountId] = useState('');
 
+  // ─── Filtrowanie i sortowanie listy sprzedaży ─────────────────────────────
+  const [filterPending,      setFilterPending]      = useState(false);
+  const [sortBy,             setSortBy]             = useState<SortBy>('date');
+  const [sortDir,            setSortDir]            = useState<'asc' | 'desc'>('desc');
+  const [pendingEvents,      setPendingEvents]       = useState<FinancialEvent[]>([]);
+  const [pendingRefreshKey,  setPendingRefreshKey]  = useState(0);
+
+  useEffect(() => {
+    financialEventService.getPending().then(setPendingEvents);
+  }, [pendingRefreshKey]);
+
   // ─── Data (dual-mode) ─────────────────────────────────────────────────────
   const cashAccounts       = useActiveCashAccounts();
   const sales              = useAllSales();
@@ -158,6 +172,35 @@ export function SalesPage() {
       return [b.id!, { current, reserved, available }];
     }));
   }, [allBatches, allDailyEntries, sales, allSlaughter, orders]);
+
+  // ─── Nierozliczone sprzedaże ─────────────────────────────────────────────
+  const pendingSaleIds = useMemo(() =>
+    new Set(pendingEvents.filter(e => e.sourceType === 'sale' && e.sourceId != null).map(e => e.sourceId!)),
+    [pendingEvents],
+  );
+
+  const visibleSales = useMemo(() =>
+    sales.filter(s => s.saleType !== 'jaja_wewn'),
+    [sales],
+  );
+
+  const pendingSalesCount = useMemo(() =>
+    visibleSales.filter(s => pendingSaleIds.has(s.id!)).length,
+    [visibleSales, pendingSaleIds],
+  );
+
+  const displayedSales = useMemo(() => {
+    let list = filterPending
+      ? visibleSales.filter(s => pendingSaleIds.has(s.id!))
+      : visibleSales;
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === 'date')  cmp = a.saleDate.localeCompare(b.saleDate);
+      if (sortBy === 'buyer') cmp = (a.buyerName ?? '').localeCompare(b.buyerName ?? '', 'pl');
+      if (sortBy === 'type')  cmp = a.saleType.localeCompare(b.saleType);
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }, [visibleSales, filterPending, pendingSaleIds, sortBy, sortDir]);
 
   // ─── KPI sprzedaży ───────────────────────────────────────────────────────
   const totalRevenue     = sales.reduce((s, x) => s + x.totalRevenuePln, 0);
@@ -253,6 +296,7 @@ export function SalesPage() {
       setSaleAccountId('');
       reset();
       setShowSaleForm(false);
+      setPendingRefreshKey(k => k + 1);
     } catch (e) {
       console.error('Błąd zapisu sprzedaży:', e);
       // Rollback: usuń sprzedaż jeśli zdążyła się zapisać
@@ -601,7 +645,7 @@ export function SalesPage() {
           )}
 
           {/* ── Lista sprzedaży ──────────────────────────────────────────── */}
-          {sales.filter(s => s.saleType !== 'jaja_wewn').length === 0 ? (
+          {visibleSales.length === 0 ? (
             <EmptyState
               title="Brak sprzedaży"
               description="Dodaj pierwszą transakcję sprzedaży."
@@ -609,32 +653,95 @@ export function SalesPage() {
               action={{ label: 'Dodaj sprzedaż', onClick: () => setShowSaleForm(true) }}
             />
           ) : (
-            <Card title="Historia sprzedaży" padding="none">
-              <div className="divide-y divide-gray-50">
-                {sales.filter(s => s.saleType !== 'jaja_wewn').map(s => (
-                  <div key={s.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge color={saleTypeBadge[s.saleType]}>{SALE_TYPE_LABELS[s.saleType]}</Badge>
-                        <span className="text-xs text-gray-400">{formatDate(s.saleDate)}</span>
-                        {s.buyerName && <span className="text-xs text-gray-500">{s.buyerName}</span>}
-                      </div>
-                      <div className="text-sm text-gray-800 mt-0.5">
-                        {s.saleType === 'jaja' && s.eggsCount != null && `${s.eggsCount.toLocaleString('pl-PL')} jaj`}
-                        {s.saleType !== 'jaja' && s.weightKg != null && `${s.weightKg} kg`}
-                        {s.birdCount != null && ` · ${s.birdCount} szt.`}
-                        {s.pricePerKgPln != null && ` · ${s.pricePerKgPln} PLN/kg`}
-                      </div>
-                      {s.batchId && <div className="text-xs text-gray-400">{batchMap.get(s.batchId)}</div>}
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-gray-900">{formatPln(s.totalRevenuePln)}</div>
-                      <button onClick={() => setDeleteTarget(s)} className="text-gray-300 hover:text-red-400 text-xs">🗑️</button>
-                    </div>
-                  </div>
+            <>
+              {/* ── Filtr i sortowanie ─────────────────────────────────────── */}
+              <div className="flex items-center gap-2 flex-wrap px-1">
+                {/* Filtr nierozliczone */}
+                <button
+                  onClick={() => setFilterPending(p => !p)}
+                  className={`flex items-center gap-1 text-xs px-3 py-1.5 rounded-full font-medium transition-colors border ${
+                    filterPending
+                      ? 'bg-orange-100 text-orange-700 border-orange-300'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  ⏳ Nierozliczone
+                  {pendingSalesCount > 0 && (
+                    <span className={`rounded-full px-1.5 font-bold ${
+                      filterPending ? 'bg-orange-200 text-orange-800' : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {pendingSalesCount}
+                    </span>
+                  )}
+                </button>
+
+                <div className="flex-1" />
+
+                {/* Sortowanie */}
+                <span className="text-xs text-gray-400">Sortuj:</span>
+                {(['date', 'buyer', 'type'] as const).map(key => (
+                  <button
+                    key={key}
+                    onClick={() => {
+                      if (sortBy === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+                      else { setSortBy(key); setSortDir(key === 'date' ? 'desc' : 'asc'); }
+                    }}
+                    className={`text-xs px-2 py-1 rounded font-medium transition-colors ${
+                      sortBy === key
+                        ? 'text-blue-700 font-semibold'
+                        : 'text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    {key === 'date' ? 'Data' : key === 'buyer' ? 'Klient' : 'Produkt'}
+                    {sortBy === key && (sortDir === 'asc' ? ' ↑' : ' ↓')}
+                  </button>
                 ))}
               </div>
-            </Card>
+
+              <Card
+                title={filterPending ? `Nierozliczone (${displayedSales.length})` : `Historia sprzedaży (${visibleSales.length})`}
+                padding="none"
+              >
+                {displayedSales.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-gray-400">
+                    Brak nierozliczonych transakcji 🎉
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {displayedSales.map(s => {
+                      const isPending = pendingSaleIds.has(s.id!);
+                      return (
+                        <div key={s.id} className="flex items-center gap-3 px-4 py-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge color={saleTypeBadge[s.saleType]}>{SALE_TYPE_LABELS[s.saleType]}</Badge>
+                              <span className="text-xs text-gray-400">{formatDate(s.saleDate)}</span>
+                              {s.buyerName && <span className="text-xs text-gray-500 truncate">{s.buyerName}</span>}
+                              {isPending && (
+                                <span className="text-xs font-medium text-orange-600 bg-orange-50 border border-orange-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+                                  ⏳ Do rozliczenia
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-800 mt-0.5">
+                              {s.saleType === 'jaja' && s.eggsCount != null && `${s.eggsCount.toLocaleString('pl-PL')} jaj`}
+                              {s.saleType !== 'jaja' && s.weightKg != null && `${s.weightKg} kg`}
+                              {s.birdCount != null && ` · ${s.birdCount} szt.`}
+                              {s.pricePerKgPln != null && ` · ${s.pricePerKgPln} PLN/kg`}
+                            </div>
+                            {s.batchId && <div className="text-xs text-gray-400">{batchMap.get(s.batchId)}</div>}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <div className="font-bold text-gray-900">{formatPln(s.totalRevenuePln)}</div>
+                            <button onClick={() => setDeleteTarget(s)} className="text-gray-300 hover:text-red-400 text-xs">🗑️</button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </Card>
+            </>
           )}
         </>
       )}
