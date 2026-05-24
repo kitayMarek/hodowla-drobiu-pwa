@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +41,15 @@ export function DailyEntryFormPage() {
     if (!isEdit) return;
     dailyEntryService.getById(Number(entryId)).then(setExisting);
   }, [entryId, isEdit]);
+
+  // Stan magazynowy + dla edycji: oryginalne wartości (do korekty dostępności)
+  const [stockLevels,    setStockLevels]    = useState<Record<number, number>>({});
+  const [stockError,     setStockError]     = useState<string>('');
+  const originalConsumed = useRef<Record<number, number>>({});  // zapamiętujemy oryginalne kg z DB
+
+  useEffect(() => {
+    feedService.getAllStockLevels().then(setStockLevels).catch(() => {});
+  }, []);
 
   const allFeedTypes = useFeedTypes();
   const feedTypes: FeedType[] = allFeedTypes.filter(ft => ft.isActive);
@@ -110,6 +119,11 @@ export function DailyEntryFormPage() {
     feedService.getConsumptionsByBatchAndDate(id, existing.date)
       .then(consumptions => {
         if (consumptions.length > 0) {
+          // Zapamiętaj oryginalne wartości – potrzebne do walidacji (edycja)
+          const orig: Record<number, number> = {};
+          for (const fc of consumptions) orig[fc.feedTypeId] = (orig[fc.feedTypeId] ?? 0) + fc.consumedKg;
+          originalConsumed.current = orig;
+
           const rows: FeedRow[] = consumptions.map(fc => ({
             uid:        String(++_uid),
             feedTypeId: fc.feedTypeId,
@@ -138,9 +152,41 @@ export function DailyEntryFormPage() {
   if (!batch) return <PageLoader />;
   const isLayer = isLayerSpecies(batch.species);
 
+  // Typy pasz posortowane: z zapasem najpierw, zerowe na końcu
+  const feedTypesSorted = [...feedTypes].sort((a, b) => {
+    const stockA = stockLevels[a.id!] ?? 0;
+    const stockB = stockLevels[b.id!] ?? 0;
+    if (stockA <= 0 && stockB > 0) return 1;
+    if (stockB <= 0 && stockA > 0) return -1;
+    return 0;
+  });
+
   // ─── Submit ────────────────────────────────────────────────────────────────
   const onSubmit = async (data: DailyEntryFormValues) => {
+    setStockError('');
     const validRows = feedRows.filter(r => r.feedTypeId != null && (r.kg ?? 0) > 0);
+
+    // Walidacja stanu magazynowego
+    const errors: string[] = [];
+    // Zsumuj kg per typ w formularzu (może być wiele wierszy tego samego typu)
+    const formByType: Record<number, number> = {};
+    for (const r of validRows) formByType[r.feedTypeId!] = (formByType[r.feedTypeId!] ?? 0) + r.kg!;
+
+    for (const [ftIdStr, newKg] of Object.entries(formByType)) {
+      const ftId     = Number(ftIdStr);
+      const stock    = stockLevels[ftId] ?? 0;
+      const origKg   = isEdit ? (originalConsumed.current[ftId] ?? 0) : 0;
+      const available = stock + origKg;   // dla edycji: odzyskujemy wcześniej zapisane
+      if (newKg > available + 0.001) {    // 0.001 tolerancja na float
+        const ft = feedTypes.find(f => f.id === ftId);
+        errors.push(`${ft?.name ?? `Pasza #${ftId}`}: potrzeba ${newKg.toFixed(1)} kg, dostępne ${available.toFixed(1)} kg`);
+      }
+    }
+
+    if (errors.length > 0) {
+      setStockError(errors.join('\n'));
+      return;
+    }
     const totalKg   = validRows.reduce((s, r) => s + r.kg!, 0);
 
     const entryData = {
@@ -220,15 +266,21 @@ export function DailyEntryFormPage() {
                   <div className="flex-1 min-w-0">
                     <select
                       value={row.feedTypeId ?? ''}
-                      onChange={e => updateRow(row.uid, {
-                        feedTypeId: e.target.value ? Number(e.target.value) : null,
-                      })}
+                      onChange={e => { setStockError(''); updateRow(row.uid, { feedTypeId: e.target.value ? Number(e.target.value) : null }); }}
                       className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       <option value="">— Rodzaj paszy —</option>
-                      {feedTypes.map(ft => (
-                        <option key={ft.id} value={ft.id}>{ft.name}</option>
-                      ))}
+                      {feedTypesSorted.map(ft => {
+                        const stock    = stockLevels[ft.id!] ?? 0;
+                        const origKg   = isEdit ? (originalConsumed.current[ft.id!] ?? 0) : 0;
+                        const available = stock + origKg;
+                        const noStock  = available <= 0;
+                        return (
+                          <option key={ft.id} value={ft.id}>
+                            {ft.name}{noStock ? ' (brak)' : ` (${available.toFixed(0)} kg)`}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -324,6 +376,12 @@ export function DailyEntryFormPage() {
         <Card>
           <Textarea label="Uwagi" {...register('notes')} placeholder="Obserwacje, anomalie..." />
         </Card>
+
+        {stockError && (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3 whitespace-pre-line">
+            ⚠️ Niewystarczający stan magazynowy paszy:<br />{stockError}
+          </div>
+        )}
 
         <div className="flex gap-3">
           <Button type="submit" loading={isSubmitting} className="flex-1">

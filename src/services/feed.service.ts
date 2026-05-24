@@ -342,4 +342,33 @@ export const feedService = {
     return deliveries.reduce((s, d) => s + d.quantityKg, 0)
          - consumptions.reduce((s, c) => s + c.consumedKg, 0);
   },
+
+  /** Zwraca stan magazynowy dla WSZYSTKICH typów pasz jednym zapytaniem. */
+  async getAllStockLevels(): Promise<Record<number, number>> {
+    const user = await getAuthUser();
+    const delivered: Record<number, number> = {};
+    const consumed:  Record<number, number> = {};
+
+    if (user) {
+      const [dels, cons] = await Promise.all([
+        supabase.from('feed_deliveries').select('feed_type_id,quantity_kg').eq('user_id', user.id),
+        supabase.from('feed_consumptions').select('feed_type_id,consumed_kg').eq('user_id', user.id),
+      ]);
+      for (const d of dels.data ?? [])  delivered[d.feed_type_id] = (delivered[d.feed_type_id] ?? 0) + d.quantity_kg;
+      for (const c of cons.data ?? [])  consumed[c.feed_type_id]  = (consumed[c.feed_type_id]  ?? 0) + c.consumed_kg;
+    } else {
+      const [dels, cons] = await Promise.all([
+        db.feedDeliveries.toArray(),
+        db.feedConsumptions.toArray(),
+      ]);
+      for (const d of dels) delivered[d.feedTypeId] = (delivered[d.feedTypeId] ?? 0) + d.quantityKg;
+      for (const c of cons) consumed[c.feedTypeId]  = (consumed[c.feedTypeId]  ?? 0) + c.consumedKg;
+    }
+
+    const result: Record<number, number> = {};
+    for (const id of Object.keys(delivered)) {
+      result[Number(id)] = Math.max(0, (delivered[Number(id)] ?? 0) - (consumed[Number(id)] ?? 0));
+    }
+    return result;
+  },
 };

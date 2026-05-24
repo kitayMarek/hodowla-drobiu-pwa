@@ -185,6 +185,10 @@ export function QuickEntryPage() {
   const [errMsg,       setErrMsg]       = useState('');
   const [alreadySaved, setAlreadySaved] = useState<{ feedKg: number; deadCount: number } | null>(null);
 
+  // Stan magazynowy
+  const [stockLevels, setStockLevels] = useState<Record<number, number>>({});
+  const [feedError,   setFeedError]   = useState<string>('');
+
   // Feed type wybierany w modalu
   const [selectedFeedTypeId,   setSelectedFeedTypeId]   = useState<number | null>(null);
   const [selectedFeedTypeName, setSelectedFeedTypeName] = useState<string>('');
@@ -204,6 +208,11 @@ export function QuickEntryPage() {
       : Promise.resolve([] as BatchPhoto[]),
     [batchId, today]
   ) ?? [];
+
+  // Ładuj stany magazynowe
+  useEffect(() => {
+    feedService.getAllStockLevels().then(setStockLevels).catch(() => {});
+  }, [saveStatus]);  // odśwież po zapisie
 
   // Wybierz pierwsze stado domyślnie
   useEffect(() => {
@@ -251,6 +260,15 @@ export function QuickEntryPage() {
     return map;
   }, {});
 
+  // Typy pasz posortowane: z zapasem najpierw, zerowe na końcu
+  const sortedFeedTypes = [...activeFeedTypes].sort((a, b) => {
+    const stockA = stockLevels[a.id!] ?? 0;
+    const stockB = stockLevels[b.id!] ?? 0;
+    if (stockA <= 0 && stockB > 0) return 1;
+    if (stockB <= 0 && stockA > 0) return -1;
+    return 0;
+  });
+
   // ── Dodaj pozycję ────────────────────────────────────────────
   const handleAdd = () => {
     if (!acc || !inputVal.trim()) return;
@@ -258,6 +276,18 @@ export function QuickEntryPage() {
     if (isNaN(amount) || amount <= 0) return;
 
     if (modal === 'feed') {
+      // Walidacja stanu magazynowego
+      if (selectedFeedTypeId != null) {
+        const available = stockLevels[selectedFeedTypeId] ?? 0;
+        const alreadyInAcc = acc.feedEntries
+          .filter(e => e.feedTypeId === selectedFeedTypeId)
+          .reduce((s, e) => s + e.amount, 0);
+        if (alreadyInAcc + amount > available) {
+          setFeedError(`Niewystarczający stan magazynowy. Dostępne: ${Math.max(0, available - alreadyInAcc).toFixed(1)} kg`);
+          return;
+        }
+      }
+      setFeedError('');
       const item: FeedLogItem = {
         amount, time: nowTime(),
         feedTypeId:   selectedFeedTypeId   ?? undefined,
@@ -593,7 +623,7 @@ export function QuickEntryPage() {
       {modal && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center"
-          onClick={e => { if (e.target === e.currentTarget) { setModal(null); setInputVal(''); } }}
+          onClick={e => { if (e.target === e.currentTarget) { setModal(null); setInputVal(''); setFeedError(''); } }}
         >
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative w-full max-w-lg bg-white rounded-t-3xl p-6 space-y-5 shadow-2xl">
@@ -605,33 +635,47 @@ export function QuickEntryPage() {
             </h2>
 
             {/* Wybór typu paszy */}
-            {modal === 'feed' && activeFeedTypes.length > 0 && (
+            {modal === 'feed' && sortedFeedTypes.length > 0 && (
               <div className="space-y-2">
                 <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Rodzaj paszy</p>
                 <div className="flex flex-wrap gap-2">
-                  {activeFeedTypes.map(ft => (
-                    <button
-                      key={ft.id}
-                      onClick={() => {
-                        if (selectedFeedTypeId === ft.id) {
-                          setSelectedFeedTypeId(null);
-                          setSelectedFeedTypeName('');
-                        } else {
-                          setSelectedFeedTypeId(ft.id!);
-                          setSelectedFeedTypeName(ft.name);
-                        }
-                      }}
-                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                        selectedFeedTypeId === ft.id
-                          ? 'bg-brand-700 text-white'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {ft.name}
-                    </button>
-                  ))}
+                  {sortedFeedTypes.map(ft => {
+                    const stock      = stockLevels[ft.id!] ?? 0;
+                    const noStock    = stock <= 0;
+                    const isSelected = selectedFeedTypeId === ft.id;
+                    return (
+                      <button
+                        key={ft.id}
+                        onClick={() => {
+                          setFeedError('');
+                          if (isSelected) {
+                            setSelectedFeedTypeId(null);
+                            setSelectedFeedTypeName('');
+                          } else {
+                            setSelectedFeedTypeId(ft.id!);
+                            setSelectedFeedTypeName(ft.name);
+                          }
+                        }}
+                        className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                          isSelected
+                            ? 'bg-brand-700 text-white'
+                            : noStock
+                              ? 'bg-gray-50 text-gray-400 border border-gray-200'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {ft.name}
+                        <span className={`text-xs font-normal ${isSelected ? 'text-brand-200' : noStock ? 'text-red-400' : 'text-gray-400'}`}>
+                          {noStock ? '(brak)' : `${stock.toFixed(0)} kg`}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                {!selectedFeedTypeId && (
+                {feedError && (
+                  <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">⚠️ {feedError}</p>
+                )}
+                {!selectedFeedTypeId && !feedError && (
                   <p className="text-xs text-gray-400">Nie wybrano — zostanie zapisane bez określenia typu.</p>
                 )}
               </div>
@@ -669,7 +713,7 @@ export function QuickEntryPage() {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => { setModal(null); setInputVal(''); setSelectedFeedTypeId(null); setSelectedFeedTypeName(''); }}
+              <button onClick={() => { setModal(null); setInputVal(''); setFeedError(''); setSelectedFeedTypeId(null); setSelectedFeedTypeName(''); }}
                 className="flex-1 py-4 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50">
                 Anuluj
               </button>
