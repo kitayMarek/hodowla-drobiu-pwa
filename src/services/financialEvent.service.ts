@@ -66,7 +66,7 @@ export const financialEventService = {
         source_type:  data.sourceType,
         source_id:    data.sourceId,
         scope:        data.scope ?? 'drob',
-        category:     data.category ?? null,
+        category:     data.category ?? (data.type === 'income' ? 'Sprzedaż' : 'Wydatek'),
         status:       'pending',
         notes:        data.notes ?? null,
         created_at:   now,
