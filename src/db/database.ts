@@ -21,6 +21,7 @@ import type { FinancialEvent } from '@/models/financialEvent.model';
 import type { FeedRecipe } from '@/models/feedRecipe.model';
 import type { Activity } from '@/models/activity.model';
 import { DEFAULT_ACTIVITIES } from '@/models/activity.model';
+import type { InternalTransfer } from '@/models/internalTransfer.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -50,6 +51,7 @@ export class FarmDatabase extends Dexie {
   financialEvents!: Table<FinancialEvent, number>;
   feedRecipes!: Table<FeedRecipe, number>;
   activities!: Table<Activity, number>;
+  internalTransfers!: Table<InternalTransfer, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -218,6 +220,11 @@ export class FarmDatabase extends Dexie {
       await tx.table('activities').bulkAdd(
         DEFAULT_ACTIVITIES.map(a => ({ ...a, createdAt: now }))
       );
+    });
+
+    // v17: Noty wewnętrzne – przesunięcia wartości między działalnościami
+    this.version(17).stores({
+      internalTransfers: '++id, date, fromScope, toScope',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

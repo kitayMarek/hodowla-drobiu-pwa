@@ -12,7 +12,9 @@ import { formatDate, todayISO } from '@/utils/date';
 import { formatPln } from '@/utils/format';
 import type { CashAccount, CashTransaction, CashCategory, TxType, TxScope, AccountType, AccountScope } from '@/models/cashFlow.model';
 import type { FinancialEvent } from '@/models/financialEvent.model';
-import { useActivities } from '@/hooks/useTableData';
+import type { InternalTransfer } from '@/models/internalTransfer.model';
+import { useActivities, useInternalTransfers } from '@/hooks/useTableData';
+import { internalTransferService } from '@/services/internalTransfer.service';
 
 // ─── Stałe ────────────────────────────────────────────────────────────────────
 
@@ -138,6 +140,45 @@ export function CashFlowPage() {
     [activities],
   );
 
+  // ── Noty wewnętrzne ───────────────────────────────────────────────────────
+  const allInternalTransfers = useInternalTransfers();
+  const [showTransferForm,  setShowTransferForm]  = useState(false);
+  const [transferForm,      setTransferForm]      = useState({
+    date: todayISO(), fromScope: 'sery', toScope: 'agroturystyka',
+    amountPln: '', description: '', notes: '',
+  });
+  const [savingTransfer,    setSavingTransfer]    = useState(false);
+  const [transferError,     setTransferError]     = useState('');
+  const [deleteTransfer,    setDeleteTransfer]    = useState<InternalTransfer | null>(null);
+
+  const onSaveTransfer = async () => {
+    const amount = parseFloat(transferForm.amountPln);
+    if (!amount || !transferForm.description.trim()) return;
+    if (transferForm.fromScope === transferForm.toScope) {
+      setTransferError('Działalność źródłowa i docelowa muszą być różne.');
+      return;
+    }
+    setSavingTransfer(true);
+    setTransferError('');
+    try {
+      await internalTransferService.create({
+        date:        transferForm.date,
+        fromScope:   transferForm.fromScope,
+        toScope:     transferForm.toScope,
+        amountPln:   amount,
+        description: transferForm.description.trim(),
+        notes:       transferForm.notes.trim() || undefined,
+      });
+      setTransferForm({ date: todayISO(), fromScope: 'sery', toScope: 'agroturystyka',
+        amountPln: '', description: '', notes: '' });
+      setShowTransferForm(false);
+    } catch (e) {
+      setTransferError(e instanceof Error ? e.message : JSON.stringify(e));
+    } finally {
+      setSavingTransfer(false);
+    }
+  };
+
   // Stan zarządzania kategoriami
   const [showCatModal,  setShowCatModal]  = useState(false);
   const [newCatName,    setNewCatName]    = useState('');
@@ -190,14 +231,43 @@ export function CashFlowPage() {
     });
   }, [allTxs, filterAccount, filterScope, filterType, filterMonth]);
 
+  // ── Noty wewnętrzne – filtr ────────────────────────────────────────────
+  const filteredTransfers = useMemo(() => {
+    return allInternalTransfers.filter(t => {
+      if (filterScope && t.fromScope !== filterScope && t.toScope !== filterScope) return false;
+      if (filterMonth && !t.date.startsWith(filterMonth)) return false;
+      if (filterAccount) return false; // noty nie mają konta
+      return true;
+    });
+  }, [allInternalTransfers, filterScope, filterMonth, filterAccount]);
+
+  // ── Dziennik: połączona lista transakcji + not ─────────────────────────
+  const journalItems = useMemo(() => {
+    const txItems       = filteredTxs.map(tx => ({ kind: 'tx'   as const, date: tx.date, tx }));
+    const notaItems     = filteredTransfers.map(t  => ({ kind: 'nota' as const, date: t.date,  nota: t }));
+    return [...txItems, ...notaItems].sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredTxs, filteredTransfers]);
+
   // ── Sumy ─────────────────────────────────────────────────────────────────
   const totalBalance = accounts.reduce((s, a) => s + calcBalance(a, allTxs), 0);
   const drobBalance = accounts
     .filter(a => a.scope === 'drob' || a.scope === 'shared')
     .reduce((s, a) => s + calcBalance(a, allTxs), 0);
 
-  const filteredIncome  = filteredTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amountPln, 0);
-  const filteredExpense = filteredTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountPln, 0);
+  // Noty wewnętrzne wpływają na P&L per działalność (ale nie na saldo kont):
+  //   fromScope = przychód wewnętrzny (odzysk kosztu)
+  //   toScope   = koszt wewnętrzny (zużycie surowca)
+  const transferIncomeAdj = filteredTransfers
+    .filter(t => !filterScope || t.fromScope === filterScope)
+    .reduce((s, t) => s + t.amountPln, 0);
+  const transferExpenseAdj = filteredTransfers
+    .filter(t => !filterScope || t.toScope === filterScope)
+    .reduce((s, t) => s + t.amountPln, 0);
+
+  const filteredIncome  = filteredTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amountPln, 0)
+    + transferIncomeAdj;
+  const filteredExpense = filteredTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountPln, 0)
+    + transferExpenseAdj;
 
   // ── Zapis konta ────────────────────────────────────────────────────────────
   const onSaveAccount = async () => {
@@ -307,11 +377,20 @@ export function CashFlowPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">Dziennik Kasowy</h1>
         <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowCatModal(true)}>
+          <Button variant="outline" size="sm" onClick={() => setShowCatModal(true)}>
             + Kategoria
           </Button>
           <Button variant="outline" size="sm" onClick={() => { setAccountForm(emptyAccountForm()); setShowAccountForm(true); }}>
             + Konto
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => {
+            const first  = businessActivities[0]?.key ?? 'drob';
+            const second = businessActivities[1]?.key ?? first;
+            setTransferForm(f => ({ ...f, fromScope: first, toScope: second }));
+            setTransferError('');
+            setShowTransferForm(true);
+          }} disabled={businessActivities.length < 2}>
+            ↔ Nota
           </Button>
           <Button size="sm" onClick={() => { setTxForm(emptyTxForm()); setShowTxForm(true); }}
             disabled={accounts.length === 0}>
@@ -463,48 +542,79 @@ export function CashFlowPage() {
         </Card>
       )}
 
-      {/* Lista transakcji */}
+      {/* Lista transakcji + not wewnętrznych */}
       {accounts.length > 0 && (
-        filteredTxs.length === 0 ? (
+        journalItems.length === 0 ? (
           <EmptyState icon="📋" title="Brak transakcji" description="Dodaj pierwszą transakcję klikając &quot;+ Transakcja&quot;" />
         ) : (
           <Card>
             <div className="divide-y divide-gray-100">
-              {filteredTxs.map(tx => {
+              {journalItems.map((item, idx) => {
+
+                /* ── Nota wewnętrzna ── */
+                if (item.kind === 'nota') {
+                  const nota = item.nota;
+                  return (
+                    <div key={`nota-${nota.id}`} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                      <div className="mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 bg-purple-100 text-purple-700">
+                        ↔
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                          <span className="text-sm font-medium text-gray-900">{nota.description}</span>
+                          <span className="text-xs bg-purple-50 text-purple-600 px-1.5 py-0.5 rounded">Nota wewnętrzna</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-2">
+                          <span>{formatDate(nota.date)}</span>
+                          <span>
+                            <Badge color={scopeBadge[nota.fromScope] ?? 'gray'}>{scopeLabel[nota.fromScope] ?? nota.fromScope}</Badge>
+                            {' → '}
+                            <Badge color={scopeBadge[nota.toScope] ?? 'gray'}>{scopeLabel[nota.toScope] ?? nota.toScope}</Badge>
+                          </span>
+                        </div>
+                        {nota.notes && <div className="text-xs text-gray-400 mt-0.5 italic">{nota.notes}</div>}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold text-purple-700">↔ {formatPln(nota.amountPln)}</span>
+                        <button
+                          onClick={() => setDeleteTransfer(nota)}
+                          className="text-gray-300 hover:text-red-400 transition-colors p-1"
+                          title="Usuń"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                /* ── Transakcja gotówkowa ── */
+                const tx = item.tx;
                 const acc = accountMap.get(tx.accountId);
-                // Ustal kierunek przelewu:
-                // 1. Filtr konta – wpływ jeśli toAccountId = filtrowane konto
-                // 2. Brak filtra z parą mirror – drugi rekord (wyższy ID) = wpływ dla celu
                 let isIncomingTransfer = false;
                 if (tx.type === 'transfer') {
                   if (filterAccount) {
                     isIncomingTransfer = String(tx.toAccountId) === filterAccount;
                   } else {
-                    // Sprawdź czy istnieje lustro – jeśli tak, ten rekord z wyższym ID to wpływ
                     const mirror = filteredTxs.find(m =>
                       m.type === 'transfer' && m.id !== tx.id &&
                       m.accountId === tx.toAccountId && m.toAccountId === tx.accountId &&
                       m.date === tx.date && m.amountPln === tx.amountPln
                     );
-                    if (mirror) {
-                      isIncomingTransfer = (tx.id ?? 0) > (mirror.id ?? 0);
-                    }
+                    if (mirror) isIncomingTransfer = (tx.id ?? 0) > (mirror.id ?? 0);
                   }
                 }
                 return (
-                  <div key={tx.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
-                    {/* Ikona */}
+                  <div key={`tx-${tx.id ?? idx}`} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
                     <div className={`mt-0.5 w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${
-                      tx.type === 'income'                      ? 'bg-green-100' :
-                      tx.type === 'expense'                     ? 'bg-red-100'   :
-                      isIncomingTransfer                        ? 'bg-green-100' : 'bg-blue-100'
+                      tx.type === 'income'   ? 'bg-green-100' :
+                      tx.type === 'expense'  ? 'bg-red-100'   :
+                      isIncomingTransfer     ? 'bg-green-100' : 'bg-blue-100'
                     }`}>
                       {tx.type === 'income'   ? '▲' :
                        tx.type === 'expense'  ? '▼' :
                        isIncomingTransfer     ? '▲' : '▼'}
                     </div>
-
-                    {/* Opis */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 flex-wrap">
                         <span className="text-sm font-medium text-gray-900">{tx.description}</span>
@@ -515,9 +625,7 @@ export function CashFlowPage() {
                       <div className="text-xs text-gray-500 mt-0.5 flex flex-wrap gap-x-2">
                         <span>{formatDate(tx.date)}</span>
                         {tx.type === 'transfer' ? (
-                          <span>
-                            {accountMap.get(tx.accountId)?.name ?? '?'} → {accountMap.get(tx.toAccountId!)?.name ?? '?'}
-                          </span>
+                          <span>{accountMap.get(tx.accountId)?.name ?? '?'} → {accountMap.get(tx.toAccountId!)?.name ?? '?'}</span>
                         ) : (
                           acc && <span>{acc.name}</span>
                         )}
@@ -529,8 +637,6 @@ export function CashFlowPage() {
                       </div>
                       {tx.notes && <div className="text-xs text-gray-400 mt-0.5 italic">{tx.notes}</div>}
                     </div>
-
-                    {/* Kwota + usuń */}
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-sm font-bold ${
                         tx.type === 'income'   ? 'text-green-700' :
@@ -1012,6 +1118,121 @@ export function CashFlowPage() {
         onConfirm={onDeleteCat}
         title="Usuń kategorię"
         message={`Usunąć kategorię "${deleteCat?.name}"?`}
+        confirmLabel="Usuń"
+        danger
+      />
+
+      {/* ── Modal: nota wewnętrzna ────────────────────────────────────────── */}
+      <Modal open={showTransferForm} onClose={() => setShowTransferForm(false)} title="↔ Nota wewnętrzna" size="sm">
+        <div className="space-y-4">
+          <div className="text-xs text-gray-500 bg-purple-50 border border-purple-100 rounded-xl px-3 py-2">
+            Nota przenosi koszt między działalnościami bez przepływu gotówki. Zwiększa przychód źródła i koszt celu.
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Źródło (sprzedaje)</label>
+              <select
+                value={transferForm.fromScope}
+                onChange={e => setTransferForm(f => ({ ...f, fromScope: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                {businessActivities.map(a => (
+                  <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cel (kupuje)</label>
+              <select
+                value={transferForm.toScope}
+                onChange={e => setTransferForm(f => ({ ...f, toScope: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                {businessActivities.map(a => (
+                  <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <input
+                type="date"
+                value={transferForm.date}
+                onChange={e => setTransferForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Kwota (PLN)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={transferForm.amountPln}
+                onChange={e => setTransferForm(f => ({ ...f, amountPln: e.target.value }))}
+                placeholder="0.00"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Opis</label>
+            <input
+              type="text"
+              value={transferForm.description}
+              onChange={e => setTransferForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="np. Sery dostarczone na śniadania gości"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Uwagi (opcjonalne)</label>
+            <textarea
+              value={transferForm.notes}
+              onChange={e => setTransferForm(f => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+            />
+          </div>
+
+          {transferError && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              ⚠ {transferError}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <Button
+              className="flex-1"
+              loading={savingTransfer}
+              disabled={!transferForm.description.trim() || !transferForm.amountPln || transferForm.fromScope === transferForm.toScope}
+              onClick={onSaveTransfer}
+            >
+              Zapisz notę
+            </Button>
+            <Button variant="outline" onClick={() => setShowTransferForm(false)}>Anuluj</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Potwierdzenie usunięcia noty ─────────────────────────────────── */}
+      <ConfirmDialog
+        open={deleteTransfer != null}
+        onClose={() => setDeleteTransfer(null)}
+        onConfirm={async () => {
+          if (deleteTransfer?.id != null) {
+            await internalTransferService.delete(deleteTransfer.id);
+          }
+          setDeleteTransfer(null);
+        }}
+        title="Usuń notę wewnętrzną"
+        message={`Usunąć notę "${deleteTransfer?.description}" (${deleteTransfer ? formatPln(deleteTransfer.amountPln) : ''})?`}
         confirmLabel="Usuń"
         danger
       />

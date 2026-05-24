@@ -32,6 +32,8 @@ import type { Investment } from '@/models/investment.model';
 import type { Order } from '@/models/order.model';
 import type { Activity } from '@/models/activity.model';
 import { activityService } from '@/services/activity.service';
+import type { InternalTransfer } from '@/models/internalTransfer.model';
+import { internalTransferService } from '@/services/internalTransfer.service';
 
 // ── Expenses ─────────────────────────────────────────────────
 
@@ -438,6 +440,29 @@ export function useActivities(): Activity[] {
     const ch = supabase.channel(`activities-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' },
         () => activityService.getAll().then(data => { setSb(data); cacheSet(`activities_${user.id}`, data); }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id]);
+  return user ? sb : dexie;
+}
+
+// ── Internal Transfers ───────────────────────────────────────
+
+export function useInternalTransfers(): InternalTransfer[] {
+  const { user } = useAuth();
+  const dexie = useLiveQuery(
+    () => !user ? db.internalTransfers.orderBy('date').reverse().toArray() : Promise.resolve([] as InternalTransfer[]),
+    [!!user]
+  ) ?? [];
+  const [sb, setSb] = useState<InternalTransfer[]>(() =>
+    user ? (cacheGet<InternalTransfer[]>(`internal_transfers_${user.id}`) ?? []) : []
+  );
+  useEffect(() => {
+    if (!user) { setSb([]); return; }
+    internalTransferService.getAll().then(data => { setSb(data); cacheSet(`internal_transfers_${user.id}`, data); });
+    const ch = supabase.channel(`internal-transfers-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'internal_transfers' },
+        () => internalTransferService.getAll().then(data => { setSb(data); cacheSet(`internal_transfers_${user.id}`, data); }))
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
