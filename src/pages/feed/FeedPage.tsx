@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -559,15 +560,19 @@ export function FeedPage() {
       {/* ═══ TAB: PASZE ═══ */}
       {activeTab === 'pasze' && (
         <div className="space-y-3">
-          {/* Placeholder v2 */}
-          <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 flex items-center gap-3">
-            <span className="text-2xl">🧪</span>
-            <div>
-              <div className="text-sm font-semibold text-brand-800">Kalkulator receptur (v2)</div>
-              <div className="text-xs text-brand-600">Obliczanie własnych mieszanek – dostępne w wersji 2</div>
+          {/* Link do receptur */}
+          <Link to="/pasze/receptury" className="block">
+            <div className="bg-brand-50 border border-brand-200 rounded-xl px-4 py-3 flex items-center gap-3 hover:bg-brand-100 transition-colors">
+              <span className="text-2xl">🧪</span>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-brand-800">Receptury pasz własnych</div>
+                <div className="text-xs text-brand-600">Obliczanie składu i kosztów własnych mieszanek</div>
+              </div>
+              <svg className="w-4 h-4 text-brand-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </div>
-            <Badge color="blue">Wkrótce</Badge>
-          </div>
+          </Link>
 
           <div className="flex justify-end">
             <Button onClick={() => { resetType(); setEditType(null); setShowTypeForm(true); }} size="sm" icon={<span>+</span>}>

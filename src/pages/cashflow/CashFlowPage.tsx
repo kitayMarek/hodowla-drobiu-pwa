@@ -8,6 +8,7 @@ import { Input, Textarea } from '@/components/ui/Input';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { SimpleArea, MultiBar } from '@/components/charts/TrendChart';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln } from '@/utils/format';
 import type { CashAccount, CashTransaction, CashCategory, TxType, TxScope, AccountType, AccountScope } from '@/models/cashFlow.model';
@@ -322,6 +323,53 @@ export function CashFlowPage() {
 
   const accountMap = new Map(accounts.map(a => [a.id!, a]));
 
+  // ── Wykres salda konta ─────────────────────────────────────────────────────
+  const [chartAccount, setChartAccount] = useState<CashAccount | null>(null);
+
+  const accountChartData = useMemo(() => {
+    if (!chartAccount) return { balanceHistory: [], monthlyBars: [] };
+    const id = chartAccount.id!;
+
+    // Transakcje tego konta posortowane po dacie rosnąco
+    const accTxs = [...allTxs]
+      .filter(t => t.accountId === id || t.toAccountId === id)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Historia salda (running balance)
+    let bal = chartAccount.openingBalance;
+    const seen = new Set<number>();
+    const balanceHistory: { date: string; value: number }[] = [];
+
+    for (const tx of accTxs) {
+      if (tx.id != null && seen.has(tx.id)) continue;
+      if (tx.id != null) seen.add(tx.id);
+
+      if (tx.type === 'income'  && tx.accountId === id) bal += tx.amountPln;
+      else if (tx.type === 'expense' && tx.accountId === id) bal -= tx.amountPln;
+      else if (tx.type === 'transfer') {
+        if (tx.accountId === id)   bal -= tx.amountPln;
+        if (tx.toAccountId === id) bal += tx.amountPln;
+      }
+      balanceHistory.push({ date: tx.date, value: Math.round(bal * 100) / 100 });
+    }
+
+    // Miesięczne wpływy vs wydatki (ostatnie 6 miesięcy)
+    const now = new Date();
+    const months: Record<string, { month: string; income: number; cost: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months[key] = { month: d.toLocaleDateString('pl-PL', { month: 'short' }), income: 0, cost: 0 };
+    }
+    for (const tx of accTxs) {
+      const m = tx.date.slice(0, 7);
+      if (!months[m]) continue;
+      if (tx.type === 'income'  && tx.accountId === id) months[m].income += tx.amountPln;
+      if (tx.type === 'expense' && tx.accountId === id) months[m].cost   += tx.amountPln;
+    }
+    return { balanceHistory, monthlyBars: Object.values(months) };
+  }, [chartAccount, allTxs]);
+
   // ── Miesiące do filtra ─────────────────────────────────────────────────────
   const months = useMemo(() => {
     const set = new Set<string>();
@@ -434,29 +482,41 @@ export function CashFlowPage() {
             const bal       = calcBalance(acc, allTxs);
             const isActive  = filterAccount === String(acc.id);
             return (
-              <button
+              <div
                 key={acc.id}
-                onClick={() => setFilterAccount(isActive ? '' : String(acc.id))}
-                className={`text-left rounded-xl border p-4 flex flex-col gap-1 shadow-sm transition-all active:scale-[0.98] cursor-pointer hover:shadow-md ${
+                className={`text-left rounded-xl border p-4 flex flex-col gap-1 shadow-sm transition-all active:scale-[0.98] hover:shadow-md ${
                   isActive
                     ? 'bg-brand-50 border-brand-300 ring-2 ring-brand-300'
                     : 'bg-white border-gray-200 hover:border-gray-300'
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-gray-500 truncate">{acc.name}</span>
-                  <span className="text-xs">{acc.type === 'bank' ? '🏦' : '💵'}</span>
+                  <span className="text-xs text-gray-500 truncate flex-1 cursor-pointer"
+                    onClick={() => setFilterAccount(isActive ? '' : String(acc.id))}>{acc.name}</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={e => { e.stopPropagation(); setChartAccount(acc); }}
+                      className="text-gray-300 hover:text-brand-500 transition-colors p-0.5"
+                      title="Wykres salda"
+                    >📊</button>
+                    <span className="text-xs">{acc.type === 'bank' ? '🏦' : '💵'}</span>
+                  </div>
                 </div>
-                <div className={`text-lg font-bold ${bal < 0 ? 'text-red-600' : isActive ? 'text-brand-700' : 'text-gray-900'}`}>
+                <div
+                  className={`text-lg font-bold cursor-pointer ${bal < 0 ? 'text-red-600' : isActive ? 'text-brand-700' : 'text-gray-900'}`}
+                  onClick={() => setFilterAccount(isActive ? '' : String(acc.id))}
+                >
                   {formatPln(bal)}
                 </div>
-                <div className="flex items-center justify-between gap-1">
+                <div className="flex items-center justify-between gap-1"
+                  onClick={() => setFilterAccount(isActive ? '' : String(acc.id))}
+                  style={{ cursor: 'pointer' }}>
                   <Badge color={scopeBadge[acc.scope] ?? 'gray'}>
                     {scopeLabel[acc.scope] ?? acc.scope}
                   </Badge>
                   {isActive && <span className="text-xs text-brand-500 font-medium">filtruje →</span>}
                 </div>
-              </button>
+              </div>
             );
           })}
 
@@ -1219,6 +1279,72 @@ export function CashFlowPage() {
             <Button variant="outline" onClick={() => setShowTransferForm(false)}>Anuluj</Button>
           </div>
         </div>
+      </Modal>
+
+      {/* ── Modal wykresu salda konta ─────────────────────────────────────── */}
+      <Modal
+        open={chartAccount != null}
+        onClose={() => setChartAccount(null)}
+        title={chartAccount ? `📊 ${chartAccount.name}` : ''}
+        size="md"
+      >
+        {chartAccount && (() => {
+          const { balanceHistory, monthlyBars } = accountChartData;
+          const currentBal = calcBalance(chartAccount, allTxs);
+          const hasHistory  = balanceHistory.length >= 2;
+          const hasMonthly  = monthlyBars.some(m => m.income > 0 || m.cost > 0);
+          return (
+            <div className="space-y-5">
+              {/* Aktualne saldo */}
+              <div className={`rounded-xl px-4 py-3 text-center ${currentBal < 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                <div className="text-xs text-gray-500 mb-1">Aktualne saldo</div>
+                <div className={`text-3xl font-bold ${currentBal < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                  {formatPln(currentBal)}
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Saldo otwarcia: {formatPln(chartAccount.openingBalance)} · {chartAccount.type === 'bank' ? '🏦 Konto bankowe' : '💵 Kasa gotówkowa'}
+                </div>
+              </div>
+
+              {/* Historia salda */}
+              {hasHistory ? (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Historia salda</div>
+                  <SimpleArea
+                    data={balanceHistory}
+                    label="Saldo (PLN)"
+                    color={currentBal >= 0 ? '#16a34a' : '#dc2626'}
+                    height={150}
+                    formatValue={v => `${(v / 1000).toFixed(1)}k`}
+                  />
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 text-center py-3">
+                  Brak historii transakcji — dodaj transakcje aby zobaczyć wykres.
+                </div>
+              )}
+
+              {/* Miesięczne wpływy vs wydatki */}
+              {hasMonthly && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Wpływy vs Wydatki – ostatnie 6 miesięcy</div>
+                  <MultiBar
+                    data={monthlyBars}
+                    xKey="month"
+                    bars={[
+                      { key: 'income', label: 'Wpływy',  color: '#16a34a' },
+                      { key: 'cost',   label: 'Wydatki', color: '#dc2626' },
+                    ]}
+                    formatValue={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))}
+                    height={140}
+                  />
+                </div>
+              )}
+
+              <Button variant="outline" className="w-full" onClick={() => setChartAccount(null)}>Zamknij</Button>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* ── Potwierdzenie usunięcia noty ─────────────────────────────────── */}

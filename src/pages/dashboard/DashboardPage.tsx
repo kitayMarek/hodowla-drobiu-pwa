@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAllBatchKPIs } from '@/hooks/useKPIs';
 import { useActiveBatches, useBatches } from '@/hooks/useBatch';
@@ -6,6 +6,7 @@ import { KPICard } from '@/components/charts/KPICard';
 import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Badge } from '@/components/ui/Badge';
+import { MultiBar } from '@/components/charts/TrendChart';
 import { formatPln, formatPercent, formatFCR, formatGrams, formatCount } from '@/utils/format';
 import { formatDate, ageLabel } from '@/utils/date';
 import { SPECIES_LABELS, SPECIES_EMOJI, isLayerSpecies } from '@/constants/species';
@@ -113,6 +114,41 @@ export function DashboardPage() {
   const totalCosts = totalFeedDeliveryCost + totalOtherExpenses + totalChickCost;
   const totalMargin = totalRevenue - totalCosts;
 
+  // ── Wykres miesięczny (ostatnie 6 miesięcy) ───────────────────────────────
+  const monthlyData = useMemo(() => {
+    const now = new Date();
+    const months: Record<string, { month: string; income: number; cost: number }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      months[key] = {
+        month: d.toLocaleDateString('pl-PL', { month: 'short' }),
+        income: 0,
+        cost: 0,
+      };
+    }
+    allSales.forEach(s => {
+      const m = s.saleDate.slice(0, 7);
+      if (months[m]) months[m].income += s.totalRevenuePln;
+    });
+    feedDeliveries.forEach(d => {
+      const m = d.deliveryDate.slice(0, 7);
+      if (months[m]) months[m].cost += d.totalCostPln;
+    });
+    allExpenses.forEach(e => {
+      const m = e.expenseDate.slice(0, 7);
+      if (months[m]) months[m].cost += e.amountPln;
+    });
+    allBatches.forEach(b => {
+      const m = b.startDate.slice(0, 7);
+      const chickCost = (b.chick_cost_per_unit ?? 0) * b.initialCount + (b.transport_cost ?? 0);
+      if (months[m]) months[m].cost += chickCost;
+    });
+    return Object.values(months);
+  }, [allSales, feedDeliveries, allExpenses, allBatches]);
+
+  const hasMonthlyData = monthlyData.some(m => m.income > 0 || m.cost > 0);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -199,7 +235,7 @@ export function DashboardPage() {
               onClick={() => setDashModal('stada')}
             />
             <KPICard
-              label="Łączna liczba ptaków"
+              label="Ptaki łącznie"
               value={totalBirds.toLocaleString('pl-PL')}
               sub="szt."
               icon="🐓"
@@ -207,21 +243,38 @@ export function DashboardPage() {
               onClick={totalBirds > 0 ? () => setDashModal('ptaki') : undefined}
             />
             <KPICard
-              label="Łączne przychody"
+              label="Przychody"
               value={formatPln(totalRevenue)}
+              sub="od początku"
               icon="💰"
               color="green"
               onClick={totalRevenue > 0 ? () => setDashModal('przychody') : undefined}
             />
             <KPICard
-              label="Marża łącznie"
+              label="Marża"
               value={formatPln(totalMargin)}
+              sub={totalRevenue > 0 ? `${formatPercent(totalMargin / totalRevenue * 100)} rent.` : 'od początku'}
               icon="📈"
               color={totalMargin >= 0 ? 'green' : 'red'}
-              trendLabel={totalRevenue > 0 ? `${formatPercent(totalMargin / totalRevenue * 100)} rentowności` : undefined}
               onClick={allKPIs.length > 0 ? () => setDashModal('marza') : undefined}
             />
           </div>
+
+          {/* Wykres miesięczny */}
+          {hasMonthlyData && (
+            <Card title="Przychody vs Koszty – ostatnie 6 miesięcy" padding="sm">
+              <MultiBar
+                data={monthlyData}
+                xKey="month"
+                bars={[
+                  { key: 'income', label: 'Przychody', color: '#16a34a' },
+                  { key: 'cost',   label: 'Koszty',    color: '#dc2626' },
+                ]}
+                formatValue={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v))}
+                height={160}
+              />
+            </Card>
+          )}
 
           {/* Active batches summary */}
           <Card title="Aktywne stada" action={
@@ -260,8 +313,8 @@ export function DashboardPage() {
                         {kpi.ageInDays} dni · {kpi.currentBirdCount.toLocaleString('pl-PL')} szt.
                       </div>
                     </div>
-                    <div className="text-right hidden sm:block">
-                      <div className="text-sm font-medium">FCR: {formatFCR(kpi.fcr)}</div>
+                    <div className="text-right shrink-0">
+                      <div className="text-sm font-medium text-gray-800">FCR: {formatFCR(kpi.fcr)}</div>
                       <div className="text-xs text-gray-500">
                         {kpi.mortalityPercent.toFixed(1)}% upadki
                       </div>
@@ -278,28 +331,13 @@ export function DashboardPage() {
           {/* Kalendarz kompletności wpisów */}
           <DailyCalendar activeBatches={activeBatches} monthEntries={monthEntries} />
 
-          {/* All batches list */}
+          {/* Link do archiwum */}
           {allBatches.length > activeBatches.length && (
-            <Card title="Archiwum stad" padding="none">
-              <div className="divide-y divide-gray-50">
-                {allBatches.filter(b => b.status !== 'active').slice(0, 5).map(batch => (
-                  <Link
-                    key={batch.id}
-                    to={`/stada/${batch.id}`}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50"
-                  >
-                    <span className="text-xl">{SPECIES_EMOJI[batch.species]}</span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-700 truncate">{batch.name}</div>
-                      <div className="text-xs text-gray-400">{formatDate(batch.startDate)}</div>
-                    </div>
-                    <Badge color={batch.status === 'sold' ? 'gray' : 'blue'}>
-                      {batch.status === 'sold' ? 'Sprzedana' : batch.status === 'completed' ? 'Zakończona' : 'Zarchiwizowana'}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            </Card>
+            <div className="text-center">
+              <Link to="/stada" className="text-sm text-gray-400 hover:text-brand-600 transition-colors">
+                📁 Archiwum: {allBatches.length - activeBatches.length} zakończonych stad →
+              </Link>
+            </div>
           )}
         </>
       )}
