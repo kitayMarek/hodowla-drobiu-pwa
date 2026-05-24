@@ -29,6 +29,7 @@ export function InvestmentPage() {
   const [showForm, setShowForm] = useState(false);
   const [editTarget, setEditTarget] = useState<Investment | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Investment | null>(null);
+  const [submitError, setSubmitError] = useState('');
 
   const investments = useInvestments();
 
@@ -56,10 +57,12 @@ export function InvestmentPage() {
   const openAdd = () => {
     reset({ purchaseDate: todayISO(), category: 'maszyna' });
     setEditTarget(null);
+    setSubmitError('');
     setShowForm(true);
   };
 
   const openEdit = (inv: Investment) => {
+    setSubmitError('');
     reset({
       purchaseDate: inv.purchaseDate,
       category: inv.category,
@@ -74,15 +77,26 @@ export function InvestmentPage() {
     setShowForm(true);
   };
 
+  const errMsg = (e: unknown) =>
+    e instanceof Error ? e.message
+    : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
+    : JSON.stringify(e);
+
   const onSubmit = async (data: InvestmentFormValues) => {
-    if (editTarget?.id != null) {
-      await investmentService.update(editTarget.id, data);
-    } else {
-      await investmentService.create(data);
+    setSubmitError('');
+    try {
+      if (editTarget?.id != null) {
+        await investmentService.update(editTarget.id, data);
+      } else {
+        await investmentService.create(data);
+      }
+      reset();
+      setShowForm(false);
+      setEditTarget(null);
+    } catch (e) {
+      console.error('Błąd zapisu inwestycji:', e);
+      setSubmitError(errMsg(e));
     }
-    reset();
-    setShowForm(false);
-    setEditTarget(null);
   };
 
   return (
@@ -269,6 +283,11 @@ export function InvestmentPage() {
             {...register('notes')}
             placeholder="Dodatkowe informacje, parametry techniczne..."
           />
+          {submitError && (
+            <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+              ⚠ {submitError}
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <Button type="submit" loading={isSubmitting} className="flex-1">
               {editTarget ? 'Zapisz zmiany' : 'Dodaj inwestycję'}
