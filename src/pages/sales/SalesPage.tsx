@@ -209,6 +209,9 @@ export function SalesPage() {
   };
 
   const [saleSubmitError, setSaleSubmitError] = useState('');
+  const errMsg = (e: unknown) => e instanceof Error ? e.message
+    : (e && typeof e === 'object' && 'message' in e) ? String((e as { message: unknown }).message)
+    : JSON.stringify(e);
 
   const onSaleSubmit = async (data: SaleFormValues) => {
     setSaleSubmitError('');
@@ -219,14 +222,27 @@ export function SalesPage() {
       }
     }
 
+    let saleId: number | null = null;
     try {
-      const saleId = await saleService.create(data) as number;
+      saleId = await saleService.create(data) as number;
+    } catch (e) {
+      console.error('Błąd tworzenia sprzedaży:', e);
+      setSaleSubmitError(errMsg(e));
+      return;
+    }
+
+    // Sprzedaż zapisana — zamknij formularz
+    setSalePayment('pending');
+    setSaleAccountId('');
+    reset();
+    setShowSaleForm(false);
+
+    // Rozliczenie kasowe — w tle (sprzedaż już zapisana)
+    const desc = `Sprzedaż${data.buyerName ? ` – ${data.buyerName}` : ''}${data.invoiceNumber ? ` (${data.invoiceNumber})` : ''}`;
+    try {
       if (data.saleType === 'ptaki_zywe' && data.batchId) {
         await batchService.checkAndAutoClose(Number(data.batchId));
       }
-
-      // ── Rozliczenie kasowe ────────────────────────────────────────────────
-      const desc = `Sprzedaż${data.buyerName ? ` – ${data.buyerName}` : ''}${data.invoiceNumber ? ` (${data.invoiceNumber})` : ''}`;
       if (salePayment === 'pending') {
         await financialEventService.create({
           date: data.saleDate, type: 'income', amountPln: data.totalRevenuePln,
@@ -243,19 +259,9 @@ export function SalesPage() {
           sourceId:    saleId,
         });
       }
-
-      setSalePayment('pending');
-      setSaleAccountId('');
-      reset();
-      setShowSaleForm(false);
     } catch (e) {
-      console.error('Błąd zapisu sprzedaży:', e);
-      const msg = e instanceof Error
-        ? e.message
-        : (e && typeof e === 'object' && 'message' in e)
-          ? String((e as { message: unknown }).message)
-          : JSON.stringify(e);
-      setSaleSubmitError(msg);
+      console.error('Błąd rozliczenia kasowego:', e);
+      // Sprzedaż już zapisana — tylko logujemy błąd rozliczenia
     }
   };
 
