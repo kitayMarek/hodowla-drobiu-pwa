@@ -250,7 +250,12 @@ export function SalesPage() {
       setShowSaleForm(false);
     } catch (e) {
       console.error('Błąd zapisu sprzedaży:', e);
-      setSaleSubmitError('Błąd zapisu: ' + (e instanceof Error ? e.message : String(e)));
+      const msg = e instanceof Error
+        ? e.message
+        : (e && typeof e === 'object' && 'message' in e)
+          ? String((e as { message: unknown }).message)
+          : JSON.stringify(e);
+      setSaleSubmitError(msg);
     }
   };
 
