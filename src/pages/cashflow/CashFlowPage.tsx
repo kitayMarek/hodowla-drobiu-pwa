@@ -215,6 +215,7 @@ export function CashFlowPage() {
   const [accountForm,     setAccountForm]     = useState<AccountFormState>(emptyAccountForm());
   const [txForm,          setTxForm]          = useState<TxFormState>(emptyTxForm());
   const [saving,          setSaving]          = useState(false);
+  const [txDuplicates,    setTxDuplicates]    = useState<CashTransaction[]>([]);
 
   // ── Przefiltrowane transakcje ─────────────────────────────────────────────
   const filteredTxs = useMemo(() => {
@@ -288,12 +289,44 @@ export function CashFlowPage() {
     reload();
   };
 
+  // ── Wykrywanie duplikatów – tylko ręczne wpisy (bez sourceType) ──────────
+  function findManualDuplicates(form: TxFormState, txs: CashTransaction[]): CashTransaction[] {
+    if (form.type === 'transfer') return [];
+    const amount = parseFloat(form.amountPln);
+    if (isNaN(amount) || amount <= 0 || !form.accountId) return [];
+    // okno ±2 dni
+    const dates = new Set(
+      [-2, -1, 0, 1, 2].map(delta => {
+        const d = new Date(form.date);
+        d.setDate(d.getDate() + delta);
+        return d.toISOString().slice(0, 10);
+      }),
+    );
+    return txs.filter(t =>
+      !t.sourceType &&                             // tylko ręczne
+      t.accountId === Number(form.accountId) &&
+      t.type      === form.type &&
+      Math.abs(t.amountPln - amount) < 0.01 &&
+      dates.has(t.date),
+    );
+  }
+
   // ── Zapis transakcji ───────────────────────────────────────────────────────
-  const onSaveTx = async () => {
+  const onSaveTx = async (force = false) => {
     if (!txForm.accountId || !txForm.description.trim() || !txForm.amountPln) return;
-    setSaving(true);
     const amount = parseFloat(txForm.amountPln);
-    if (isNaN(amount) || amount <= 0) { setSaving(false); return; }
+    if (isNaN(amount) || amount <= 0) return;
+
+    // Sprawdź duplikaty przed zapisem (tylko ręczne wpisy)
+    if (!force && txForm.type !== 'transfer') {
+      const dupes = findManualDuplicates(txForm, allTxs);
+      if (dupes.length > 0) {
+        setTxDuplicates(dupes);
+        return;
+      }
+    }
+    setTxDuplicates([]);
+    setSaving(true);
 
     if (txForm.type === 'transfer') {
       if (!txForm.toAccountId) { setSaving(false); return; }
@@ -319,6 +352,7 @@ export function CashFlowPage() {
     setSaving(false);
     setShowTxForm(false);
     setTxForm(emptyTxForm());
+    setTxDuplicates([]);
     reload();
   };
 
@@ -932,7 +966,7 @@ export function CashFlowPage() {
       </Modal>
 
       {/* ── Modal: nowa transakcja ────────────────────────────────────────── */}
-      <Modal open={showTxForm} onClose={() => setShowTxForm(false)} title="Nowa transakcja" size="md">
+      <Modal open={showTxForm} onClose={() => { setShowTxForm(false); setTxDuplicates([]); }} title="Nowa transakcja" size="md">
         <div className="space-y-4">
 
           {/* Typ + zakres */}
@@ -1069,9 +1103,38 @@ export function CashFlowPage() {
             />
           </div>
 
+          {/* ── Ostrzeżenie o duplikacie ── */}
+          {txDuplicates.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 space-y-2">
+              <div className="text-sm font-semibold text-amber-800">⚠ Możliwy duplikat</div>
+              <div className="space-y-1">
+                {txDuplicates.map(t => (
+                  <div key={t.id} className="text-xs text-amber-700 bg-white border border-amber-100 rounded-lg px-3 py-1.5 flex justify-between gap-2">
+                    <span className="truncate">{t.description}</span>
+                    <span className="shrink-0 font-medium">{formatDate(t.date)} · {formatPln(t.amountPln)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-amber-600">Znaleziono podobną transakcję w ciągu ±2 dni. Czy to ta sama operacja?</div>
+            </div>
+          )}
+
           <div className="flex gap-3 pt-1">
-            <Button className="flex-1" loading={saving} onClick={onSaveTx}>Dodaj transakcję</Button>
-            <Button variant="outline" onClick={() => setShowTxForm(false)}>Anuluj</Button>
+            {txDuplicates.length > 0 ? (
+              <>
+                <Button className="flex-1" loading={saving} onClick={() => onSaveTx(true)}>
+                  Zapisz mimo to
+                </Button>
+                <Button variant="outline" onClick={() => setTxDuplicates([])}>
+                  ← Wróć
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button className="flex-1" loading={saving} onClick={() => onSaveTx()}>Dodaj transakcję</Button>
+                <Button variant="outline" onClick={() => { setShowTxForm(false); setTxDuplicates([]); }}>Anuluj</Button>
+              </>
+            )}
           </div>
         </div>
       </Modal>
