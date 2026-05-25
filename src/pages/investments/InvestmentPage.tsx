@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useInvestments } from '@/hooks/useTableData';
+import { useInvestments, useActiveCashAccounts, useActivities } from '@/hooks/useTableData';
 import { investmentSchema, type InvestmentFormValues } from '@/utils/validation';
 import { investmentService } from '@/services/investment.service';
+import { financialEventService } from '@/services/financialEvent.service';
+import { cashFlowService } from '@/services/cashFlow.service';
 import {
   INVESTMENT_CATEGORY_LABELS,
   INVESTMENT_CATEGORY_ICONS,
@@ -31,7 +33,14 @@ export function InvestmentPage() {
   const [deleteTarget, setDeleteTarget] = useState<Investment | null>(null);
   const [submitError, setSubmitError] = useState('');
 
-  const investments = useInvestments();
+  // Rozliczenie kasowe nowego zakupu
+  const [invPayment, setInvPayment]   = useState<'pending' | 'immediate'>('pending');
+  const [invAccountId, setInvAccountId] = useState('');
+  const [invScope, setInvScope]       = useState('');
+
+  const investments  = useInvestments();
+  const cashAccounts = useActiveCashAccounts();
+  const activities   = useActivities();
 
   // KPI
   const totalValue = investments.reduce((s, i) => s + i.amountPln, 0);
@@ -58,6 +67,9 @@ export function InvestmentPage() {
     reset({ purchaseDate: todayISO(), category: 'maszyna' });
     setEditTarget(null);
     setSubmitError('');
+    setInvPayment('pending');
+    setInvAccountId('');
+    setInvScope('');
     setShowForm(true);
   };
 
@@ -88,9 +100,33 @@ export function InvestmentPage() {
       if (editTarget?.id != null) {
         await investmentService.update(editTarget.id, data);
       } else {
-        await investmentService.create(data);
+        const invId = await investmentService.create(data);
+
+        // ── Rozliczenie kasowe ──────────────────────────────────────────────
+        const desc = `Zakup – ${data.name}${data.supplier ? ` (${data.supplier})` : ''}${data.invoiceNumber ? ` FV: ${data.invoiceNumber}` : ''}`;
+        if (invPayment === 'pending') {
+          await financialEventService.create({
+            date: data.purchaseDate, type: 'expense', amountPln: data.amountPln,
+            description: desc, sourceType: 'investment', sourceId: invId,
+          });
+        } else if (invPayment === 'immediate' && invAccountId) {
+          const scope = invScope || activities[0]?.key || 'ferma';
+          await cashFlowService.createTransaction({
+            accountId:   Number(invAccountId),
+            date:        data.purchaseDate,
+            type:        'expense',
+            scope,
+            category:    'Inwestycje',
+            description: desc,
+            amountPln:   data.amountPln,
+            sourceType:  'investment',
+            sourceId:    invId,
+          });
+        }
       }
       reset();
+      setInvPayment('pending');
+      setInvAccountId('');
       setShowForm(false);
       setEditTarget(null);
     } catch (e) {
@@ -283,13 +319,75 @@ export function InvestmentPage() {
             {...register('notes')}
             placeholder="Dodatkowe informacje, parametry techniczne..."
           />
+
+          {/* ── Rozliczenie kasowe (tylko nowe wpisy) ─────────────────────── */}
+          {!editTarget && cashAccounts.length > 0 && (
+            <div className="border-t border-gray-100 pt-3 space-y-2">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Kasa i bank</div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                <button
+                  type="button"
+                  onClick={() => setInvPayment('pending')}
+                  className={`flex-1 py-2 transition-colors ${invPayment === 'pending' ? 'bg-orange-50 text-orange-700 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  📅 Do rozliczenia
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvPayment('immediate')}
+                  className={`flex-1 py-2 border-l border-gray-200 transition-colors ${invPayment === 'immediate' ? 'bg-red-50 text-red-700 font-semibold' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  💸 Zapłacono od razu
+                </button>
+              </div>
+
+              {invPayment === 'immediate' && (
+                <div className="space-y-2">
+                  <select
+                    value={invAccountId}
+                    onChange={e => setInvAccountId(e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">— Wybierz konto —</option>
+                    {cashAccounts.map(a => (
+                      <option key={a.id} value={a.id}>{a.name}</option>
+                    ))}
+                  </select>
+                  {activities.length > 0 && (
+                    <select
+                      value={invScope}
+                      onChange={e => setInvScope(e.target.value)}
+                      className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                    >
+                      <option value="">— Przypisz do działalności —</option>
+                      {activities.map(a => (
+                        <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {invPayment === 'pending' && (
+                <p className="text-xs text-orange-600">
+                  Pojawi się w Kasie i Banku → Do rozliczenia. Zatwierdź gdy zapłacisz.
+                </p>
+              )}
+            </div>
+          )}
+
           {submitError && (
             <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
               ⚠ {submitError}
             </div>
           )}
           <div className="flex gap-3 pt-1">
-            <Button type="submit" loading={isSubmitting} className="flex-1">
+            <Button
+              type="submit"
+              loading={isSubmitting}
+              disabled={invPayment === 'immediate' && !editTarget && !invAccountId}
+              className="flex-1"
+            >
               {editTarget ? 'Zapisz zmiany' : 'Dodaj inwestycję'}
             </Button>
             <Button

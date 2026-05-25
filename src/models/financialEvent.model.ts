@@ -3,7 +3,7 @@
 
 export type FinEventType   = 'income' | 'expense';
 export type FinEventStatus = 'pending' | 'settled';
-export type FinEventSource = 'sale' | 'expense' | 'feed_delivery';
+export type FinEventSource = 'sale' | 'expense' | 'feed_delivery' | 'investment';
 
 export interface FinancialEvent {
   id?: number;
