@@ -265,10 +265,11 @@ export function CashFlowPage() {
     .filter(t => !filterScope || t.toScope === filterScope)
     .reduce((s, t) => s + t.amountPln, 0);
 
-  const filteredIncome  = filteredTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amountPln, 0)
-    + transferIncomeAdj;
-  const filteredExpense = filteredTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountPln, 0)
-    + transferExpenseAdj;
+  // Wpływy i wydatki GOTÓWKOWE (bez not wewnętrznych – nie są przepływem kasowym)
+  const filteredIncome  = filteredTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amountPln, 0);
+  const filteredExpense = filteredTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountPln, 0);
+  // Noty wewnętrzne – osobna linia (memoriał, bez gotówki)
+  const filteredNotaTotal = filteredTransfers.reduce((s, t) => s + t.amountPln, 0);
 
   // ── Zapis konta ────────────────────────────────────────────────────────────
   const onSaveAccount = async () => {
@@ -588,14 +589,17 @@ export function CashFlowPage() {
           </div>
 
           {/* Suma przefiltrowanych */}
-          {(filteredIncome > 0 || filteredExpense > 0) && (
-            <div className="flex gap-4 mt-3 pt-3 border-t border-gray-100 text-sm">
+          {(filteredIncome > 0 || filteredExpense > 0 || filteredNotaTotal > 0) && (
+            <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-gray-100 text-sm">
               {filteredIncome > 0  && <span className="text-green-700">▲ Wpływy: <strong>{formatPln(filteredIncome)}</strong></span>}
               {filteredExpense > 0 && <span className="text-red-600">▼ Wydatki: <strong>{formatPln(filteredExpense)}</strong></span>}
               {filteredIncome > 0 && filteredExpense > 0 && (
                 <span className={`font-semibold ${filteredIncome - filteredExpense >= 0 ? 'text-green-700' : 'text-red-600'}`}>
                   = {formatPln(filteredIncome - filteredExpense)}
                 </span>
+              )}
+              {filteredNotaTotal > 0 && (
+                <span className="text-purple-600">↔ Noty wewnętrzne: <strong>{formatPln(filteredNotaTotal)}</strong> <span className="font-normal opacity-70">(bez gotówki)</span></span>
               )}
             </div>
           )}
