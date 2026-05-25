@@ -3,6 +3,8 @@ import { supabase, getAuthUser } from '@/lib/supabase';
 import { todayISO } from '@/utils/date';
 import type { Investment } from '@/models/investment.model';
 import type { InvestmentFormValues } from '@/utils/validation';
+import { cashFlowService } from './cashFlow.service';
+import { financialEventService } from './financialEvent.service';
 
 function rowToInvestment(r: Record<string, unknown>): Investment {
   return {
@@ -69,6 +71,10 @@ export const investmentService = {
   },
 
   async delete(id: number): Promise<void> {
+    // Kaskadowe usunięcie powiązanych transakcji kasowych i zdarzeń finansowych
+    await cashFlowService.deleteBySource('investment', id);
+    await financialEventService.deleteBySource('investment', id);
+
     const user = await getAuthUser();
     if (user) {
       await supabase.from('investments').delete().eq('id', id).eq('user_id', user.id);

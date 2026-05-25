@@ -136,4 +136,34 @@ export const financialEventService = {
     if (event?.cashTransactionId) await db.cashTransactions.delete(event.cashTransactionId);
     await db.financialEvents.delete(id);
   },
+
+  /** Usuwa wszystkie zdarzenia finansowe powiązane z danym źródłem,
+   *  kaskadowo usuwając też ewentualne rozliczone transakcje kasowe. */
+  async deleteBySource(sourceType: FinEventSource, sourceId: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data: events } = await supabase.from('financial_events')
+        .select('id, cash_transaction_id')
+        .eq('user_id', user.id)
+        .eq('source_type', sourceType)
+        .eq('source_id', sourceId);
+      if (events && events.length > 0) {
+        const txIds = events.map((e: Record<string, unknown>) => e.cash_transaction_id).filter(Boolean);
+        if (txIds.length > 0) {
+          await supabase.from('cash_transactions')
+            .delete().eq('user_id', user.id).in('id', txIds);
+        }
+        const ids = events.map((e: Record<string, unknown>) => e.id);
+        await supabase.from('financial_events').delete().eq('user_id', user.id).in('id', ids);
+      }
+      return;
+    }
+    const events = await db.financialEvents
+      .filter(e => e.sourceType === sourceType && e.sourceId === sourceId)
+      .toArray();
+    for (const e of events) {
+      if (e.cashTransactionId) await db.cashTransactions.delete(e.cashTransactionId);
+    }
+    await Promise.all(events.map(e => db.financialEvents.delete(e.id!)));
+  },
 };
