@@ -2,6 +2,8 @@ import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
 import type { Expense } from '@/models/expense.model';
 import type { ExpenseCategory } from '@/constants/phases';
+import { cashFlowService } from './cashFlow.service';
+import { financialEventService } from './financialEvent.service';
 
 function rowToExpense(r: Record<string, unknown>): Expense {
   return {
@@ -87,6 +89,10 @@ export const financeService = {
   },
 
   async deleteExpense(id: number): Promise<void> {
+    // Kaskadowe usunięcie powiązanych transakcji kasowych i zdarzeń finansowych
+    await cashFlowService.deleteBySource('expense', id);
+    await financialEventService.deleteBySource('expense', id);
+
     const user = await getAuthUser();
     if (user) {
       await supabase.from('expenses').delete().eq('id', id).eq('user_id', user.id);

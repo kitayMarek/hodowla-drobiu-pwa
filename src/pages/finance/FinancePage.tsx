@@ -85,9 +85,11 @@ export function FinancePage() {
       });
     } else if (expPayment === 'immediate' && expAccountId) {
       await cashFlowService.createTransaction({
-        accountId: Number(expAccountId), date: data.expenseDate, type: 'expense',
-        scope: 'drob', category: EXPENSE_CATEGORY_LABELS[data.category] ?? 'Inne',
+        accountId:   Number(expAccountId), date: data.expenseDate, type: 'expense',
+        scope:       'drob', category: EXPENSE_CATEGORY_LABELS[data.category] ?? 'Inne',
         description: desc, amountPln: data.amountPln,
+        sourceType:  'expense',
+        sourceId:    expId,
       });
     }
 
