@@ -28,10 +28,11 @@ export function Modal({ open, onClose, title, children, size = 'md', level = 1 }
 
   if (!open) return null;
 
-  const zClass = level === 2 ? 'z-60' : 'z-50';
-
   return createPortal(
-    <div className={`fixed inset-0 ${zClass} flex items-end sm:items-center justify-center p-4`}>
+    <div
+      className="fixed inset-0 flex items-end sm:items-center justify-center p-4"
+      style={{ zIndex: level === 2 ? 60 : 50 }}
+    >
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className={`relative w-full ${sizeClasses[size]} bg-white rounded-xl shadow-xl max-h-[90vh] flex flex-col`}>
         {title && (
