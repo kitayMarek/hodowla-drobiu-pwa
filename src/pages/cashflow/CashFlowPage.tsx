@@ -109,6 +109,32 @@ const emptyTxForm = (defaultAccountId?: number): TxFormState => ({
   notes:       '',
 });
 
+// ─── Formularz paragonu (wiele pozycji) ──────────────────────────────────────
+
+interface ReceiptLine {
+  key:         string;
+  scope:       string;
+  category:    string;
+  amountPln:   string;
+  description: string;
+}
+
+interface ReceiptFormState {
+  date:      string;
+  accountId: string;
+  store:     string;
+  lines:     ReceiptLine[];
+}
+
+function newReceiptLine(scope: string): ReceiptLine {
+  return { key: Math.random().toString(36).slice(2), scope, category: '', amountPln: '', description: '' };
+}
+
+const emptyReceiptForm = (defaultScope = 'drob'): ReceiptFormState => ({
+  date: todayISO(), accountId: '', store: '',
+  lines: [newReceiptLine(defaultScope)],
+});
+
 // ─── Komponent ────────────────────────────────────────────────────────────────
 
 export function CashFlowPage() {
@@ -216,6 +242,12 @@ export function CashFlowPage() {
   const [txForm,          setTxForm]          = useState<TxFormState>(emptyTxForm());
   const [saving,          setSaving]          = useState(false);
   const [txDuplicates,    setTxDuplicates]    = useState<CashTransaction[]>([]);
+
+  // ── Paragon ───────────────────────────────────────────────────────────────
+  const [showReceiptForm,  setShowReceiptForm]  = useState(false);
+  const [receiptForm,      setReceiptForm]      = useState<ReceiptFormState>(emptyReceiptForm());
+  const [savingReceipt,    setSavingReceipt]    = useState(false);
+  const [receiptError,     setReceiptError]     = useState('');
 
   // ── Przefiltrowane transakcje ─────────────────────────────────────────────
   const filteredTxs = useMemo(() => {
@@ -356,6 +388,44 @@ export function CashFlowPage() {
     reload();
   };
 
+  // ── Zapis paragonu ────────────────────────────────────────────────────────
+  const onSaveReceipt = async () => {
+    setReceiptError('');
+    const validLines = receiptForm.lines.filter(l => {
+      const v = parseFloat(l.amountPln);
+      return !isNaN(v) && v > 0;
+    });
+    if (!receiptForm.accountId)       { setReceiptError('Wybierz konto.'); return; }
+    if (!receiptForm.store.trim())    { setReceiptError('Podaj nazwę sklepu / kontrahenta.'); return; }
+    if (validLines.length === 0)      { setReceiptError('Dodaj co najmniej jedną pozycję z kwotą.'); return; }
+
+    setSavingReceipt(true);
+    try {
+      for (const line of validLines) {
+        const desc = line.description.trim()
+          ? `${receiptForm.store.trim()} – ${line.description.trim()}`
+          : receiptForm.store.trim();
+        await cashFlowService.createTransaction({
+          accountId:   Number(receiptForm.accountId),
+          date:        receiptForm.date,
+          type:        'expense',
+          scope:       line.scope,
+          category:    line.category,
+          description: desc,
+          amountPln:   parseFloat(line.amountPln),
+        });
+      }
+      setShowReceiptForm(false);
+      const defaultScope = businessActivities[0]?.key ?? 'drob';
+      setReceiptForm(emptyReceiptForm(defaultScope));
+      reload();
+    } catch (e) {
+      setReceiptError(e instanceof Error ? e.message : 'Błąd zapisu');
+    } finally {
+      setSavingReceipt(false);
+    }
+  };
+
   const accountMap = new Map(accounts.map(a => [a.id!, a]));
 
   // ── Wykres salda konta ─────────────────────────────────────────────────────
@@ -474,6 +544,16 @@ export function CashFlowPage() {
             setShowTransferForm(true);
           }} disabled={businessActivities.length < 2}>
             ↔ Nota
+          </Button>
+          <Button variant="outline" size="sm"
+            onClick={() => {
+              const defaultScope = businessActivities[0]?.key ?? 'drob';
+              setReceiptForm(emptyReceiptForm(defaultScope));
+              setReceiptError('');
+              setShowReceiptForm(true);
+            }}
+            disabled={accounts.length === 0}>
+            📄 Paragon
           </Button>
           <Button size="sm" onClick={() => { setTxForm(emptyTxForm()); setShowTxForm(true); }}
             disabled={accounts.length === 0}>
@@ -1149,6 +1229,184 @@ export function CashFlowPage() {
         confirmLabel="Usuń"
         danger
       />
+
+      {/* ── Modal: paragon / zakup wielopozycyjny ────────────────────────── */}
+      <Modal
+        open={showReceiptForm}
+        onClose={() => { setShowReceiptForm(false); setReceiptError(''); }}
+        title="📄 Paragon / Zakup"
+        size="md"
+      >
+        <div className="space-y-4">
+          {/* Nagłówek paragonu */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Data</label>
+              <input
+                type="date"
+                value={receiptForm.date}
+                onChange={e => setReceiptForm(f => ({ ...f, date: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Konto</label>
+              <select
+                value={receiptForm.accountId}
+                onChange={e => setReceiptForm(f => ({ ...f, accountId: e.target.value }))}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">— Wybierz —</option>
+                {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Sklep / Kontrahent</label>
+            <input
+              type="text"
+              value={receiptForm.store}
+              onChange={e => setReceiptForm(f => ({ ...f, store: e.target.value }))}
+              placeholder="np. Agro-Wikt, Castorama, OBI…"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+
+          {/* Pozycje paragonu */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-sm font-medium text-gray-700">Pozycje zakupu</label>
+              <span className="text-xs text-gray-400">{receiptForm.lines.length} poz.</span>
+            </div>
+
+            <div className="space-y-2">
+              {receiptForm.lines.map((line, idx) => {
+                const lineCats = categories.filter(c => {
+                  if (c.scope != null && c.scope !== line.scope) return false;
+                  if (c.type  != null && c.type  !== 'expense')  return false;
+                  return true;
+                });
+                return (
+                  <div key={line.key} className="bg-gray-50 rounded-xl p-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Dział</label>
+                        <select
+                          value={line.scope}
+                          onChange={e => setReceiptForm(f => ({
+                            ...f,
+                            lines: f.lines.map((l, i) => i === idx ? { ...l, scope: e.target.value, category: '' } : l),
+                          }))}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        >
+                          {businessActivities.map(a => (
+                            <option key={a.key} value={a.key}>{a.icon} {a.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Kwota (PLN)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={line.amountPln}
+                          onChange={e => setReceiptForm(f => ({
+                            ...f,
+                            lines: f.lines.map((l, i) => i === idx ? { ...l, amountPln: e.target.value } : l),
+                          }))}
+                          placeholder="0.00"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Kategoria</label>
+                        <select
+                          value={line.category}
+                          onChange={e => setReceiptForm(f => ({
+                            ...f,
+                            lines: f.lines.map((l, i) => i === idx ? { ...l, category: e.target.value } : l),
+                          }))}
+                          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        >
+                          <option value="">— Kategoria —</option>
+                          {lineCats.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">Opis pozycji (opcj.)</label>
+                        <input
+                          type="text"
+                          value={line.description}
+                          onChange={e => setReceiptForm(f => ({
+                            ...f,
+                            lines: f.lines.map((l, i) => i === idx ? { ...l, description: e.target.value } : l),
+                          }))}
+                          placeholder="np. karma dla kur"
+                          className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+                        />
+                      </div>
+                    </div>
+                    {receiptForm.lines.length > 1 && (
+                      <button
+                        onClick={() => setReceiptForm(f => ({ ...f, lines: f.lines.filter((_, i) => i !== idx) }))}
+                        className="text-xs text-red-400 hover:text-red-600 transition-colors"
+                      >
+                        ✕ Usuń pozycję
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => {
+                const lastScope = receiptForm.lines[receiptForm.lines.length - 1]?.scope
+                  ?? businessActivities[0]?.key ?? 'drob';
+                setReceiptForm(f => ({ ...f, lines: [...f.lines, newReceiptLine(lastScope)] }));
+              }}
+              className="mt-2 w-full rounded-lg border-2 border-dashed border-gray-200 py-2 text-sm text-gray-400 hover:border-brand-300 hover:text-brand-600 transition-colors"
+            >
+              + Dodaj pozycję
+            </button>
+          </div>
+
+          {/* Podsumowanie */}
+          {(() => {
+            const total = receiptForm.lines.reduce((s, l) => {
+              const v = parseFloat(l.amountPln);
+              return s + (isNaN(v) ? 0 : v);
+            }, 0);
+            return total > 0 ? (
+              <div className="flex justify-between items-center bg-red-50 border border-red-100 rounded-xl px-4 py-2.5">
+                <span className="text-sm text-gray-600">
+                  Łącznie · {receiptForm.lines.filter(l => parseFloat(l.amountPln) > 0).length} poz.
+                </span>
+                <span className="text-lg font-bold text-red-600">−{formatPln(total)}</span>
+              </div>
+            ) : null;
+          })()}
+
+          {receiptError && (
+            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              ⚠ {receiptError}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-1">
+            <Button className="flex-1" loading={savingReceipt} onClick={onSaveReceipt}>
+              Zapisz paragon
+            </Button>
+            <Button variant="outline" onClick={() => { setShowReceiptForm(false); setReceiptError(''); }}>
+              Anuluj
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── Modal: zarządzanie kategoriami ───────────────────────────────── */}
       <Modal open={showCatModal} onClose={() => setShowCatModal(false)} title="Kategorie transakcji" size="md">
