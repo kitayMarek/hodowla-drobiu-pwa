@@ -113,6 +113,7 @@ export function SalesPage() {
   // Stan rozliczenia kasowego (dla formularza sprzedaży)
   const [salePayment,   setSalePayment]   = useState<'pending' | 'immediate'>('pending');
   const [saleAccountId, setSaleAccountId] = useState('');
+  const [saleInRhd,     setSaleInRhd]     = useState(true);
 
   // ─── Filtrowanie i sortowanie listy sprzedaży ─────────────────────────────
   const [filterPending,      setFilterPending]      = useState(false);
@@ -267,7 +268,7 @@ export function SalesPage() {
 
     let saleId: number | null = null;
     try {
-      saleId = await saleService.create(data) as number;
+      saleId = await saleService.create({ ...data, inRhd: saleInRhd }) as number;
 
       if (data.saleType === 'ptaki_zywe' && data.batchId) {
         await batchService.checkAndAutoClose(Number(data.batchId));
@@ -294,6 +295,7 @@ export function SalesPage() {
       // Wszystko OK — zamknij formularz
       setSalePayment('pending');
       setSaleAccountId('');
+      setSaleInRhd(true);
       reset();
       setShowSaleForm(false);
       setPendingRefreshKey(k => k + 1);
@@ -722,6 +724,11 @@ export function SalesPage() {
                                   ⏳ Do rozliczenia
                                 </span>
                               )}
+                              {s.inRhd === false && (
+                                <span className="text-xs font-medium text-rose-600 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+                                  🔒 poza RHD
+                                </span>
+                              )}
                             </div>
                             <div className="text-sm text-gray-800 mt-0.5">
                               {s.saleType === 'jaja' && s.eggsCount != null && `${s.eggsCount.toLocaleString('pl-PL')} jaj`}
@@ -966,7 +973,7 @@ export function SalesPage() {
       ══════════════════════════════════════════════════════════════════════ */}
 
       {/* Nowa sprzedaż */}
-      <Modal open={showSaleForm} onClose={() => setShowSaleForm(false)} title="Nowa sprzedaż" size="lg">
+      <Modal open={showSaleForm} onClose={() => { setShowSaleForm(false); setSaleInRhd(true); }} title="Nowa sprzedaż" size="lg">
         <form onSubmit={handleSubmit(onSaleSubmit)} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <Input label="Data" type="date" {...register('saleDate')} error={errors.saleDate?.message} />
@@ -1014,6 +1021,31 @@ export function SalesPage() {
           <Input label="Klient"         {...register('buyerName')} />
           <Input label="Numer faktury"  {...register('invoiceNumber')} />
           <Textarea label="Uwagi"       {...register('notes')} />
+
+          {/* ── Ewidencja RHD ─────────────────────────────────────────────── */}
+          <button
+            type="button"
+            onClick={() => setSaleInRhd(v => !v)}
+            className={`w-full rounded-xl px-4 py-3 flex items-center justify-between transition-all border-2 ${
+              saleInRhd
+                ? 'bg-green-50 border-green-200 hover:bg-green-100'
+                : 'bg-rose-50 border-rose-200 hover:bg-rose-100'
+            }`}
+          >
+            <div className="text-left">
+              <div className={`text-sm font-semibold ${saleInRhd ? 'text-green-800' : 'text-rose-800'}`}>
+                {saleInRhd ? '📋 Wpisać do ewidencji RHD' : '🔒 Tylko analiza wewnętrzna'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {saleInRhd
+                  ? 'Pojawi się w rejestrze RHD i liczniku 100 tys. zł'
+                  : 'Wpływ trafi do kasy — poza rejestrem RHD'}
+              </div>
+            </div>
+            <div className={`w-12 h-6 rounded-full flex-shrink-0 relative ml-3 transition-colors ${saleInRhd ? 'bg-green-400' : 'bg-rose-300'}`}>
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${saleInRhd ? 'translate-x-7' : 'translate-x-1'}`} />
+            </div>
+          </button>
 
           {/* ── Rozliczenie kasowe ─────────────────────────────────────────── */}
           {cashAccounts.length > 0 && (

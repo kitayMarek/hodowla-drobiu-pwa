@@ -227,6 +227,13 @@ export class FarmDatabase extends Dexie {
       internalTransfers: '++id, date, fromScope, toScope',
     });
 
+    // v18: flaga ewidencji RHD na sprzedażach
+    this.version(18).stores({}).upgrade(async tx => {
+      await tx.table('sales').toCollection().modify((s: { inRhd?: boolean }) => {
+        if (s.inRhd === undefined) s.inRhd = true;
+      });
+    });
+
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.
     // Poprzednia wersja createTransfer tworzyła dwa rekordy (jeden per konto).
     // Teraz przelew = jeden rekord z accountId=źródło, toAccountId=cel.

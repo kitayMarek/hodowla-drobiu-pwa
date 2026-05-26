@@ -17,5 +17,7 @@ export interface Sale {
   buyerName?: string;
   invoiceNumber?: string;
   notes?: string;
+  /** Czy ujmować w ewidencji RHD i liczniku 100 tys. zł (domyślnie: true) */
+  inRhd?: boolean;
   createdAt: string;
 }

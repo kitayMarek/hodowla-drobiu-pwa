@@ -19,6 +19,7 @@ function rowToSale(r: Record<string, unknown>): Sale {
     buyerName:        r.buyer_name as string | undefined,
     invoiceNumber:    r.invoice_number as string | undefined,
     notes:            r.notes as string | undefined,
+    inRhd:            r.in_rhd !== false,   // null/undefined → true (kolumna może jeszcze nie istnieć)
     createdAt:        r.created_at as string,
   };
 }
@@ -74,7 +75,8 @@ export const saleService = {
         egg_price_pln: data.eggPricePln ?? null, bird_count: data.birdCount ?? null,
         weight_kg: data.weightKg ?? null, price_per_kg_pln: data.pricePerKgPln ?? null,
         total_revenue_pln: data.totalRevenuePln, buyer_name: data.buyerName ?? null,
-        invoice_number: data.invoiceNumber ?? null, notes: data.notes ?? null, created_at: now,
+        invoice_number: data.invoiceNumber ?? null, notes: data.notes ?? null,
+        in_rhd: data.inRhd ?? true, created_at: now,
       }).select('id').single();
       if (error) throw error;
       return row.id;
@@ -97,6 +99,7 @@ export const saleService = {
       if (data.buyerName       !== undefined) row.buyer_name        = data.buyerName;
       if (data.invoiceNumber   !== undefined) row.invoice_number    = data.invoiceNumber;
       if (data.notes           !== undefined) row.notes             = data.notes;
+      if (data.inRhd           !== undefined) row.in_rhd            = data.inRhd;
       await supabase.from('sales').update(row).eq('id', id).eq('user_id', user.id);
       return;
     }
