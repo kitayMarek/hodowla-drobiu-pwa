@@ -1143,7 +1143,7 @@ export function CashFlowPage() {
                 <label className="text-sm font-medium text-gray-700">Kategoria</label>
                 <button
                   type="button"
-                  onClick={() => { setShowTxForm(false); setShowCatModal(true); }}
+                  onClick={() => setShowCatModal(true)}
                   className="text-xs text-brand-600 hover:text-brand-700 underline"
                 >
                   ⚙ Zarządzaj
@@ -1409,7 +1409,7 @@ export function CashFlowPage() {
       </Modal>
 
       {/* ── Modal: zarządzanie kategoriami ───────────────────────────────── */}
-      <Modal open={showCatModal} onClose={() => setShowCatModal(false)} title="Kategorie transakcji" size="md">
+      <Modal open={showCatModal} onClose={() => setShowCatModal(false)} title="Kategorie transakcji" size="md" level={2}>
         <div className="space-y-4">
           {/* Formularz nowej kategorii */}
           <div className="bg-gray-50 rounded-xl p-4 space-y-3">

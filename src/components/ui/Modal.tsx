@@ -7,6 +7,8 @@ interface ModalProps {
   title?: string;
   children: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  /** Warstwa stackowania: 1 = z-50 (domyślnie), 2 = z-60 (nad innym modalem) */
+  level?: 1 | 2;
 }
 
 const sizeClasses = {
@@ -16,7 +18,7 @@ const sizeClasses = {
   xl: 'max-w-2xl',
 };
 
-export function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+export function Modal({ open, onClose, title, children, size = 'md', level = 1 }: ModalProps) {
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -26,8 +28,10 @@ export function Modal({ open, onClose, title, children, size = 'md' }: ModalProp
 
   if (!open) return null;
 
+  const zClass = level === 2 ? 'z-60' : 'z-50';
+
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+    <div className={`fixed inset-0 ${zClass} flex items-end sm:items-center justify-center p-4`}>
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className={`relative w-full ${sizeClasses[size]} bg-white rounded-xl shadow-xl max-h-[90vh] flex flex-col`}>
         {title && (
