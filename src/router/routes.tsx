@@ -26,6 +26,7 @@ import { CashFlowPage } from '@/pages/cashflow/CashFlowPage';
 import { QuickEntryPage } from '@/pages/quick/QuickEntryPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
+import { ComingSoonPage } from '@/pages/ComingSoonPage';
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -94,6 +95,11 @@ export const router = createBrowserRouter([
 
       // Ustawienia
       { path: 'ustawienia', element: <SettingsPage /> },
+
+      // Placeholdery – moduły w przygotowaniu
+      { path: 'mleko',        element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },
+      { path: 'kiszonki',     element: <ComingSoonPage module="🥬 Przetwory roślinne" /> },
+      { path: 'agroturystyka', element: <ComingSoonPage module="🏡 Agroturystyka" /> },
     ],
   },
 ]);
