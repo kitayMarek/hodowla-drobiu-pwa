@@ -318,6 +318,105 @@ export const dairyService = {
 
   // ── Rozlew (alokacje) ─────────────────────────────────────────
 
+  /** Suma rozlanych litrów dla danego przyjęcia */
+  async getAllocatedLiters(receptionId: number): Promise<number> {
+    const allocs = await this.getAllocationsByReception(receptionId);
+    return allocs.reduce((s, a) => s + a.litersAllocated, 0);
+  },
+
+  /**
+   * Podsumowania alokacji dla wielu przyjęć naraz.
+   * Zwraca mapę receptionId → { allocatedL, hasSales }
+   */
+  async getAllocationSummaries(receptionIds: number[]): Promise<
+    Map<number, { allocatedL: number; hasSales: boolean }>
+  > {
+    const result = new Map<number, { allocatedL: number; hasSales: boolean }>();
+    if (receptionIds.length === 0) return result;
+
+    const user = await getAuthUser();
+    let allAllocs: MilkAllocation[];
+
+    if (user) {
+      const { data } = await supabase.from('milk_allocations').select('*')
+        .eq('user_id', user.id).in('reception_id', receptionIds);
+      allAllocs = (data ?? []).map(r => ({
+        id: r.id, receptionId: r.reception_id, productType: r.product_type as DairyProductType,
+        litersAllocated: Number(r.liters_allocated), batchId: r.batch_id ?? undefined,
+        createdAt: r.created_at,
+      }));
+    } else {
+      allAllocs = await db.milkAllocations
+        .where('receptionId').anyOf(receptionIds).toArray();
+    }
+
+    // Zbierz batchIds
+    const batchIds = allAllocs.map(a => a.batchId).filter((b): b is number => b != null);
+
+    // Sprawdź sprzedaże dla tych partii
+    let batchesWithSales = new Set<number>();
+    if (batchIds.length > 0) {
+      if (user) {
+        const { data } = await supabase.from('dairy_sales').select('batch_id')
+          .eq('user_id', user.id).in('batch_id', batchIds);
+        (data ?? []).forEach(r => { if (r.batch_id) batchesWithSales.add(r.batch_id); });
+      } else {
+        const sales = await db.dairySales.where('batchId').anyOf(batchIds).toArray();
+        sales.forEach(s => { if (s.batchId) batchesWithSales.add(s.batchId); });
+      }
+    }
+
+    // Grupuj per przyjęcie
+    for (const id of receptionIds) {
+      const forThis = allAllocs.filter(a => a.receptionId === id);
+      const allocatedL = forThis.reduce((s, a) => s + a.litersAllocated, 0);
+      const hasSales   = forThis.some(a => a.batchId != null && batchesWithSales.has(a.batchId));
+      result.set(id, { allocatedL, hasSales });
+    }
+    return result;
+  },
+
+  /**
+   * Usuwa wszystkie alokacje i powiązane partie dla danego przyjęcia.
+   * Rzuca błąd jeśli którakolwiek partia ma sprzedaż.
+   */
+  async deleteReceptionAllocations(receptionId: number): Promise<void> {
+    const allocs = await this.getAllocationsByReception(receptionId);
+    const batchIds = allocs.map(a => a.batchId).filter((b): b is number => b != null);
+
+    // Sprawdź czy są sprzedaże
+    if (batchIds.length > 0) {
+      const user = await getAuthUser();
+      if (user) {
+        const { data } = await supabase.from('dairy_sales').select('id')
+          .eq('user_id', user.id).in('batch_id', batchIds).limit(1);
+        if (data && data.length > 0) throw new Error('Nie można usunąć — dla tej partii istnieje sprzedaż.');
+      } else {
+        const count = await db.dairySales.where('batchId').anyOf(batchIds).count();
+        if (count > 0) throw new Error('Nie można usunąć — dla tej partii istnieje sprzedaż.');
+      }
+    }
+
+    const user = await getAuthUser();
+    // Usuń kroki, serwatkę, partie, alokacje
+    for (const batchId of batchIds) {
+      if (user) {
+        await supabase.from('production_steps').delete().eq('batch_id', batchId).eq('user_id', user.id);
+        await supabase.from('whey_byproducts').delete().eq('batch_id', batchId).eq('user_id', user.id);
+        await supabase.from('production_batches').delete().eq('id', batchId).eq('user_id', user.id);
+      } else {
+        await db.productionSteps.where('batchId').equals(batchId).delete();
+        await db.wheyByproducts.where('batchId').equals(batchId).delete();
+        await db.productionBatches.delete(batchId);
+      }
+    }
+    if (user) {
+      await supabase.from('milk_allocations').delete().eq('reception_id', receptionId).eq('user_id', user.id);
+    } else {
+      await db.milkAllocations.where('receptionId').equals(receptionId).delete();
+    }
+  },
+
   async getAllocationsByReception(receptionId: number): Promise<MilkAllocation[]> {
     const user = await getAuthUser();
     if (user) {

@@ -26,16 +26,25 @@ export function MilkAllocationPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [reception, setReception] = useState<MilkReception | null>(null);
-  const [lines, setLines] = useState<AllocLine[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [reception,    setReception]    = useState<MilkReception | null>(null);
+  const [alreadyUsedL, setAlreadyUsedL] = useState(0);
+  const [lines,        setLines]        = useState<AllocLine[]>([]);
+  const [saving,       setSaving]       = useState(false);
+  const [error,        setError]        = useState('');
 
   useEffect(() => {
     if (!id) return;
-    dairyService.getReceptionById(Number(id)).then(r => {
+    Promise.all([
+      dairyService.getReceptionById(Number(id)),
+      dairyService.getAllocatedLiters(Number(id)),
+    ]).then(([r, used]) => {
       if (!r) { navigate('/mleko/przyjecia'); return; }
       setReception(r);
+      setAlreadyUsedL(used);
+      // Jeśli już w pełni rozlane, wróć z komunikatem
+      if (used >= r.quantityLiters - 0.01) {
+        navigate('/mleko/przyjecia');
+      }
     });
   }, [id]);
 
@@ -62,7 +71,7 @@ export function MilkAllocationPage() {
   const removeLine = (key: string) => setLines(prev => prev.filter(l => l.key !== key));
 
   const totalAllocated = lines.reduce((s, l) => s + (parseFloat(l.liters) || 0), 0);
-  const available = reception ? reception.quantityLiters : 0;
+  const available = reception ? reception.quantityLiters - alreadyUsedL : 0;
   const remaining = available - totalAllocated;
 
   const handleSave = async () => {
@@ -103,8 +112,12 @@ export function MilkAllocationPage() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-semibold text-blue-800">
-              🥛 {reception.quantityLiters.toFixed(1)} L
-              {reception.source === 'own' ? ' · własne' : ` · ${reception.supplierName ?? 'skup'}`}
+              🥛 {available.toFixed(1)} L do rozlania
+              {alreadyUsedL > 0.01 && (
+                <span className="ml-1.5 text-xs font-normal text-blue-500">
+                  (przyjęto {reception.quantityLiters.toFixed(1)} L, rozlano już {alreadyUsedL.toFixed(1)} L)
+                </span>
+              )}
             </p>
             <p className="text-xs text-blue-600 mt-0.5">
               {new Date(reception.date + 'T12:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })}
