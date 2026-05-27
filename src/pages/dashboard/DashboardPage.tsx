@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useActivitiesContext } from '@/contexts/ActivitiesContext';
 import { useAllBatchKPIs } from '@/hooks/useKPIs';
 import { useActiveBatches, useBatches } from '@/hooks/useBatch';
 import { KPICard } from '@/components/charts/KPICard';
@@ -25,6 +26,74 @@ import { useAuth } from '@/contexts/AuthContext';
 type DashModal = 'stada' | 'ptaki' | 'przychody' | 'marza';
 
 const FB_DISMISSED_KEY = 'fermly_fb_dismissed';
+
+// ── Pulpit dla użytkowników bez hodowli drobiu ─────────────────
+
+interface ModuleLink { key: string; label: string; icon: string; to: string; desc: string; }
+
+const MODULE_LINKS: ModuleLink[] = [
+  { key: 'sery',          label: 'Przetwórstwo mleka', icon: '🧀', to: '/mleko',        desc: 'Przyjęcia mleka, partie, workflow' },
+  { key: 'kiszonki',      label: 'Przetwory roślinne', icon: '🥬', to: '/kiszonki',     desc: 'Wkrótce dostępne' },
+  { key: 'agroturystyka', label: 'Agroturystyka',      icon: '🏡', to: '/agroturystyka', desc: 'Wkrótce dostępne' },
+];
+
+const UNIVERSAL_LINKS: ModuleLink[] = [
+  { key: 'kasa',       label: 'Kasa i Bank',  icon: '💳', to: '/kasa',       desc: 'Przychody i wydatki' },
+  { key: 'inwestycje', label: 'Inwestycje',   icon: '🏗️', to: '/inwestycje', desc: 'Środki trwałe' },
+  { key: 'raporty',    label: 'Raporty',      icon: '📋', to: '/raporty',    desc: 'Zestawienia' },
+];
+
+function NonDrobDashboard({ activeKeys }: { activeKeys: Set<string> }) {
+  const activeModules = MODULE_LINKS.filter(m => activeKeys.has(m.key));
+  const today = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Pulpit</h1>
+        <span className="text-sm text-gray-500">{today}</span>
+      </div>
+
+      {/* Moduły */}
+      {activeModules.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Twoje moduły</p>
+          <div className="grid gap-3">
+            {activeModules.map(m => (
+              <Link key={m.key} to={m.to}
+                className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-brand-200 hover:shadow-md transition-all">
+                <span className="text-4xl">{m.icon}</span>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-gray-800">{m.label}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{m.desc}</div>
+                </div>
+                <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Ogólne */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Ogólne</p>
+        <div className="grid grid-cols-3 gap-2">
+          {UNIVERSAL_LINKS.map(m => (
+            <Link key={m.key} to={m.to}
+              className="flex flex-col items-center gap-2 p-3 bg-white rounded-xl border border-gray-100 hover:border-brand-200 hover:bg-brand-50 transition-colors text-center">
+              <span className="text-2xl">{m.icon}</span>
+              <span className="text-xs font-medium text-gray-700">{m.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      <CommunityCard />
+    </div>
+  );
+}
 
 function CommunityCard() {
   const [dismissed, setDismissed] = React.useState(
@@ -82,6 +151,9 @@ export function DashboardPage() {
   const [dashModal, setDashModal] = React.useState<DashModal | null>(null);
   const [seeding, setSeeding] = React.useState(false);
   const { user } = useAuth();
+  const activities = useActivitiesContext();
+  const activeKeys = new Set(activities.filter(a => a.isActive).map(a => a.key));
+  const hasDropb = activeKeys.has('drob');
 
   const feedDeliveries = useAllFeedDeliveries();
   const allExpenses    = useAllExpenses();
@@ -148,6 +220,11 @@ export function DashboardPage() {
   }, [allSales, feedDeliveries, allExpenses, allBatches]);
 
   const hasMonthlyData = monthlyData.some(m => m.income > 0 || m.cost > 0);
+
+  // Użytkownik bez drobiu — pokaż pulpit aktywnych działalności
+  if (activities.length > 0 && !hasDropb) {
+    return <NonDrobDashboard activeKeys={activeKeys} />;
+  }
 
   return (
     <div className="space-y-6">

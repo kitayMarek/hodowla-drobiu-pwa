@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useSetting } from '@/hooks/useSettings';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActivitiesContext } from '@/contexts/ActivitiesContext';
 
 interface TopBarProps {
   onMenuClick: () => void;
@@ -11,6 +12,8 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const farmName = useSetting<string>('farm_name', 'Moja Ferma');
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const activities = useActivitiesContext();
+  const hasDropb = activities.some(a => a.key === 'drob' && a.isActive);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -54,16 +57,18 @@ export function TopBar({ onMenuClick }: TopBarProps) {
         </span>
       </div>
 
-      {/* Quick add button */}
-      <Link
-        to="/stada"
-        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 text-white text-sm font-medium rounded-lg hover:bg-brand-800"
-      >
-        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-        </svg>
-        <span className="hidden sm:inline">Stada</span>
-      </Link>
+      {/* Quick add — tylko gdy drób jest aktywny */}
+      {hasDropb && (
+        <Link
+          to="/stada"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-700 text-white text-sm font-medium rounded-lg hover:bg-brand-800"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          <span className="hidden sm:inline">Stada</span>
+        </Link>
+      )}
 
       {/* User avatar / login */}
       {user ? (

@@ -50,7 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
     label: '🧀 Przetwórstwo mleka',
     activity: 'sery',
     items: [
-      { to: '/mleko', label: 'Przetwórstwo mleka', icon: '🧀', comingSoon: true },
+      { to: '/mleko', label: 'Przetwórstwo mleka', icon: '🧀' },
     ],
   },
   {
