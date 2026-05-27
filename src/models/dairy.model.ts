@@ -234,6 +234,8 @@ export const WORKFLOW_STEPS: Record<DairyProductType, WorkflowStepDef[]> = {
     { stepType: 'podgrzewanie',  label: 'Podgrzewanie serwatki',       hasTimer: true,  defaultDurationMinutes: 20  },
     { stepType: 'odciskanie',    label: 'Odciskanie',                  hasTimer: true,  defaultDurationMinutes: 30  },
   ],
+  mleko_surowe: [],
+  zwierzeta:    [],
 };
 
 export const STATUS_LABELS: Record<BatchStatus, string> = {
