@@ -12,12 +12,32 @@ export interface Activity {
   createdAt: string;
 }
 
-/** Domyślne działalności – wstawiane przy pierwszym uruchomieniu */
+/** Domyślne działalności – wstawiane przy pierwszym uruchomieniu (tryb offline) */
 export const DEFAULT_ACTIVITIES: Omit<Activity, 'id' | 'createdAt'>[] = [
   { key: 'drob',          name: 'Drób',         icon: '🐔', color: 'blue',   isSystem: true,  isActive: true, sortOrder: 0  },
   { key: 'sery',          name: 'Sery',          icon: '🧀', color: 'yellow', isSystem: false, isActive: true, sortOrder: 10 },
   { key: 'agroturystyka', name: 'Agroturystyka', icon: '🏡', color: 'green',  isSystem: false, isActive: true, sortOrder: 20 },
   { key: 'osobiste',      name: 'Osobiste',      icon: '🏠', color: 'gray',   isSystem: true,  isActive: true, sortOrder: 99 },
+];
+
+/** Działalności dostępne w kreatorze konfiguracji (pierwsze logowanie) */
+export const WIZARD_ACTIVITIES: Array<Omit<Activity, 'id' | 'createdAt'> & { description: string }> = [
+  {
+    key: 'drob', name: 'Hodowla drobiu', icon: '🐔', color: 'blue', isSystem: true, isActive: true, sortOrder: 0,
+    description: 'Kury, gęsi, indyki, kaczki – stada, jaja, tuszki, wylęgarnia',
+  },
+  {
+    key: 'sery', name: 'Serowarstwo / mleczarnia', icon: '🧀', color: 'yellow', isSystem: false, isActive: true, sortOrder: 10,
+    description: 'Sery, masło, jogurt, twaróg – przetwory z mleka',
+  },
+  {
+    key: 'kiszonki', name: 'Przetwory roślinne', icon: '🥬', color: 'green', isSystem: false, isActive: true, sortOrder: 15,
+    description: 'Kapusta kiszona, ogórki, dżemy, soki, mrożonki',
+  },
+  {
+    key: 'agroturystyka', name: 'Agroturystyka', icon: '🏡', color: 'orange', isSystem: false, isActive: true, sortOrder: 20,
+    description: 'Noclegi, wyżywienie gości, wynajem sali, eventy',
+  },
 ];
 
 /** Dostępne kolory dla nowych działalności */

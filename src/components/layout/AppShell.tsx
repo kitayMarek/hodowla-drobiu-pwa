@@ -6,13 +6,23 @@ import { TopBar } from './TopBar';
 import { DemoBanner } from '@/components/ui/DemoBanner';
 import { InstallBanner } from '@/components/ui/InstallBanner';
 import { BackupReminderModal } from '@/components/ui/BackupReminderModal';
+import { SetupWizardPage } from '@/pages/setup/SetupWizardPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { shouldShowReminder } from '@/services/backupReminder';
+import { activityService } from '@/services/activity.service';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showBackup,  setShowBackup]  = useState(false);
+  const [needsSetup,  setNeedsSetup]  = useState<boolean | null>(null);
   const { user, loading } = useAuth();
+
+  // Sprawdź czy nowy użytkownik potrzebuje kreatora (tylko zalogowani)
+  useEffect(() => {
+    if (loading) return;
+    if (!user) { setNeedsSetup(false); return; }
+    activityService.isSetupNeeded().then(needed => setNeedsSetup(needed));
+  }, [user, loading]);
 
   // Sprawdź potrzebę backupu 4 s po zalogowaniu (nie blokuje renderowania)
   useEffect(() => {
@@ -23,12 +33,17 @@ export function AppShell() {
     return () => clearTimeout(t);
   }, [user]);
 
-  if (loading) {
+  if (loading || needsSetup === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="w-8 h-8 border-4 border-green-200 border-t-green-600 rounded-full animate-spin" />
       </div>
     );
+  }
+
+  // Nowy użytkownik – pokaż kreator wyboru działalności
+  if (needsSetup) {
+    return <SetupWizardPage onComplete={() => setNeedsSetup(false)} />;
   }
 
   return (

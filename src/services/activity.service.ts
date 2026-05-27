@@ -1,7 +1,7 @@
 import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
 import type { Activity } from '@/models/activity.model';
-import { DEFAULT_ACTIVITIES } from '@/models/activity.model';
+import { DEFAULT_ACTIVITIES, WIZARD_ACTIVITIES } from '@/models/activity.model';
 
 function rowToActivity(r: Record<string, unknown>): Activity {
   return {
@@ -111,5 +111,55 @@ export const activityService = {
       return;
     }
     await db.activities.delete(id);
+  },
+
+  /** Sprawdza czy zalogowany użytkownik nie ma jeszcze żadnych działalności (wymaga setup). */
+  async isSetupNeeded(): Promise<boolean> {
+    const user = await getAuthUser();
+    if (!user) return false; // tryb offline – brak wizarda
+    const { count } = await supabase
+      .from('activities').select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    return (count ?? 0) === 0;
+  },
+
+  /** Tworzy działalności wybrane w wizardzie + zawsze dodaje 'osobiste'. */
+  async completeSetup(selectedKeys: string[]): Promise<void> {
+    const user = await getAuthUser();
+    const now = new Date().toISOString();
+    const osobiste = {
+      key: 'osobiste', name: 'Osobiste', icon: '🏠', color: 'gray' as Activity['color'],
+      isSystem: true, isActive: true, sortOrder: 99,
+    };
+
+    const toCreate = [
+      ...WIZARD_ACTIVITIES.filter(a => selectedKeys.includes(a.key)),
+      osobiste,
+    ];
+
+    if (user) {
+      await supabase.from('activities').insert(
+        toCreate.map((a, i) => ({
+          user_id:    user.id,
+          key:        a.key,
+          name:       a.name,
+          icon:       a.icon,
+          color:      a.color,
+          is_system:  a.isSystem,
+          is_active:  true,
+          sort_order: a.sortOrder ?? i * 10,
+          created_at: now,
+        })),
+      );
+      return;
+    }
+    // Tryb offline – wstaw do Dexie
+    await db.activities.bulkAdd(
+      toCreate.map(a => ({
+        key: a.key, name: a.name, icon: a.icon, color: a.color,
+        isSystem: a.isSystem, isActive: true,
+        sortOrder: a.sortOrder ?? 0, createdAt: now,
+      })),
+    );
   },
 };
