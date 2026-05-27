@@ -22,6 +22,10 @@ import type { FeedRecipe } from '@/models/feedRecipe.model';
 import type { Activity } from '@/models/activity.model';
 import { DEFAULT_ACTIVITIES } from '@/models/activity.model';
 import type { InternalTransfer } from '@/models/internalTransfer.model';
+import type {
+  MilkSupplier, MilkReception, MilkAllocation,
+  ProductionBatch, ProductionStep, WheyByproduct, DairySale,
+} from '@/models/dairy.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -52,6 +56,14 @@ export class FarmDatabase extends Dexie {
   feedRecipes!: Table<FeedRecipe, number>;
   activities!: Table<Activity, number>;
   internalTransfers!: Table<InternalTransfer, number>;
+  // Dairy module
+  milkSuppliers!: Table<MilkSupplier, number>;
+  milkReceptions!: Table<MilkReception, number>;
+  milkAllocations!: Table<MilkAllocation, number>;
+  productionBatches!: Table<ProductionBatch, number>;
+  productionSteps!: Table<ProductionStep, number>;
+  wheyByproducts!: Table<WheyByproduct, number>;
+  dairySales!: Table<DairySale, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -232,6 +244,17 @@ export class FarmDatabase extends Dexie {
       await tx.table('sales').toCollection().modify((s: { inRhd?: boolean }) => {
         if (s.inRhd === undefined) s.inRhd = true;
       });
+    });
+
+    // v19: Moduł Przetwórstwo Mleka
+    this.version(19).stores({
+      milkSuppliers:     '++id, name',
+      milkReceptions:    '++id, date, source, supplierId, [source+date]',
+      milkAllocations:   '++id, receptionId, productType, batchId',
+      productionBatches: '++id, batchNumber, productType, status, productionDate, expiryDate, [status+productionDate]',
+      productionSteps:   '++id, batchId, stepType, sortOrder, [batchId+sortOrder]',
+      wheyByproducts:    '++id, batchId, status, date',
+      dairySales:        '++id, batchId, saleDate, productType, inRhd, [saleDate+inRhd]',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

@@ -27,6 +27,12 @@ import { QuickEntryPage } from '@/pages/quick/QuickEntryPage';
 import { LoginPage } from '@/pages/auth/LoginPage';
 import { RegisterPage } from '@/pages/auth/RegisterPage';
 import { ComingSoonPage } from '@/pages/ComingSoonPage';
+import { DairyDashboardPage } from '@/pages/dairy/DairyDashboardPage';
+import { MilkReceptionPage } from '@/pages/dairy/MilkReceptionPage';
+import { MilkReceptionFormPage } from '@/pages/dairy/MilkReceptionFormPage';
+import { MilkAllocationPage } from '@/pages/dairy/MilkAllocationPage';
+import { ProductionBatchListPage } from '@/pages/dairy/ProductionBatchListPage';
+import { ProductionBatchDetailPage } from '@/pages/dairy/ProductionBatchDetailPage';
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -96,8 +102,16 @@ export const router = createBrowserRouter([
       // Ustawienia
       { path: 'ustawienia', element: <SettingsPage /> },
 
+      // Przetwórstwo Mleka
+      { path: 'mleko',                    element: <DairyDashboardPage /> },
+      { path: 'mleko/przyjecia',          element: <MilkReceptionPage /> },
+      { path: 'mleko/przyjecia/nowe',     element: <MilkReceptionFormPage /> },
+      { path: 'mleko/rozlew/:id',         element: <MilkAllocationPage /> },
+      { path: 'mleko/partie',             element: <ProductionBatchListPage /> },
+      { path: 'mleko/partie/:id',         element: <ProductionBatchDetailPage /> },
+
       // Placeholdery – moduły w przygotowaniu
-      { path: 'mleko',        element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },
+      { path: 'mleko-old',    element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },
       { path: 'kiszonki',     element: <ComingSoonPage module="🥬 Przetwory roślinne" /> },
       { path: 'agroturystyka', element: <ComingSoonPage module="🏡 Agroturystyka" /> },
     ],
