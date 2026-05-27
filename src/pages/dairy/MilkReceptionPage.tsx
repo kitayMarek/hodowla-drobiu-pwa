@@ -84,13 +84,11 @@ export function MilkReceptionPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      {!r.milkAllocated && (
-                        <Link to={`/mleko/rozlew/${r.id}`}>
-                          <span className="text-xs px-2 py-1 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg font-medium hover:bg-brand-100">
-                            Rozlej →
-                          </span>
-                        </Link>
-                      )}
+                      <Link to={`/mleko/rozlew/${r.id}`}>
+                        <span className="text-xs px-2 py-1 bg-brand-50 text-brand-700 border border-brand-200 rounded-lg font-medium hover:bg-brand-100">
+                          Rozlej →
+                        </span>
+                      </Link>
                       <button
                         onClick={() => r.id != null && handleDelete(r.id)}
                         className="text-gray-300 hover:text-red-400 text-sm"
