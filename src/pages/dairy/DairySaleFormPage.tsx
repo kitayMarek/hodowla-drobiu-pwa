@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
+import { cashFlowService } from '@/services/cashFlow.service';
 import { settingsService } from '@/services/settings.service';
 import type { DairyProduct, DairyBuyer } from '@/models/dairy.model';
 import { PRODUCT_ICONS, UNIT_LABELS } from '@/models/dairy.model';
+import type { CashAccount } from '@/models/cashFlow.model';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/Card';
@@ -71,10 +73,11 @@ function RhdLimitBar({ currentTotal, added, limit }: {
 export function DairySaleFormPage() {
   const navigate = useNavigate();
 
-  const [products, setProducts] = useState<DairyProduct[]>([]);
-  const [buyers,   setBuyers]   = useState<DairyBuyer[]>([]);
-  const [rhdStats, setRhdStats] = useState<{ totalPln: number; nextNumber: number } | null>(null);
-  const [rhdLimit, setRhdLimit] = useState(100000);
+  const [products,  setProducts]  = useState<DairyProduct[]>([]);
+  const [buyers,    setBuyers]    = useState<DairyBuyer[]>([]);
+  const [accounts,  setAccounts]  = useState<CashAccount[]>([]);
+  const [rhdStats,  setRhdStats]  = useState<{ totalPln: number; nextNumber: number } | null>(null);
+  const [rhdLimit,  setRhdLimit]  = useState(100000);
 
   // Pola formularza
   const [saleDate,    setSaleDate]    = useState(new Date().toISOString().slice(0, 10));
@@ -83,9 +86,10 @@ export function DairySaleFormPage() {
   const [anonName,    setAnonName]    = useState('');  // gdy brak nabywcy na liście
   const [quantity,    setQuantity]    = useState('');
   const [unitPrice,   setUnitPrice]   = useState('');
-  const [inRhd,       setInRhd]       = useState(true);
-  const [invoiceNum,  setInvoiceNum]  = useState('');
-  const [notes,       setNotes]       = useState('');
+  const [inRhd,         setInRhd]         = useState(true);
+  const [cashAccountId, setCashAccountId] = useState<number | ''>('');
+  const [invoiceNum,    setInvoiceNum]    = useState('');
+  const [notes,         setNotes]         = useState('');
   const [saving,      setSaving]      = useState(false);
   const [error,       setError]       = useState('');
 
@@ -103,11 +107,14 @@ export function DairySaleFormPage() {
       dairyService.getBuyers(),
       dairyService.getRhdStats(new Date().getFullYear()),
       settingsService.get('rhd_limit_pln', '100000'),
-    ]).then(([prods, buys, stats, limitStr]) => {
+      cashFlowService.getActiveAccounts(),
+    ]).then(([prods, buys, stats, limitStr, accs]) => {
       setProducts(prods.filter(p => p.isActive));
       setBuyers(buys);
       setRhdStats(stats);
       if (limitStr) setRhdLimit(parseFloat(limitStr));
+      // Konta powiązane z sery lub bez zakresu (wspólne)
+      setAccounts(accs.filter(a => a.scope === 'sery' || a.scope === 'osobiste' || !a.scope));
     });
   }, []);
 
@@ -161,6 +168,7 @@ export function DairySaleFormPage() {
         buyerAddress: getBuyerAddress(),
         inRhd,
         rhdYear: year,
+        cashAccountId: cashAccountId !== '' ? cashAccountId : undefined,
       });
       navigate('/mleko/sprzedaz');
     } catch (e) {
@@ -330,6 +338,36 @@ export function DairySaleFormPage() {
             {!inRhd && (
               <p className="text-xs text-amber-600 flex items-center gap-1">
                 ⚠ Tylko ewidencja wewnętrzna — nie wlicza się do limitu RHD.
+              </p>
+            )}
+          </div>
+
+          {/* Konto kasowe */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Konto kasowe / bankowe
+            </label>
+            {accounts.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">
+                Brak kont — <Link to="/kasa" className="text-brand-600 hover:underline">dodaj konto w Kasie</Link>.
+              </p>
+            ) : (
+              <select
+                value={cashAccountId}
+                onChange={e => setCashAccountId(e.target.value ? Number(e.target.value) : '')}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">— nie księguj w kasie —</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.type === 'bank' ? '🏦' : '💵'} {a.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            {cashAccountId && (
+              <p className="text-xs text-green-600 mt-1">
+                ✓ Wpływ zostanie automatycznie zaksięgowany w wybranym koncie.
               </p>
             )}
           </div>

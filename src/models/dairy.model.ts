@@ -162,6 +162,7 @@ export interface DairySale {
   rhdYear?: number;
   // Opcje
   batchId?: number;
+  cashAccountId?: number;   // konto kasowe / bankowe do którego trafia płatność
   invoiceNumber?: string;
   notes?: string;
   createdAt: string;

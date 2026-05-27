@@ -264,7 +264,7 @@ export class FarmDatabase extends Dexie {
     this.version(20).stores({
       dairyProducts: '++id, category, isActive, name',
       dairyBuyers:   '++id, name, isAnonymous',
-      dairySales:    '++id, saleDate, productId, buyerId, inRhd, rhdYear, rhdNumber, batchId, [rhdYear+rhdNumber], [saleDate+inRhd]',
+      dairySales:    '++id, saleDate, productId, buyerId, inRhd, rhdYear, rhdNumber, batchId, cashAccountId, [rhdYear+rhdNumber], [saleDate+inRhd]',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

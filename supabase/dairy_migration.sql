@@ -115,6 +115,7 @@ ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS buyer_address    TEXT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS rhd_number       INT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS rhd_year         INT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS batch_id         INT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS cash_account_id  INT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS invoice_number   TEXT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS notes            TEXT;
 

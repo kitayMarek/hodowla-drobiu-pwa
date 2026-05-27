@@ -87,6 +87,7 @@
 
 import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
+import { cashFlowService } from '@/services/cashFlow.service';
 import type {
   MilkSupplier, MilkReception, MilkAllocation,
   ProductionBatch, ProductionStep, WheyByproduct, DairySale,
@@ -162,6 +163,7 @@ function toDairySale(r: Record<string, unknown>): DairySale {
     rhdNumber: r.rhd_number != null ? Number(r.rhd_number) : undefined,
     rhdYear: r.rhd_year != null ? Number(r.rhd_year) : undefined,
     batchId: r.batch_id != null ? Number(r.batch_id) : undefined,
+    cashAccountId: r.cash_account_id != null ? Number(r.cash_account_id) : undefined,
     invoiceNumber: r.invoice_number as string | undefined,
     notes: r.notes as string | undefined,
     createdAt: r.created_at as string,
@@ -703,17 +705,46 @@ export const dairyService = {
         rhd_number: toSave.rhdNumber ?? null,
         rhd_year: toSave.rhdYear ?? null,
         batch_id: toSave.batchId ?? null,
+        cash_account_id: toSave.cashAccountId ?? null,
         invoice_number: toSave.invoiceNumber ?? null,
         notes: toSave.notes ?? null,
         created_at: now,
       }).select('id').single();
       if (error) throw error;
+      if (toSave.cashAccountId) {
+        await cashFlowService.createTransaction({
+          accountId: toSave.cashAccountId,
+          date: toSave.saleDate,
+          type: 'income',
+          scope: 'sery',
+          category: 'Sprzedaż serów',
+          description: `${toSave.productName} — ${toSave.buyerName}`,
+          amountPln: toSave.totalValuePln,
+          sourceType: 'dairy_sale',
+          sourceId: data.id,
+        });
+      }
       return data.id;
     }
-    return db.dairySales.add({ ...toSave, createdAt: now });
+    const saleId = await db.dairySales.add({ ...toSave, createdAt: now });
+    if (toSave.cashAccountId) {
+      await cashFlowService.createTransaction({
+        accountId: toSave.cashAccountId,
+        date: toSave.saleDate,
+        type: 'income',
+        scope: 'sery',
+        category: 'Sprzedaż serów',
+        description: `${toSave.productName} — ${toSave.buyerName}`,
+        amountPln: toSave.totalValuePln,
+        sourceType: 'dairy_sale',
+        sourceId: saleId,
+      });
+    }
+    return saleId;
   },
 
   async deleteSale(id: number): Promise<void> {
+    await cashFlowService.deleteBySource('dairy_sale', id);
     const user = await getAuthUser();
     if (user) {
       await supabase.from('dairy_sales').delete().eq('id', id).eq('user_id', user.id);
