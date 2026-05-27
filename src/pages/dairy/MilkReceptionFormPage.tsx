@@ -25,10 +25,12 @@ export function MilkReceptionFormPage() {
   const [suppliers, setSuppliers]       = useState<MilkSupplier[]>([]);
   const [supplierId, setSupplierId]     = useState<number | ''>('');
   const [showNewSupplier, setShowNewSupplier] = useState(false);
-  const [newSupName, setNewSupName]     = useState('');
-  const [newSupAddress, setNewSupAddress] = useState('');
-  const [newSupPesel, setNewSupPesel]   = useState('');
-  const [newSupPhone, setNewSupPhone]   = useState('');
+  const [newSupName, setNewSupName]         = useState('');
+  const [newSupAddress, setNewSupAddress]   = useState('');
+  const [newSupPesel, setNewSupPesel]       = useState('');
+  const [newSupPhone, setNewSupPhone]       = useState('');
+  const [supSaving, setSupSaving]           = useState(false);
+  const [supError, setSupError]             = useState('');
 
   useEffect(() => {
     dairyService.getSuppliers().then(setSuppliers);
@@ -40,15 +42,23 @@ export function MilkReceptionFormPage() {
 
   const handleSaveSupplier = async () => {
     if (!newSupName.trim()) return;
-    const id = await dairyService.saveSupplier({
-      name: newSupName.trim(), address: newSupAddress.trim() || undefined,
-      peselOrNip: newSupPesel.trim() || undefined, phone: newSupPhone.trim() || undefined,
-    });
-    const updated = await dairyService.getSuppliers();
-    setSuppliers(updated);
-    setSupplierId(id);
-    setShowNewSupplier(false);
-    setNewSupName(''); setNewSupAddress(''); setNewSupPesel(''); setNewSupPhone('');
+    setSupSaving(true);
+    setSupError('');
+    try {
+      const id = await dairyService.saveSupplier({
+        name: newSupName.trim(), address: newSupAddress.trim() || undefined,
+        peselOrNip: newSupPesel.trim() || undefined, phone: newSupPhone.trim() || undefined,
+      });
+      const updated = await dairyService.getSuppliers();
+      setSuppliers(updated);
+      setSupplierId(id);
+      setShowNewSupplier(false);
+      setNewSupName(''); setNewSupAddress(''); setNewSupPesel(''); setNewSupPhone('');
+    } catch (e) {
+      setSupError(e instanceof Error ? e.message : 'Błąd zapisu dostawcy');
+    } finally {
+      setSupSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -164,7 +174,10 @@ export function MilkReceptionFormPage() {
                 <Input label="Adres" value={newSupAddress} onChange={e => setNewSupAddress(e.target.value)} placeholder="Ulica, miejscowość" />
                 <Input label="PESEL / KRUS / NIP" value={newSupPesel} onChange={e => setNewSupPesel(e.target.value)} />
                 <Input label="Telefon" value={newSupPhone} onChange={e => setNewSupPhone(e.target.value)} />
-                <Button size="sm" onClick={handleSaveSupplier} disabled={!newSupName.trim()}>
+                {supError && (
+                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">⚠ {supError}</p>
+                )}
+                <Button size="sm" loading={supSaving} onClick={handleSaveSupplier} disabled={!newSupName.trim() || supSaving}>
                   Zapisz dostawcę
                 </Button>
               </div>
