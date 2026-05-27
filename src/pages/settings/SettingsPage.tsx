@@ -129,6 +129,7 @@ export function SettingsPage() {
       mortality_alert_percent: String(settings['mortality_alert_percent'] ?? '5'),
       ammonia_alert_ppm: String(settings['ammonia_alert_ppm'] ?? '20'),
       temp_alert_celsius: String(settings['temp_alert_celsius'] ?? '35'),
+      rhd_limit_pln: String(settings['rhd_limit_pln'] ?? '100000'),
     },
   });
 
@@ -142,6 +143,7 @@ export function SettingsPage() {
       settingsService.set('mortality_alert_percent', parseFloat(data.mortality_alert_percent)),
       settingsService.set('ammonia_alert_ppm', parseFloat(data.ammonia_alert_ppm)),
       settingsService.set('temp_alert_celsius', parseFloat(data.temp_alert_celsius)),
+      settingsService.set('rhd_limit_pln', parseFloat(data.rhd_limit_pln)),
     ]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -313,6 +315,19 @@ export function SettingsPage() {
               step="0.5"
               suffix="°C"
               {...register('temp_alert_celsius')}
+            />
+          </div>
+        </Card>
+
+        <Card title="📋 RHD — Rolniczy Handel Detaliczny">
+          <div className="space-y-3">
+            <Input
+              label="Roczny limit sprzedaży RHD (zł)"
+              type="number"
+              step="1000"
+              min="0"
+              {...register('rhd_limit_pln')}
+              hint="Aktualny limit wynosi 100 000 zł/rok (zmień jeśli przepisy się zmienią)"
             />
           </div>
         </Card>

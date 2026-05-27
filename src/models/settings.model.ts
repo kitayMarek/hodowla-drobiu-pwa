@@ -15,7 +15,8 @@ export type SettingsKey =
   | 'fcr_target_nioska'
   | 'mortality_alert_percent'
   | 'ammonia_alert_ppm'
-  | 'temp_alert_celsius';
+  | 'temp_alert_celsius'
+  | 'rhd_limit_pln';
 
 export const SETTINGS_DEFAULTS: Record<SettingsKey, string> = {
   farm_name: '"Moja Ferma"',
@@ -28,4 +29,5 @@ export const SETTINGS_DEFAULTS: Record<SettingsKey, string> = {
   mortality_alert_percent: '5',
   ammonia_alert_ppm: '20',
   temp_alert_celsius: '35',
+  rhd_limit_pln: '100000',
 };

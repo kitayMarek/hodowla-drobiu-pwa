@@ -34,6 +34,11 @@ import { MilkAllocationPage } from '@/pages/dairy/MilkAllocationPage';
 import { ProductionBatchListPage } from '@/pages/dairy/ProductionBatchListPage';
 import { ProductionBatchDetailPage } from '@/pages/dairy/ProductionBatchDetailPage';
 import { SuppliersPage } from '@/pages/dairy/SuppliersPage';
+import { DairyProductsPage } from '@/pages/dairy/DairyProductsPage';
+import { DairyBuyersPage } from '@/pages/dairy/DairyBuyersPage';
+import { DairySalesPage } from '@/pages/dairy/DairySalesPage';
+import { DairySaleFormPage } from '@/pages/dairy/DairySaleFormPage';
+import { RhdRegisterPage } from '@/pages/dairy/RhdRegisterPage';
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -111,6 +116,11 @@ export const router = createBrowserRouter([
       { path: 'mleko/partie',             element: <ProductionBatchListPage /> },
       { path: 'mleko/partie/:id',         element: <ProductionBatchDetailPage /> },
       { path: 'mleko/dostawcy',           element: <SuppliersPage /> },
+      { path: 'mleko/produkty',           element: <DairyProductsPage /> },
+      { path: 'mleko/nabywcy',            element: <DairyBuyersPage /> },
+      { path: 'mleko/sprzedaz',           element: <DairySalesPage /> },
+      { path: 'mleko/sprzedaz/nowa',      element: <DairySaleFormPage /> },
+      { path: 'mleko/rhd',               element: <RhdRegisterPage /> },
 
       // Placeholdery – moduły w przygotowaniu
       { path: 'mleko-old',    element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },

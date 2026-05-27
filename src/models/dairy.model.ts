@@ -18,6 +18,40 @@ export type MilkSource  = 'own' | 'purchase';
 export type BatchStatus = 'w_produkcji' | 'dojrzewa' | 'gotowy' | 'sprzedany' | 'wycofany';
 export type WheyStatus  = 'na_rikotte' | 'skarmianie' | 'utylizacja';
 export type BuyerType   = 'detaliczny' | 'sklep' | 'restauracja' | 'inny';
+export type ProductUnit = 'kg' | 'szt' | 'L' | 'opak';
+
+export const UNIT_LABELS: Record<ProductUnit, string> = {
+  kg:   'kg',
+  szt:  'szt.',
+  L:    'L',
+  opak: 'opak.',
+};
+
+// ── Katalog produktów mleczarskich ──────────────────────────────
+
+export interface DairyProduct {
+  id?: number;
+  name: string;             // "Ser żółty 200g"
+  category: DairyProductType;
+  unit: ProductUnit;
+  defaultPricePln: number;
+  isActive: boolean;
+  notes?: string;
+  createdAt: string;
+}
+
+// ── Nabywcy ──────────────────────────────────────────────────────
+
+export interface DairyBuyer {
+  id?: number;
+  name: string;             // "Jan Kowalski" / "Targ środowy"
+  isAnonymous: boolean;     // true = targ/wystawa/stoisko — bez danych osobowych
+  address?: string;
+  phone?: string;
+  nip?: string;
+  notes?: string;
+  createdAt: string;
+}
 
 // ── Dostawca mleka ───────────────────────────────────────────────
 
@@ -109,15 +143,25 @@ export interface WheyByproduct {
 
 export interface DairySale {
   id?: number;
-  batchId: number;
   saleDate: string;
-  productType: DairyProductType;
-  quantityKg: number;
-  pricePerKgPln: number;
-  totalRevenuePln: number;
-  buyerType: BuyerType;
-  buyerName?: string;
+  // Produkt
+  productId: number;
+  productName: string;          // denormalizacja
+  productCategory: DairyProductType;
+  unit: string;                 // kg/szt/L/opak
+  quantity: number;
+  unitPricePln: number;
+  totalValuePln: number;
+  // Nabywca
+  buyerId?: number;
+  buyerName: string;            // denormalizacja
+  buyerAddress?: string;        // denormalizacja (do wydruku RHD)
+  // Ewidencja
   inRhd: boolean;
+  rhdNumber?: number;           // kolejny numer w roku RHD
+  rhdYear?: number;
+  // Opcje
+  batchId?: number;
   invoiceNumber?: string;
   notes?: string;
   createdAt: string;

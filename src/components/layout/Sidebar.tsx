@@ -50,8 +50,12 @@ const NAV_SECTIONS: NavSection[] = [
     label: '🧀 Przetwórstwo mleka',
     activity: 'sery',
     items: [
-      { to: '/mleko',          label: 'Przetwórstwo mleka', icon: '🧀' },
-      { to: '/mleko/dostawcy', label: 'Dostawcy mleka',     icon: '🚛' },
+      { to: '/mleko',           label: 'Dashboard',        icon: '🧀' },
+      { to: '/mleko/przyjecia', label: 'Przyjęcia mleka',  icon: '🥛' },
+      { to: '/mleko/partie',    label: 'Partie prod.',     icon: '📦' },
+      { to: '/mleko/sprzedaz',  label: 'Sprzedaż',        icon: '💰' },
+      { to: '/mleko/rhd',       label: 'Rejestr RHD',     icon: '📋' },
+      { to: '/mleko/dostawcy',  label: 'Dostawcy mleka',  icon: '🚛' },
     ],
   },
   {

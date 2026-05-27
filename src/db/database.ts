@@ -25,6 +25,7 @@ import type { InternalTransfer } from '@/models/internalTransfer.model';
 import type {
   MilkSupplier, MilkReception, MilkAllocation,
   ProductionBatch, ProductionStep, WheyByproduct, DairySale,
+  DairyProduct, DairyBuyer,
 } from '@/models/dairy.model';
 
 export class FarmDatabase extends Dexie {
@@ -64,6 +65,8 @@ export class FarmDatabase extends Dexie {
   productionSteps!: Table<ProductionStep, number>;
   wheyByproducts!: Table<WheyByproduct, number>;
   dairySales!: Table<DairySale, number>;
+  dairyProducts!: Table<DairyProduct, number>;
+  dairyBuyers!: Table<DairyBuyer, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -255,6 +258,13 @@ export class FarmDatabase extends Dexie {
       productionSteps:   '++id, batchId, stepType, sortOrder, [batchId+sortOrder]',
       wheyByproducts:    '++id, batchId, status, date',
       dairySales:        '++id, batchId, saleDate, productType, inRhd, [saleDate+inRhd]',
+    });
+
+    // v20: Katalog produktów mleczarskich, nabywcy i rozbudowana ewidencja sprzedaży
+    this.version(20).stores({
+      dairyProducts: '++id, category, isActive, name',
+      dairyBuyers:   '++id, name, isAnonymous',
+      dairySales:    '++id, saleDate, productId, buyerId, inRhd, rhdYear, rhdNumber, batchId, [rhdYear+rhdNumber], [saleDate+inRhd]',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

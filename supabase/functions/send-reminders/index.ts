@@ -96,9 +96,9 @@ Deno.serve(async (req) => {
   const VAPID_PRIVATE   = Deno.env.get('VAPID_PRIVATE_KEY')!;
   const CRON_SECRET     = Deno.env.get('CRON_SECRET') ?? '';
 
-  // Prosta ochrona przed nieautoryzowanym wywołaniem
-  const authHeader = req.headers.get('authorization') ?? '';
-  if (CRON_SECRET && authHeader !== `Bearer ${CRON_SECRET}`) {
+  // Prosta ochrona przed nieautoryzowanym wywołaniem (własny nagłówek, nie Authorization)
+  const cronHeader = req.headers.get('x-cron-secret') ?? '';
+  if (CRON_SECRET && cronHeader !== CRON_SECRET) {
     return new Response('Unauthorized', { status: 401 });
   }
 

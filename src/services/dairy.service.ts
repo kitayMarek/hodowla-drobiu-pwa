@@ -45,18 +45,44 @@
  * );
  * CREATE TABLE dairy_sales (
  *   id SERIAL PRIMARY KEY, user_id UUID REFERENCES auth.users NOT NULL,
- *   batch_id INT REFERENCES production_batches(id) NOT NULL,
- *   sale_date DATE NOT NULL, product_type TEXT NOT NULL,
- *   quantity_kg NUMERIC NOT NULL, price_per_kg_pln NUMERIC NOT NULL,
- *   total_revenue_pln NUMERIC NOT NULL, buyer_type TEXT NOT NULL,
- *   buyer_name TEXT, in_rhd BOOLEAN NOT NULL DEFAULT TRUE,
- *   invoice_number TEXT, notes TEXT, created_at TIMESTAMPTZ DEFAULT now()
+ *   sale_date DATE NOT NULL,
+ *   product_id INT, product_name TEXT, product_category TEXT,
+ *   unit TEXT DEFAULT 'kg', quantity NUMERIC, unit_price_pln NUMERIC, total_value_pln NUMERIC,
+ *   buyer_id INT, buyer_name TEXT, buyer_address TEXT,
+ *   in_rhd BOOLEAN NOT NULL DEFAULT TRUE,
+ *   rhd_number INT, rhd_year INT,
+ *   batch_id INT, invoice_number TEXT, notes TEXT, created_at TIMESTAMPTZ DEFAULT now()
  * );
- * -- RLS (włącz dla każdej tabeli)
+ * CREATE TABLE dairy_products (
+ *   id SERIAL PRIMARY KEY, user_id UUID REFERENCES auth.users NOT NULL,
+ *   name TEXT NOT NULL, category TEXT NOT NULL, unit TEXT NOT NULL DEFAULT 'kg',
+ *   default_price_pln NUMERIC NOT NULL DEFAULT 0,
+ *   is_active BOOLEAN NOT NULL DEFAULT true, notes TEXT, created_at TIMESTAMPTZ DEFAULT now()
+ * );
+ * CREATE TABLE dairy_buyers (
+ *   id SERIAL PRIMARY KEY, user_id UUID REFERENCES auth.users NOT NULL,
+ *   name TEXT NOT NULL, is_anonymous BOOLEAN NOT NULL DEFAULT false,
+ *   address TEXT, phone TEXT, nip TEXT, notes TEXT, created_at TIMESTAMPTZ DEFAULT now()
+ * );
+ * -- RLS + polityki dla WSZYSTKICH tabel mleczarskich:
  * ALTER TABLE milk_suppliers ENABLE ROW LEVEL SECURITY;
- * -- (powtórz dla pozostałych tabel)
- * CREATE POLICY "user_only" ON milk_suppliers USING (auth.uid() = user_id);
- * -- (powtórz dla pozostałych tabel)
+ * ALTER TABLE milk_receptions ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE milk_allocations ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE production_batches ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE production_steps ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE whey_byproducts ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE dairy_sales ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE dairy_products ENABLE ROW LEVEL SECURITY;
+ * ALTER TABLE dairy_buyers ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "user_only" ON milk_suppliers    FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON milk_receptions   FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON milk_allocations  FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON production_batches FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON production_steps  FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON whey_byproducts   FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON dairy_sales       FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON dairy_products    FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
+ * CREATE POLICY "user_only" ON dairy_buyers      FOR ALL USING (auth.uid()=user_id) WITH CHECK (auth.uid()=user_id);
  */
 
 import { db } from '@/db/database';
@@ -64,7 +90,7 @@ import { supabase, getAuthUser } from '@/lib/supabase';
 import type {
   MilkSupplier, MilkReception, MilkAllocation,
   ProductionBatch, ProductionStep, WheyByproduct, DairySale,
-  DairyProductType,
+  DairyProductType, DairyProduct, DairyBuyer,
 } from '@/models/dairy.model';
 import {
   calcExpectedYield, calcExpectedWhey, calcExpiryDate,
@@ -119,12 +145,53 @@ function toWhey(r: Record<string, unknown>): WheyByproduct {
 }
 
 function toDairySale(r: Record<string, unknown>): DairySale {
-  return { id: r.id as number, batchId: r.batch_id as number, saleDate: r.sale_date as string,
-    productType: r.product_type as DairyProductType, quantityKg: Number(r.quantity_kg),
-    pricePerKgPln: Number(r.price_per_kg_pln), totalRevenuePln: Number(r.total_revenue_pln),
-    buyerType: r.buyer_type as DairySale['buyerType'], buyerName: r.buyer_name as string | undefined,
-    inRhd: r.in_rhd !== false, invoiceNumber: r.invoice_number as string | undefined,
-    notes: r.notes as string | undefined, createdAt: r.created_at as string };
+  return {
+    id: r.id as number,
+    saleDate: r.sale_date as string,
+    productId: Number(r.product_id ?? 0),
+    productName: (r.product_name ?? '') as string,
+    productCategory: (r.product_category ?? r.product_type ?? 'ser_dojrzewajacy') as DairyProductType,
+    unit: (r.unit ?? 'kg') as string,
+    quantity: Number(r.quantity ?? r.quantity_kg ?? 0),
+    unitPricePln: Number(r.unit_price_pln ?? r.price_per_kg_pln ?? 0),
+    totalValuePln: Number(r.total_value_pln ?? r.total_revenue_pln ?? 0),
+    buyerId: r.buyer_id != null ? Number(r.buyer_id) : undefined,
+    buyerName: (r.buyer_name ?? '') as string,
+    buyerAddress: r.buyer_address as string | undefined,
+    inRhd: r.in_rhd !== false,
+    rhdNumber: r.rhd_number != null ? Number(r.rhd_number) : undefined,
+    rhdYear: r.rhd_year != null ? Number(r.rhd_year) : undefined,
+    batchId: r.batch_id != null ? Number(r.batch_id) : undefined,
+    invoiceNumber: r.invoice_number as string | undefined,
+    notes: r.notes as string | undefined,
+    createdAt: r.created_at as string,
+  };
+}
+
+function toDairyProduct(r: Record<string, unknown>): DairyProduct {
+  return {
+    id: r.id as number,
+    name: r.name as string,
+    category: r.category as DairyProductType,
+    unit: r.unit as DairyProduct['unit'],
+    defaultPricePln: Number(r.default_price_pln),
+    isActive: r.is_active !== false,
+    notes: r.notes as string | undefined,
+    createdAt: r.created_at as string,
+  };
+}
+
+function toDairyBuyer(r: Record<string, unknown>): DairyBuyer {
+  return {
+    id: r.id as number,
+    name: r.name as string,
+    isAnonymous: r.is_anonymous === true,
+    address: r.address as string | undefined,
+    phone: r.phone as string | undefined,
+    nip: r.nip as string | undefined,
+    notes: r.notes as string | undefined,
+    createdAt: r.created_at as string,
+  };
 }
 
 /** Generuj unikalny suffix dla numeru partii (A, B, C...) */
@@ -471,48 +538,188 @@ export const dairyService = {
     await db.wheyByproducts.update(id, { status });
   },
 
-  // ── Sprzedaż mleczarska ──────────────────────────────────────
+  // ── Katalog produktów ────────────────────────────────────────────
 
-  async getDairySales(): Promise<DairySale[]> {
+  async getProducts(): Promise<DairyProduct[]> {
     const user = await getAuthUser();
     if (user) {
-      const { data } = await supabase.from('dairy_sales').select('*')
-        .eq('user_id', user.id).order('sale_date', { ascending: false });
-      return (data ?? []).map(toDairySale);
+      const { data } = await supabase.from('dairy_products').select('*')
+        .eq('user_id', user.id).order('name');
+      return (data ?? []).map(toDairyProduct);
     }
-    return db.dairySales.orderBy('saleDate').reverse().toArray();
+    return db.dairyProducts.orderBy('name').toArray();
   },
 
-  async saveDairySale(s: Omit<DairySale, 'id' | 'createdAt'>): Promise<number> {
+  async saveProduct(p: Omit<DairyProduct, 'id' | 'createdAt'>): Promise<number> {
     const user = await getAuthUser();
     const now = new Date().toISOString();
     if (user) {
-      const { data, error } = await supabase.from('dairy_sales').insert({
-        user_id: user.id, batch_id: s.batchId, sale_date: s.saleDate,
-        product_type: s.productType, quantity_kg: s.quantityKg,
-        price_per_kg_pln: s.pricePerKgPln, total_revenue_pln: s.totalRevenuePln,
-        buyer_type: s.buyerType, buyer_name: s.buyerName ?? null,
-        in_rhd: s.inRhd, invoice_number: s.invoiceNumber ?? null,
-        notes: s.notes ?? null, created_at: now,
+      const { data, error } = await supabase.from('dairy_products').insert({
+        user_id: user.id, name: p.name, category: p.category, unit: p.unit,
+        default_price_pln: p.defaultPricePln, is_active: p.isActive,
+        notes: p.notes ?? null, created_at: now,
       }).select('id').single();
       if (error) throw error;
-      // Zmniejsz stan partii
-      const batch = await this.getBatchById(s.batchId);
-      if (batch) {
-        const remaining = Math.max(0, batch.quantityRemainingKg - s.quantityKg);
-        await supabase.from('production_batches').update({ quantity_remaining_kg: remaining })
-          .eq('id', s.batchId).eq('user_id', user.id);
-      }
       return data.id;
     }
-    const id = await db.dairySales.add({ ...s, createdAt: now });
-    const batch = await db.productionBatches.get(s.batchId);
-    if (batch) {
-      await db.productionBatches.update(s.batchId, {
-        quantityRemainingKg: Math.max(0, batch.quantityRemainingKg - s.quantityKg),
-      });
+    return db.dairyProducts.add({ ...p, createdAt: now });
+  },
+
+  async updateProduct(id: number, p: Omit<DairyProduct, 'id' | 'createdAt'>): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('dairy_products').update({
+        name: p.name, category: p.category, unit: p.unit,
+        default_price_pln: p.defaultPricePln, is_active: p.isActive, notes: p.notes ?? null,
+      }).eq('id', id).eq('user_id', user.id);
+      return;
     }
-    return id;
+    await db.dairyProducts.update(id, p);
+  },
+
+  async deleteProduct(id: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('dairy_products').delete().eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.dairyProducts.delete(id);
+  },
+
+  // ── Nabywcy ──────────────────────────────────────────────────────
+
+  async getBuyers(): Promise<DairyBuyer[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('dairy_buyers').select('*')
+        .eq('user_id', user.id).order('name');
+      return (data ?? []).map(toDairyBuyer);
+    }
+    return db.dairyBuyers.orderBy('name').toArray();
+  },
+
+  async saveBuyer(b: Omit<DairyBuyer, 'id' | 'createdAt'>): Promise<number> {
+    const user = await getAuthUser();
+    const now = new Date().toISOString();
+    if (user) {
+      const { data, error } = await supabase.from('dairy_buyers').insert({
+        user_id: user.id, name: b.name, is_anonymous: b.isAnonymous,
+        address: b.address ?? null, phone: b.phone ?? null,
+        nip: b.nip ?? null, notes: b.notes ?? null, created_at: now,
+      }).select('id').single();
+      if (error) throw error;
+      return data.id;
+    }
+    return db.dairyBuyers.add({ ...b, createdAt: now });
+  },
+
+  async updateBuyer(id: number, b: Omit<DairyBuyer, 'id' | 'createdAt'>): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('dairy_buyers').update({
+        name: b.name, is_anonymous: b.isAnonymous, address: b.address ?? null,
+        phone: b.phone ?? null, nip: b.nip ?? null, notes: b.notes ?? null,
+      }).eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.dairyBuyers.update(id, b);
+  },
+
+  async deleteBuyer(id: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('dairy_buyers').delete().eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.dairyBuyers.delete(id);
+  },
+
+  // ── Sprzedaż mleczarska ──────────────────────────────────────────
+
+  async getSales(year?: number): Promise<DairySale[]> {
+    const user = await getAuthUser();
+    if (user) {
+      let q = supabase.from('dairy_sales').select('*').eq('user_id', user.id);
+      if (year) q = q.eq('rhd_year', year);
+      const { data } = await q.order('sale_date', { ascending: false });
+      return (data ?? []).map(toDairySale);
+    }
+    let col = db.dairySales.orderBy('saleDate').reverse();
+    if (year) {
+      return (await col.toArray()).filter(s =>
+        s.rhdYear === year || (!s.rhdYear && new Date(s.saleDate).getFullYear() === year)
+      );
+    }
+    return col.toArray();
+  },
+
+  /** Statystyki RHD dla danego roku kalendarzowego */
+  async getRhdStats(year: number): Promise<{ totalPln: number; nextNumber: number; count: number }> {
+    const user = await getAuthUser();
+    let sales: DairySale[];
+    if (user) {
+      const { data } = await supabase.from('dairy_sales').select('*')
+        .eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
+      sales = (data ?? []).map(toDairySale);
+    } else {
+      sales = await db.dairySales
+        .where('rhdYear').equals(year)
+        .and(s => s.inRhd === true)
+        .toArray();
+    }
+    const totalPln = sales.reduce((s, r) => s + r.totalValuePln, 0);
+    const maxNum   = sales.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0);
+    return { totalPln, nextNumber: maxNum + 1, count: sales.length };
+  },
+
+  async saveSale(s: Omit<DairySale, 'id' | 'createdAt'>): Promise<number> {
+    const user = await getAuthUser();
+    const now  = new Date().toISOString();
+    const year = s.rhdYear ?? new Date(s.saleDate).getFullYear();
+
+    let rhdNumber = s.rhdNumber;
+    if (s.inRhd && !rhdNumber) {
+      const stats = await this.getRhdStats(year);
+      rhdNumber = stats.nextNumber;
+    }
+
+    const toSave = { ...s, rhdNumber, rhdYear: year };
+
+    if (user) {
+      const { data, error } = await supabase.from('dairy_sales').insert({
+        user_id: user.id,
+        sale_date: toSave.saleDate,
+        product_id: toSave.productId,
+        product_name: toSave.productName,
+        product_category: toSave.productCategory,
+        unit: toSave.unit,
+        quantity: toSave.quantity,
+        unit_price_pln: toSave.unitPricePln,
+        total_value_pln: toSave.totalValuePln,
+        buyer_id: toSave.buyerId ?? null,
+        buyer_name: toSave.buyerName,
+        buyer_address: toSave.buyerAddress ?? null,
+        in_rhd: toSave.inRhd,
+        rhd_number: toSave.rhdNumber ?? null,
+        rhd_year: toSave.rhdYear ?? null,
+        batch_id: toSave.batchId ?? null,
+        invoice_number: toSave.invoiceNumber ?? null,
+        notes: toSave.notes ?? null,
+        created_at: now,
+      }).select('id').single();
+      if (error) throw error;
+      return data.id;
+    }
+    return db.dairySales.add({ ...toSave, createdAt: now });
+  },
+
+  async deleteSale(id: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('dairy_sales').delete().eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.dairySales.delete(id);
   },
 
   // ── Statystyki dla dashboardu ─────────────────────────────────

@@ -1,5 +1,5 @@
 -- ============================================================
--- Fermly – Moduł Przetwórstwo Mleka
+-- Fermly – Moduł Przetwórstwo Mleka (v2 — pełna migracja)
 -- Uruchom całość w Supabase SQL Editor
 -- ============================================================
 
@@ -91,22 +91,58 @@ CREATE TABLE IF NOT EXISTS whey_byproducts (
   notes             TEXT
 );
 
--- 7. Sprzedaż mleczarska
+-- 7. Sprzedaż mleczarska (nowa struktura)
 CREATE TABLE IF NOT EXISTS dairy_sales (
-  id                 SERIAL PRIMARY KEY,
-  user_id            UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  batch_id           INT NOT NULL REFERENCES production_batches(id) ON DELETE CASCADE,
-  sale_date          DATE NOT NULL,
-  product_type       TEXT NOT NULL,
-  quantity_kg        NUMERIC(10,3) NOT NULL,
-  price_per_kg_pln   NUMERIC(10,2) NOT NULL,
-  total_revenue_pln  NUMERIC(10,2) NOT NULL,
-  buyer_type         TEXT NOT NULL CHECK (buyer_type IN ('detaliczny','sklep','restauracja','inny')),
-  buyer_name         TEXT,
-  in_rhd             BOOLEAN NOT NULL DEFAULT TRUE,
-  invoice_number     TEXT,
-  notes              TEXT,
-  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                SERIAL PRIMARY KEY,
+  user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  sale_date         DATE NOT NULL,
+  -- Produkt (denormalizacja)
+  product_id        INT,
+  product_name      TEXT,
+  product_category  TEXT,
+  unit              TEXT NOT NULL DEFAULT 'kg',
+  quantity          NUMERIC(10,3),
+  unit_price_pln    NUMERIC(10,4),
+  total_value_pln   NUMERIC(10,2),
+  -- Nabywca (denormalizacja)
+  buyer_id          INT,
+  buyer_name        TEXT,
+  buyer_address     TEXT,
+  -- Ewidencja
+  in_rhd            BOOLEAN NOT NULL DEFAULT TRUE,
+  rhd_number        INT,
+  rhd_year          INT,
+  -- Inne
+  batch_id          INT,
+  invoice_number    TEXT,
+  notes             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 8. Katalog produktów mleczarskich
+CREATE TABLE IF NOT EXISTS dairy_products (
+  id                SERIAL PRIMARY KEY,
+  user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name              TEXT NOT NULL,
+  category          TEXT NOT NULL,
+  unit              TEXT NOT NULL DEFAULT 'kg',
+  default_price_pln NUMERIC(10,4) NOT NULL DEFAULT 0,
+  is_active         BOOLEAN NOT NULL DEFAULT TRUE,
+  notes             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 9. Nabywcy
+CREATE TABLE IF NOT EXISTS dairy_buyers (
+  id            SERIAL PRIMARY KEY,
+  user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  name          TEXT NOT NULL,
+  is_anonymous  BOOLEAN NOT NULL DEFAULT FALSE,
+  address       TEXT,
+  phone         TEXT,
+  nip           TEXT,
+  notes         TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- ============================================================
@@ -120,34 +156,37 @@ ALTER TABLE production_batches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE production_steps   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE whey_byproducts    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dairy_sales        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dairy_products     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dairy_buyers       ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "user_only" ON milk_suppliers
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "user_only" ON milk_receptions
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "user_only" ON milk_allocations
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "user_only" ON production_batches
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "user_only" ON production_steps
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "user_only" ON whey_byproducts
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
-
 CREATE POLICY "user_only" ON dairy_sales
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "user_only" ON dairy_products
+  FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "user_only" ON dairy_buyers
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
 -- ============================================================
 -- Indeksy dla wydajności
 -- ============================================================
 
-CREATE INDEX IF NOT EXISTS idx_milk_receptions_user_date    ON milk_receptions(user_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_milk_receptions_user_date      ON milk_receptions(user_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_production_batches_user_status ON production_batches(user_id, status);
-CREATE INDEX IF NOT EXISTS idx_production_steps_batch        ON production_steps(batch_id, sort_order);
-CREATE INDEX IF NOT EXISTS idx_whey_byproducts_batch         ON whey_byproducts(batch_id);
-CREATE INDEX IF NOT EXISTS idx_dairy_sales_user_date         ON dairy_sales(user_id, sale_date DESC);
+CREATE INDEX IF NOT EXISTS idx_production_steps_batch         ON production_steps(batch_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_whey_byproducts_batch          ON whey_byproducts(batch_id);
+CREATE INDEX IF NOT EXISTS idx_dairy_sales_user_date          ON dairy_sales(user_id, sale_date DESC);
+CREATE INDEX IF NOT EXISTS idx_dairy_sales_rhd                ON dairy_sales(user_id, rhd_year, in_rhd);
+CREATE INDEX IF NOT EXISTS idx_dairy_products_user            ON dairy_products(user_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_dairy_buyers_user              ON dairy_buyers(user_id, name);
