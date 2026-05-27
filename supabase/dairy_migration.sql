@@ -159,6 +159,16 @@ ALTER TABLE dairy_sales        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dairy_products     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE dairy_buyers       ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "user_only" ON milk_suppliers;
+DROP POLICY IF EXISTS "user_only" ON milk_receptions;
+DROP POLICY IF EXISTS "user_only" ON milk_allocations;
+DROP POLICY IF EXISTS "user_only" ON production_batches;
+DROP POLICY IF EXISTS "user_only" ON production_steps;
+DROP POLICY IF EXISTS "user_only" ON whey_byproducts;
+DROP POLICY IF EXISTS "user_only" ON dairy_sales;
+DROP POLICY IF EXISTS "user_only" ON dairy_products;
+DROP POLICY IF EXISTS "user_only" ON dairy_buyers;
+
 CREATE POLICY "user_only" ON milk_suppliers
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "user_only" ON milk_receptions
