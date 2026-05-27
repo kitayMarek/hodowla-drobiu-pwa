@@ -68,7 +68,7 @@ import type {
 } from '@/models/dairy.model';
 import {
   calcExpectedYield, calcExpectedWhey, calcExpiryDate,
-  generateBatchNumber, WORKFLOW_STEPS, YIELD_FACTORS,
+  generateBatchNumber, WORKFLOW_STEPS, YIELD_FACTORS, NO_BATCH_TYPES,
 } from '@/models/dairy.model';
 
 // ── Helpers ──────────────────────────────────────────────────────
@@ -160,6 +160,27 @@ export const dairyService = {
       return (data ?? []).map(toSupplier);
     }
     return db.milkSuppliers.orderBy('name').toArray();
+  },
+
+  async updateSupplier(id: number, s: Omit<MilkSupplier, 'id' | 'createdAt'>): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('milk_suppliers').update({
+        name: s.name, address: s.address ?? null, pesel_or_nip: s.peselOrNip ?? null,
+        phone: s.phone ?? null, notes: s.notes ?? null,
+      }).eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.milkSuppliers.update(id, s);
+  },
+
+  async deleteSupplier(id: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('milk_suppliers').delete().eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.milkSuppliers.delete(id);
   },
 
   async saveSupplier(s: Omit<MilkSupplier, 'id' | 'createdAt'>): Promise<number> {
@@ -259,6 +280,24 @@ export const dairyService = {
 
     for (const line of lines) {
       if (line.litersAllocated <= 0) continue;
+
+      // Typy bez partii (mleko surowe, skarmianie) — tylko zapisz alokację
+      if (NO_BATCH_TYPES.has(line.productType)) {
+        if (user) {
+          await supabase.from('milk_allocations').insert({
+            user_id: user.id, reception_id: receptionId,
+            product_type: line.productType,
+            liters_allocated: line.litersAllocated,
+            batch_id: null, created_at: now,
+          });
+        } else {
+          await db.milkAllocations.add({
+            receptionId, productType: line.productType,
+            litersAllocated: line.litersAllocated, createdAt: now,
+          });
+        }
+        continue;
+      }
 
       const suffix     = await nextBatchSuffix(reception.date);
       const batchNum   = generateBatchNumber(reception.date, suffix);

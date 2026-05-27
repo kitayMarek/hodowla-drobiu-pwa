@@ -33,6 +33,7 @@ import { MilkReceptionFormPage } from '@/pages/dairy/MilkReceptionFormPage';
 import { MilkAllocationPage } from '@/pages/dairy/MilkAllocationPage';
 import { ProductionBatchListPage } from '@/pages/dairy/ProductionBatchListPage';
 import { ProductionBatchDetailPage } from '@/pages/dairy/ProductionBatchDetailPage';
+import { SuppliersPage } from '@/pages/dairy/SuppliersPage';
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -109,6 +110,7 @@ export const router = createBrowserRouter([
       { path: 'mleko/rozlew/:id',         element: <MilkAllocationPage /> },
       { path: 'mleko/partie',             element: <ProductionBatchListPage /> },
       { path: 'mleko/partie/:id',         element: <ProductionBatchDetailPage /> },
+      { path: 'mleko/dostawcy',           element: <SuppliersPage /> },
 
       // Placeholdery – moduły w przygotowaniu
       { path: 'mleko-old',    element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },

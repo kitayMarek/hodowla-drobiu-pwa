@@ -7,7 +7,12 @@ export type DairyProductType =
   | 'kefir'
   | 'smietana'
   | 'maslo'
-  | 'rikotta';
+  | 'rikotta'
+  | 'mleko_surowe'   // sprzedaż mleka surowego — bez tworzenia partii
+  | 'zwierzeta';     // skarmianie zwierząt — bez tworzenia partii
+
+/** Typy które nie tworzą partii produkcyjnych */
+export const NO_BATCH_TYPES = new Set<DairyProductType>(['mleko_surowe', 'zwierzeta']);
 
 export type MilkSource  = 'own' | 'purchase';
 export type BatchStatus = 'w_produkcji' | 'dojrzewa' | 'gotowy' | 'sprzedany' | 'wycofany';
@@ -128,6 +133,8 @@ export const PRODUCT_LABELS: Record<DairyProductType, string> = {
   smietana:         'Śmietana',
   maslo:            'Masło',
   rikotta:          'Rikotta',
+  mleko_surowe:     'Mleko surowe (sprzedaż)',
+  zwierzeta:        'Skarmianie zwierząt',
 };
 
 export const PRODUCT_ICONS: Record<DairyProductType, string> = {
@@ -138,6 +145,8 @@ export const PRODUCT_ICONS: Record<DairyProductType, string> = {
   smietana:         '🥄',
   maslo:            '🧈',
   rikotta:          '🫕',
+  mleko_surowe:     '🥛',
+  zwierzeta:        '🐄',
 };
 
 /** Współczynniki wydajności produkcji */
@@ -156,6 +165,8 @@ export const YIELD_FACTORS: Record<DairyProductType, YieldFactor> = {
   smietana:         { yieldPercent: 15, wheyPercent: 0,  shelfLifeDays: 14 },
   maslo:            { yieldPercent: 5,  wheyPercent: 0,  shelfLifeDays: 60 },
   rikotta:          { yieldPercent: 2,  wheyPercent: 95, shelfLifeDays: 7 },
+  mleko_surowe:     { yieldPercent: 0,  wheyPercent: 0,  shelfLifeDays: 0 },
+  zwierzeta:        { yieldPercent: 0,  wheyPercent: 0,  shelfLifeDays: 0 },
 };
 
 /** Oblicz oczekiwaną wydajność */

@@ -4,7 +4,7 @@ import { dairyService } from '@/services/dairy.service';
 import type { MilkReception, DairyProductType } from '@/models/dairy.model';
 import {
   PRODUCT_ICONS, PRODUCT_LABELS, YIELD_FACTORS,
-  calcExpectedYield, calcExpectedWhey,
+  calcExpectedYield, calcExpectedWhey, NO_BATCH_TYPES,
 } from '@/models/dairy.model';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -16,9 +16,11 @@ interface AllocLine {
   agingDays: string;
 }
 
-const ALLOCATABLE_PRODUCTS: DairyProductType[] = [
+const PRODUCTION_PRODUCTS: DairyProductType[] = [
   'ser_dojrzewajacy', 'twarog', 'jogurt', 'kefir', 'smietana', 'maslo',
 ];
+const OTHER_PRODUCTS: DairyProductType[] = ['mleko_surowe', 'zwierzeta'];
+const ALLOCATABLE_PRODUCTS: DairyProductType[] = [...PRODUCTION_PRODUCTS, ...OTHER_PRODUCTS];
 
 export function MilkAllocationPage() {
   const { id } = useParams<{ id: string }>();
@@ -134,8 +136,11 @@ export function MilkAllocationPage() {
             const wheyL   = liters > 0 ? calcExpectedWhey(liters, line.productType) : null;
             const hasAging = YIELD_FACTORS[line.productType].agingDays !== undefined;
 
+            const isNoBatch = NO_BATCH_TYPES.has(line.productType);
             return (
-              <div key={line.key} className="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+              <div key={line.key} className={`p-3 rounded-xl border space-y-2 ${
+                isNoBatch ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'
+              }`}>
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{PRODUCT_ICONS[line.productType]}</span>
                   <select
@@ -143,14 +148,21 @@ export function MilkAllocationPage() {
                     onChange={e => updateLine(line.key, 'productType', e.target.value)}
                     className="flex-1 rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                   >
-                    {ALLOCATABLE_PRODUCTS.map(pt => (
-                      <option key={pt} value={pt}>{PRODUCT_LABELS[pt]}</option>
-                    ))}
+                    <optgroup label="Produkcja">
+                      {PRODUCTION_PRODUCTS.map(pt => (
+                        <option key={pt} value={pt}>{PRODUCT_LABELS[pt]}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Inne przeznaczenie">
+                      {OTHER_PRODUCTS.map(pt => (
+                        <option key={pt} value={pt}>{PRODUCT_LABELS[pt]}</option>
+                      ))}
+                    </optgroup>
                   </select>
                   <button onClick={() => removeLine(line.key)} className="text-gray-300 hover:text-red-400">✕</button>
                 </div>
 
-                <div className={`grid gap-2 ${hasAging ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                <div className={`grid gap-2 ${hasAging && !isNoBatch ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Litry mleka</label>
                     <input
@@ -161,7 +173,7 @@ export function MilkAllocationPage() {
                       className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     />
                   </div>
-                  {hasAging && (
+                  {hasAging && !isNoBatch && (
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Dojrzewanie (dni)</label>
                       <input
@@ -174,14 +186,17 @@ export function MilkAllocationPage() {
                   )}
                 </div>
 
-                {/* Podgląd wydajności */}
-                {liters > 0 && (
+                {/* Podgląd wydajności — tylko dla typów produkcyjnych */}
+                {liters > 0 && !isNoBatch && (
                   <div className="flex gap-4 text-xs text-gray-500 pt-1">
                     <span>📦 Oczekiwany wynik: <strong className="text-gray-700">{yieldKg} kg</strong></span>
                     {wheyL != null && wheyL > 0 && (
                       <span>💧 Serwatka: <strong className="text-gray-700">~{wheyL} L</strong></span>
                     )}
                   </div>
+                )}
+                {isNoBatch && (
+                  <p className="text-xs text-amber-600">Nie tworzy partii produkcyjnej — tylko zapis alokacji</p>
                 )}
               </div>
             );
