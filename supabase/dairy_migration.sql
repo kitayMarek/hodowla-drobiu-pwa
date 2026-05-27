@@ -91,33 +91,32 @@ CREATE TABLE IF NOT EXISTS whey_byproducts (
   notes             TEXT
 );
 
--- 7. Sprzedaż mleczarska (nowa struktura)
+-- 7. Sprzedaż mleczarska
+-- Tworzymy tabelę jeśli nie istnieje (stara lub nowa instalacja)
 CREATE TABLE IF NOT EXISTS dairy_sales (
-  id                SERIAL PRIMARY KEY,
-  user_id           UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  sale_date         DATE NOT NULL,
-  -- Produkt (denormalizacja)
-  product_id        INT,
-  product_name      TEXT,
-  product_category  TEXT,
-  unit              TEXT NOT NULL DEFAULT 'kg',
-  quantity          NUMERIC(10,3),
-  unit_price_pln    NUMERIC(10,4),
-  total_value_pln   NUMERIC(10,2),
-  -- Nabywca (denormalizacja)
-  buyer_id          INT,
-  buyer_name        TEXT,
-  buyer_address     TEXT,
-  -- Ewidencja
-  in_rhd            BOOLEAN NOT NULL DEFAULT TRUE,
-  rhd_number        INT,
-  rhd_year          INT,
-  -- Inne
-  batch_id          INT,
-  invoice_number    TEXT,
-  notes             TEXT,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+  id          SERIAL PRIMARY KEY,
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  sale_date   DATE NOT NULL,
+  in_rhd      BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Dodaj nowe kolumny jeśli jeszcze ich nie ma (idempotentne)
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS product_id       INT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS product_name     TEXT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS product_category TEXT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS unit             TEXT NOT NULL DEFAULT 'kg';
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS quantity         NUMERIC(10,3);
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS unit_price_pln   NUMERIC(10,4);
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS total_value_pln  NUMERIC(10,2);
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS buyer_id         INT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS buyer_name       TEXT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS buyer_address    TEXT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS rhd_number       INT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS rhd_year         INT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS batch_id         INT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS invoice_number   TEXT;
+ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS notes            TEXT;
 
 -- 8. Katalog produktów mleczarskich
 CREATE TABLE IF NOT EXISTS dairy_products (
