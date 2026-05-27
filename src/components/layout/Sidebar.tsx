@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { pl } from '@/i18n/pl';
 import { getDaysSinceBackup, WARN_AFTER_DAYS } from '@/services/backupReminder';
-import { useActivities } from '@/hooks/useTableData';
+import { useActivitiesContext } from '@/contexts/ActivitiesContext';
 
 // ── Typy ────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ interface SidebarProps {
 
 export function Sidebar({ onNavClick }: SidebarProps) {
   const [logoErr, setLogoErr] = useState(false);
-  const activities = useActivities();
+  const activities = useActivitiesContext();
   const activeKeys = new Set(activities.filter(a => a.isActive).map(a => a.key));
 
   // Filtruj sekcje wg aktywnych działalności

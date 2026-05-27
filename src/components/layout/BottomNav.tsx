@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useActivities } from '@/hooks/useTableData';
+import { useActivitiesContext } from '@/contexts/ActivitiesContext';
 
 // Elementy menu "Więcej" wg działalności
 interface MoreItem {
@@ -33,7 +33,7 @@ const MORE_ITEMS: MoreItem[] = [
 export function BottomNav() {
   const [showMore, setShowMore] = useState(false);
   const location = useLocation();
-  const activities = useActivities();
+  const activities = useActivitiesContext();
   const activeKeys = new Set(activities.filter(a => a.isActive).map(a => a.key));
 
   const hasDropActivities = activeKeys.has('drob');

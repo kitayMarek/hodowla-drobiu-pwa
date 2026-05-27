@@ -10,6 +10,7 @@ import { SetupWizardPage } from '@/pages/setup/SetupWizardPage';
 import { useAuth } from '@/contexts/AuthContext';
 import { shouldShowReminder } from '@/services/backupReminder';
 import { activityService } from '@/services/activity.service';
+import { ActivitiesProvider } from '@/contexts/ActivitiesContext';
 
 export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -47,6 +48,7 @@ export function AppShell() {
   }
 
   return (
+    <ActivitiesProvider>
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Baner demo – widoczny gdy niezalogowany */}
       {!user && <DemoBanner />}
@@ -87,5 +89,6 @@ export function AppShell() {
       {/* Backup reminder modal */}
       <BackupReminderModal open={showBackup} onClose={() => setShowBackup(false)} />
     </div>
+    </ActivitiesProvider>
   );
 }
