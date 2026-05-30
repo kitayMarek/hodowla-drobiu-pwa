@@ -22,12 +22,19 @@ ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS cash_account_id   INT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS invoice_number    TEXT;
 ALTER TABLE dairy_sales ADD COLUMN IF NOT EXISTS notes             TEXT;
 
--- ── 2. dairy_sales – usuń NOT NULL z batch_id jeśli istnieje ──
--- (stara wersja migracji miała batch_id NOT NULL, nowa go nie wymaga)
+-- ── 2. dairy_sales – usuń NOT NULL ze starych kolumn ──────────
+-- Stara wersja migracji miała te pola jako NOT NULL.
+-- Nowy kod nie wysyła ich przy insercie → naruszenie constraintu.
 DO $$
 BEGIN
-  ALTER TABLE dairy_sales ALTER COLUMN batch_id DROP NOT NULL;
-EXCEPTION WHEN others THEN NULL;  -- ignoruj jeśli już nullable
+  ALTER TABLE dairy_sales
+    ALTER COLUMN batch_id          DROP NOT NULL,
+    ALTER COLUMN product_type      DROP NOT NULL,
+    ALTER COLUMN quantity_kg       DROP NOT NULL,
+    ALTER COLUMN price_per_kg_pln  DROP NOT NULL,
+    ALTER COLUMN total_revenue_pln DROP NOT NULL,
+    ALTER COLUMN buyer_type        DROP NOT NULL;
+EXCEPTION WHEN others THEN NULL;
 END $$;
 
 -- Usuń też klucz obcy na batch_id jeśli istnieje (batch jest opcjonalny)
