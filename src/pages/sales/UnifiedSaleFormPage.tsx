@@ -157,10 +157,9 @@ export function UnifiedSaleFormPage() {
   const [saleDate,      setSaleDate]      = useState(new Date().toISOString().slice(0, 10));
   const [buyerName,     setBuyerName]     = useState('');
   const [cashAccountId, setCashAccountId] = useState('');
-  const [inRhd,         setInRhd]         = useState(true);
   const [notes,         setNotes]         = useState('');
   const [lines,         setLines]         = useState<SaleLine[]>([newLine(defaultActivity)]);
-  const [saving,        setSaving]        = useState(false);
+  const [saving,        setSaving]        = useState<'rhd' | 'norhd' | null>(null);
   const [error,         setError]         = useState('');
 
   useEffect(() => {
@@ -185,7 +184,7 @@ export function UnifiedSaleFormPage() {
 
   const grandTotal = lines.reduce((s, l) => s + lineTotal(l), 0);
 
-  const handleSave = async () => {
+  const handleSave = async (inRhd: boolean) => {
     if (lines.length === 0) { setError('Dodaj co najmniej jedną pozycję.'); return; }
     for (const l of lines) {
       if (l.activity === 'sery' && !l.dairyProductId) {
@@ -195,7 +194,7 @@ export function UnifiedSaleFormPage() {
         setError('Wybierz stado dla każdej pozycji drobiu (poza jajami).'); return;
       }
     }
-    setSaving(true); setError('');
+    setSaving(inRhd ? 'rhd' : 'norhd'); setError('');
     try {
       const savedIds: { type: 'sale' | 'dairy_sale'; id: number }[] = [];
       const effectiveBuyer = buyerName.trim() || 'Nabywca detaliczny';
@@ -301,7 +300,7 @@ export function UnifiedSaleFormPage() {
       navigate('/sprzedaz');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Błąd zapisu');
-      setSaving(false);
+      setSaving(null);
     }
   };
 
@@ -351,17 +350,6 @@ export function UnifiedSaleFormPage() {
         {/* Nabywca z listą */}
         <BuyerSelector buyers={buyers} value={buyerName} onChange={setBuyerName} />
 
-        {/* RHD */}
-        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={inRhd}
-            onChange={e => setInRhd(e.target.checked)}
-            className="w-4 h-4 rounded text-brand-600"
-          />
-          <span>Ewidencja RHD</span>
-          {!inRhd && <span className="text-xs text-amber-500">⚠ tylko wewnętrzna</span>}
-        </label>
       </div>
 
       {/* Linie produktów */}
@@ -617,16 +605,32 @@ export function UnifiedSaleFormPage() {
         </div>
       )}
 
-      <div className="flex gap-3 pb-6">
-        <Button
-          className="flex-1"
-          loading={saving}
-          disabled={lines.length === 0 || grandTotal <= 0}
-          onClick={handleSave}
-        >
-          Zapisz sprzedaż →
+      <div className="space-y-2 pb-6">
+        <div className="flex gap-2">
+          <Button
+            className="flex-1"
+            loading={saving === 'rhd'}
+            disabled={!!saving || lines.length === 0 || grandTotal <= 0}
+            onClick={() => handleSave(true)}
+          >
+            📋 Zapisz do RHD
+          </Button>
+          <Button
+            variant="secondary"
+            className="flex-1"
+            loading={saving === 'norhd'}
+            disabled={!!saving || lines.length === 0 || grandTotal <= 0}
+            onClick={() => handleSave(false)}
+          >
+            📦 Zapisz bez RHD
+          </Button>
+        </div>
+        <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>
+          Anuluj
         </Button>
-        <Button variant="outline" onClick={() => navigate(-1)}>Anuluj</Button>
+        <p className="text-xs text-gray-400 text-center">
+          RHD — sprzedaż bezpośrednia wliczana do limitu {new Date().getFullYear()} r.
+        </p>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { saleService } from '@/services/sale.service';
 import { dairyService } from '@/services/dairy.service';
+import { batchService } from '@/services/batch.service';
 import { SALE_TYPE_LABELS } from '@/constants/phases';
 import { UNIT_LABELS } from '@/models/dairy.model';
 import { Button } from '@/components/ui/Button';
@@ -42,24 +43,30 @@ export function UnifiedSalesPage() {
     setLoading(true);
     const yearStr = String(y);
 
-    const [drobSales, dairySales] = await Promise.all([
+    const [drobSales, dairySales, allBatches] = await Promise.all([
       hasDrob ? saleService.getAll() : Promise.resolve([]),
       hasSery ? dairyService.getSales(y) : Promise.resolve([]),
+      hasDrob ? batchService.getAll() : Promise.resolve([]),
     ]);
+    const batchNameMap = new Map(allBatches.map(b => [b.id!, b.name]));
 
     const unified: UnifiedRow[] = [];
 
     for (const s of drobSales.filter(s => s.saleDate.startsWith(yearStr) && s.saleType !== 'jaja_wewn')) {
+      const batchName = s.batchId ? batchNameMap.get(s.batchId) : undefined;
       unified.push({
         id:       s.id!,
         activity: 'drob',
         date:     s.saleDate,
         label:    SALE_TYPE_LABELS[s.saleType],
-        detail:   s.saleType === 'jaja'
-          ? `${s.eggsCount?.toLocaleString('pl-PL') ?? 0} szt.`
-          : s.weightKg != null
-            ? `${s.birdCount ?? '?'} szt. · ${s.weightKg} kg`
-            : `${s.birdCount ?? '?'} szt.`,
+        detail:   [
+          s.saleType === 'jaja'
+            ? `${s.eggsCount?.toLocaleString('pl-PL') ?? 0} szt.`
+            : s.weightKg != null
+              ? `${s.birdCount ?? '?'} szt. · ${s.weightKg} kg`
+              : `${s.birdCount ?? '?'} szt.`,
+          batchName ? `stado: ${batchName}` : null,
+        ].filter(Boolean).join(' · '),
         total:    s.totalRevenuePln,
         buyer:    s.buyerName,
         inRhd:    s.inRhd ?? true,
