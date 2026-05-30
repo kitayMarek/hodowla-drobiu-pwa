@@ -298,8 +298,12 @@ export function UnifiedSaleFormPage() {
       }
 
       navigate('/sprzedaz');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Błąd zapisu');
+    } catch (e: unknown) {
+      // Pokaż pełny błąd Supabase (zawiera nazwę brakującej kolumny itp.)
+      const msg = (e as { message?: string; details?: string; hint?: string })?.message
+        ?? String(e);
+      const detail = (e as { details?: string })?.details ?? '';
+      setError(detail ? `${msg} — ${detail}` : msg);
       setSaving(null);
     }
   };

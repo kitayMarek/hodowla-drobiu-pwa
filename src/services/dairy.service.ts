@@ -780,8 +780,12 @@ export const dairyService = {
 
     let rhdNumber = s.rhdNumber;
     if (s.inRhd && !rhdNumber) {
-      const stats = await this.getRhdStats(year);
-      rhdNumber = stats.nextNumber;
+      try {
+        const stats = await this.getRhdStats(year);
+        rhdNumber = stats.nextNumber;
+      } catch {
+        rhdNumber = 1; // fallback jeśli kolumna rhd_year jeszcze nie istnieje
+      }
     }
 
     const toSave = { ...s, rhdNumber, rhdYear: year };
