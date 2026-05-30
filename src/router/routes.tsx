@@ -15,6 +15,8 @@ import { HealthPage } from '@/pages/health/HealthPage';
 import { WeighingListPage } from '@/pages/weighings/WeighingListPage';
 import { SlaughterPage } from '@/pages/slaughter/SlaughterPage';
 import { SalesPage } from '@/pages/sales/SalesPage';
+import { UnifiedSalesPage } from '@/pages/sales/UnifiedSalesPage';
+import { UnifiedSaleFormPage } from '@/pages/sales/UnifiedSaleFormPage';
 import { FinancePage } from '@/pages/finance/FinancePage';
 import { InvestmentPage } from '@/pages/investments/InvestmentPage';
 import { ReportsPage } from '@/pages/reports/ReportsPage';
@@ -98,6 +100,10 @@ export const router = createBrowserRouter([
 
       // Szybki wpis
       { path: 'szybki', element: <QuickEntryPage /> },
+
+      // Sprzedaż unified
+      { path: 'sprzedaz',      element: <UnifiedSalesPage /> },
+      { path: 'sprzedaz/nowa', element: <UnifiedSaleFormPage /> },
 
       // Dziennik kasowy
       { path: 'kasa', element: <CashFlowPage /> },

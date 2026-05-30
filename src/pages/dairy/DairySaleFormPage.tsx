@@ -113,8 +113,7 @@ export function DairySaleFormPage() {
       setBuyers(buys);
       setRhdStats(stats);
       if (limitStr) setRhdLimit(parseFloat(limitStr));
-      // Konta powiązane z sery lub bez zakresu (wspólne)
-      setAccounts(accs.filter(a => a.scope === 'sery' || a.scope === 'osobiste' || !a.scope));
+      setAccounts(accs); // wszystkie aktywne konta
     });
   }, []);
 

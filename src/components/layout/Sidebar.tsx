@@ -78,6 +78,7 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'general',
     label: 'Ogólne',
     items: [
+      { to: '/sprzedaz',   label: 'Sprzedaż',     icon: '💰' },
       { to: '/kasa',       label: 'Kasa i Bank',  icon: '💳' },
       { to: '/inwestycje', label: 'Inwestycje',   icon: '🏗️' },
       { to: '/raporty',    label: pl.nav.reports, icon: '📋' },
