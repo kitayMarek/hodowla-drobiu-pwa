@@ -163,6 +163,7 @@ export interface DairySale {
   // Opcje
   batchId?: number;
   cashAccountId?: number;   // konto kasowe / bankowe do którego trafia płatność
+  saleDocumentId?: number;  // dokument sprzedaży (nagłówek)
   invoiceNumber?: string;
   notes?: string;
   createdAt: string;

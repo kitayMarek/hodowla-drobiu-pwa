@@ -163,7 +163,8 @@ function toDairySale(r: Record<string, unknown>): DairySale {
     rhdNumber: r.rhd_number != null ? Number(r.rhd_number) : undefined,
     rhdYear: r.rhd_year != null ? Number(r.rhd_year) : undefined,
     batchId: r.batch_id != null ? Number(r.batch_id) : undefined,
-    cashAccountId: r.cash_account_id != null ? Number(r.cash_account_id) : undefined,
+    cashAccountId:  r.cash_account_id  != null ? Number(r.cash_account_id)  : undefined,
+    saleDocumentId: r.sale_document_id != null ? Number(r.sale_document_id) : undefined,
     invoiceNumber: r.invoice_number as string | undefined,
     notes: r.notes as string | undefined,
     createdAt: r.created_at as string,
@@ -736,6 +737,16 @@ export const dairyService = {
   },
 
   // ── Sprzedaż mleczarska ──────────────────────────────────────────
+
+  async getSalesByDocument(documentId: number): Promise<DairySale[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('dairy_sales').select('*')
+        .eq('user_id', user.id).eq('sale_document_id', documentId);
+      return (data ?? []).map(toDairySale);
+    }
+    return db.dairySales.where('saleDocumentId').equals(documentId).toArray();
+  },
 
   async getSales(year?: number): Promise<DairySale[]> {
     const user = await getAuthUser();

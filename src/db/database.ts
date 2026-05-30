@@ -27,6 +27,7 @@ import type {
   ProductionBatch, ProductionStep, WheyByproduct, DairySale,
   DairyProduct, DairyBuyer,
 } from '@/models/dairy.model';
+import type { SaleDocument } from '@/models/saleDocument.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -67,6 +68,7 @@ export class FarmDatabase extends Dexie {
   dairySales!: Table<DairySale, number>;
   dairyProducts!: Table<DairyProduct, number>;
   dairyBuyers!: Table<DairyBuyer, number>;
+  saleDocuments!: Table<SaleDocument, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -265,6 +267,13 @@ export class FarmDatabase extends Dexie {
       dairyProducts: '++id, category, isActive, name',
       dairyBuyers:   '++id, name, isAnonymous',
       dairySales:    '++id, saleDate, productId, buyerId, inRhd, rhdYear, rhdNumber, batchId, cashAccountId, [rhdYear+rhdNumber], [saleDate+inRhd]',
+    });
+
+    // v21: Dokumenty sprzedaży — nagłówek grupujący linie z jednej transakcji
+    this.version(21).stores({
+      saleDocuments: '++id, docDate, rhdYear, rhdNumber, inRhd, buyerId',
+      dairySales:    '++id, saleDate, productId, buyerId, inRhd, rhdYear, rhdNumber, batchId, cashAccountId, saleDocumentId, [rhdYear+rhdNumber], [saleDate+inRhd]',
+      sales:         '++id, batchId, saleDate, saleType, saleDocumentId, [batchId+saleDate], [saleType+saleDate]',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

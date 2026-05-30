@@ -19,5 +19,7 @@ export interface Sale {
   notes?: string;
   /** Czy ujmować w ewidencji RHD i liczniku 100 tys. zł (domyślnie: true) */
   inRhd?: boolean;
+  /** Dokument sprzedaży (nagłówek grupujący) */
+  saleDocumentId?: number;
   createdAt: string;
 }

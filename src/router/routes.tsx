@@ -17,6 +17,7 @@ import { SlaughterPage } from '@/pages/slaughter/SlaughterPage';
 import { SalesPage } from '@/pages/sales/SalesPage';
 import { UnifiedSalesPage } from '@/pages/sales/UnifiedSalesPage';
 import { UnifiedSaleFormPage } from '@/pages/sales/UnifiedSaleFormPage';
+import { SaleDocumentPage } from '@/pages/sales/SaleDocumentPage';
 import { Navigate } from 'react-router-dom';
 import { FinancePage } from '@/pages/finance/FinancePage';
 import { InvestmentPage } from '@/pages/investments/InvestmentPage';
@@ -105,6 +106,7 @@ export const router = createBrowserRouter([
       // Sprzedaż — unified (główny punkt wejścia)
       { path: 'sprzedaz',             element: <UnifiedSalesPage /> },
       { path: 'sprzedaz/nowa',        element: <UnifiedSaleFormPage /> },
+      { path: 'sprzedaz/:id',         element: <SaleDocumentPage /> },
       // Przekierowania z mleko/sprzedaz → unified
       { path: 'mleko/sprzedaz',       element: <Navigate to="/sprzedaz" replace /> },
       { path: 'mleko/sprzedaz/nowa',  element: <Navigate to="/sprzedaz/nowa" replace /> },

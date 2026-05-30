@@ -19,7 +19,8 @@ function rowToSale(r: Record<string, unknown>): Sale {
     buyerName:        r.buyer_name as string | undefined,
     invoiceNumber:    r.invoice_number as string | undefined,
     notes:            r.notes as string | undefined,
-    inRhd:            r.in_rhd !== false,   // null/undefined → true (kolumna może jeszcze nie istnieć)
+    inRhd:            r.in_rhd !== false,
+    saleDocumentId:   r.sale_document_id != null ? Number(r.sale_document_id) : undefined,
     createdAt:        r.created_at as string,
   };
 }
@@ -33,6 +34,16 @@ export const saleService = {
       return (data ?? []).map(rowToSale);
     }
     return db.sales.orderBy('saleDate').reverse().toArray();
+  },
+
+  async getByDocument(documentId: number): Promise<Sale[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('sales').select('*')
+        .eq('user_id', user.id).eq('sale_document_id', documentId);
+      return (data ?? []).map(rowToSale);
+    }
+    return db.sales.where('saleDocumentId').equals(documentId).toArray();
   },
 
   async getByBatch(batchId: number): Promise<Sale[]> {
@@ -76,7 +87,9 @@ export const saleService = {
         weight_kg: data.weightKg ?? null, price_per_kg_pln: data.pricePerKgPln ?? null,
         total_revenue_pln: data.totalRevenuePln, buyer_name: data.buyerName ?? null,
         invoice_number: data.invoiceNumber ?? null, notes: data.notes ?? null,
-        in_rhd: data.inRhd ?? true, created_at: now,
+        in_rhd: data.inRhd ?? true,
+        ...(data.saleDocumentId != null ? { sale_document_id: data.saleDocumentId } : {}),
+        created_at: now,
       }).select('id').single();
       if (error) throw error;
       return row.id;
