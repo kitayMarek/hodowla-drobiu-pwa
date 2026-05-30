@@ -10,6 +10,7 @@ import {
 import { saleService }  from '@/services/sale.service';
 import { financialEventService } from '@/services/financialEvent.service';
 import { batchService } from '@/services/batch.service';
+import { slaughterService } from '@/services/slaughter.service';
 import { orderService } from '@/services/order.service';
 import { hatchingEggService } from '@/services/hatchingEgg.service';
 import { Button }       from '@/components/ui/Button';
@@ -271,6 +272,25 @@ export function SalesPage() {
       saleId = await saleService.create({ ...data, inRhd: saleInRhd }) as number;
 
       if (data.saleType === 'ptaki_zywe' && data.batchId) {
+        await batchService.checkAndAutoClose(Number(data.batchId));
+      }
+
+      // Tuszki/elementy: jeśli ubój nie był wcześniej zarejestrowany na ten dzień,
+      // stwórz rekord uboju automatycznie, żeby stan stada się zmniejszył
+      if ((data.saleType === 'tuszki' || data.saleType === 'elementy') &&
+          data.batchId && (data.birdCount ?? 0) > 0) {
+        const existing = await slaughterService.getByBatch(Number(data.batchId));
+        const alreadyOnDate = existing.some(s => s.slaughterDate === data.saleDate);
+        if (!alreadyOnDate) {
+          await slaughterService.create({
+            batchId:              Number(data.batchId),
+            slaughterDate:        data.saleDate,
+            birdsSlaughtered:     data.birdCount!,
+            liveWeightTotalKg:    0,
+            carcassWeightTotalKg: data.weightKg ?? 0,
+            notes: 'Automatyczny wpis uboju przy rejestracji sprzedaży tuszek.',
+          });
+        }
         await batchService.checkAndAutoClose(Number(data.batchId));
       }
 
