@@ -80,9 +80,10 @@ export function UnifiedSaleFormPage() {
   const hasDrob = activities.some(a => a.key === 'drob' && a.isActive);
   const hasSery = activities.some(a => a.key === 'sery' && a.isActive);
 
-  const [batches,  setBatches]  = useState<Batch[]>([]);
-  const [products, setProducts] = useState<DairyProduct[]>([]);
-  const [accounts, setAccounts] = useState<CashAccount[]>([]);
+  const [batches,    setBatches]    = useState<Batch[]>([]);
+  const [products,   setProducts]   = useState<DairyProduct[]>([]);
+  const [accounts,   setAccounts]   = useState<CashAccount[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   const [saleDate,      setSaleDate]      = useState(new Date().toISOString().slice(0, 10));
   const [buyerName,     setBuyerName]     = useState('');
@@ -102,6 +103,7 @@ export function UnifiedSaleFormPage() {
       setBatches(b.filter(x => x.status === 'active'));
       setProducts(p.filter(x => x.isActive));
       setAccounts(a);
+      setDataLoaded(true);
     });
   }, []);
 
@@ -167,7 +169,7 @@ export function UnifiedSaleFormPage() {
           if (l.drobSaleType === 'jaja') {
             saleData.eggsCount = parseInt(l.drobEggsCount) || 0;
             saleData.eggPricePln = parseFloat(l.unitPrice) || 0;
-            saleData.batchId = 0; // jaja nie wymagają konkretnego stada
+            saleData.batchId = batchId ?? 0;
           } else if (l.drobSaleType === 'tuszki' || l.drobSaleType === 'elementy') {
             saleData.birdCount  = parseInt(l.drobBirdCount) || 0;
             saleData.weightKg   = parseFloat(l.drobWeightKg) || 0;
@@ -457,7 +459,7 @@ export function UnifiedSaleFormPage() {
               {/* Pola mleczarnia */}
               {l.activity === 'sery' && (
                 <div className="space-y-2">
-                  {products.length === 0 ? (
+                  {dataLoaded && products.length === 0 ? (
                     <p className="text-xs text-gray-400">
                       Brak produktów.{' '}
                       <Link to="/mleko/produkty" className="text-brand-600 underline">Dodaj katalog →</Link>
