@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
+import { cashFlowService } from '@/services/cashFlow.service';
 import type { MilkSupplier } from '@/models/dairy.model';
+import type { CashAccount } from '@/models/cashFlow.model';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -21,6 +23,10 @@ export function MilkReceptionFormPage() {
   const [saving, setSaving]       = useState(false);
   const [error, setError]         = useState('');
 
+  // Konta kasowe
+  const [accounts,      setAccounts]      = useState<CashAccount[]>([]);
+  const [cashAccountId, setCashAccountId] = useState('');
+
   // Dostawcy
   const [suppliers, setSuppliers]       = useState<MilkSupplier[]>([]);
   const [supplierId, setSupplierId]     = useState<number | ''>('');
@@ -33,7 +39,10 @@ export function MilkReceptionFormPage() {
   const [supError, setSupError]             = useState('');
 
   useEffect(() => {
-    dairyService.getSuppliers().then(setSuppliers);
+    Promise.all([
+      dairyService.getSuppliers(),
+      cashFlowService.getActiveAccounts(),
+    ]).then(([s, a]) => { setSuppliers(s); setAccounts(a); });
   }, []);
 
   const totalPrice = pricePerL && quantity
@@ -69,6 +78,7 @@ export function MilkReceptionFormPage() {
     setSaving(true); setError('');
     try {
       const supplier = suppliers.find(s => s.id === supplierId);
+      const total = source === 'purchase' && totalPrice ? parseFloat(totalPrice) : 0;
       const id = await dairyService.saveReception({
         date, source, quantityLiters: parseFloat(quantity),
         temperatureC: temp ? parseFloat(temp) : undefined,
@@ -76,10 +86,26 @@ export function MilkReceptionFormPage() {
         supplierId: source === 'purchase' ? (supplierId || undefined) as number | undefined : undefined,
         supplierName: source === 'purchase' ? supplier?.name : undefined,
         pricePerLiter: source === 'purchase' && pricePerL ? parseFloat(pricePerL) : undefined,
-        totalPricePln: source === 'purchase' && totalPrice ? parseFloat(totalPrice) : undefined,
+        totalPricePln: total || undefined,
         invoiceNumber: invoice || undefined,
         notes: notes || undefined,
       });
+
+      // Zaksięguj wydatek w kasie jeśli wybrano konto i jest cena skupu
+      if (source === 'purchase' && cashAccountId && total > 0) {
+        await cashFlowService.createTransaction({
+          accountId:   Number(cashAccountId),
+          date,
+          type:        'expense',
+          scope:       'sery',
+          category:    'Zakup mleka',
+          description: `Skup mleka ${parseFloat(quantity).toFixed(1)} L${supplier ? ` — ${supplier.name}` : ''}${invoice ? ` (${invoice})` : ''}`,
+          amountPln:   total,
+          sourceType:  'milk_reception',
+          sourceId:    id,
+        });
+      }
+
       navigate(`/mleko/rozlew/${id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Błąd zapisu');
@@ -202,6 +228,30 @@ export function MilkReceptionFormPage() {
               value={invoice} onChange={e => setInvoice(e.target.value)}
               placeholder="np. FV/2026/05/001"
             />
+
+            {/* Konto kasowe */}
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Konto kasowe (opcjonalnie)
+              </label>
+              <select
+                value={cashAccountId}
+                onChange={e => setCashAccountId(e.target.value)}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              >
+                <option value="">— nie księguj wydatku —</option>
+                {accounts.map(a => (
+                  <option key={a.id} value={a.id}>
+                    {a.type === 'bank' ? '🏦' : '💵'} {a.name}
+                  </option>
+                ))}
+              </select>
+              {cashAccountId && totalPrice && (
+                <p className="text-xs text-green-600 mt-1">
+                  ✓ Wydatek {totalPrice} zł zostanie zaksięgowany w kasie.
+                </p>
+              )}
+            </div>
           </div>
         </Card>
       )}

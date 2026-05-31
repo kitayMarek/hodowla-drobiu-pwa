@@ -32,28 +32,56 @@ const newLine = (activity: LineActivity): FormLine => ({
   dairyProductId: '', quantity: '', unitPrice: '',
 });
 
-// ── Nabywca selector ─────────────────────────────────────────────
+// ── Nabywca selector z inline dodawaniem ────────────────────────
 
-function BuyerSelector({ buyers, value, onChange }: {
+function BuyerSelector({ buyers, value, onChange, onBuyerAdded }: {
   buyers: DairyBuyer[];
   value: string;
   onChange: (name: string) => void;
+  onBuyerAdded: (updated: DairyBuyer[]) => void;
 }) {
-  const [mode, setMode] = useState<'select' | 'manual'>('select');
+  const [showNew,    setShowNew]    = useState(false);
+  const [newName,    setNewName]    = useState('');
+  const [newAnon,    setNewAnon]    = useState(false);
+  const [newPhone,   setNewPhone]   = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [newSaving,  setNewSaving]  = useState(false);
+  const [newError,   setNewError]   = useState('');
+
   const selected = buyers.find(b => b.name === value);
+
+  const handleSaveNew = async () => {
+    if (!newName.trim()) { setNewError('Podaj nazwę.'); return; }
+    setNewSaving(true); setNewError('');
+    try {
+      await dairyService.saveBuyer({
+        name: newName.trim(), isAnonymous: newAnon,
+        phone: newPhone.trim() || undefined,
+        address: newAddress.trim() || undefined,
+      });
+      const updated = await dairyService.getBuyers();
+      onBuyerAdded(updated);
+      onChange(newName.trim());
+      setShowNew(false);
+      setNewName(''); setNewPhone(''); setNewAddress(''); setNewAnon(false);
+    } catch (e) {
+      setNewError(e instanceof Error ? e.message : 'Błąd zapisu');
+    } finally {
+      setNewSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
         <label className="block text-xs font-medium text-gray-600">Nabywca</label>
-        <div className="flex items-center gap-2">
-          <Link to="/mleko/nabywcy" className="text-xs text-brand-600 hover:underline">+ Zarządzaj nabywcami</Link>
-          <button type="button" onClick={() => { setMode(m => m === 'select' ? 'manual' : 'select'); onChange(''); }}
-            className="text-xs text-gray-400 hover:text-gray-600 underline">
-            {mode === 'select' ? 'wpisz ręcznie' : 'wybierz z listy'}
-          </button>
-        </div>
+        <button type="button" onClick={() => setShowNew(v => !v)}
+          className="text-xs text-brand-600 hover:text-brand-800 font-medium">
+          {showNew ? '← Wróć do listy' : '+ Nowy nabywca'}
+        </button>
       </div>
-      {mode === 'select' ? (
+
+      {!showNew ? (
         <div className="space-y-1">
           <select value={value} onChange={e => onChange(e.target.value)}
             className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
@@ -72,9 +100,39 @@ function BuyerSelector({ buyers, value, onChange }: {
           {selected?.address && <p className="text-xs text-gray-400">📍 {selected.address}</p>}
         </div>
       ) : (
-        <input type="text" value={value} onChange={e => onChange(e.target.value)}
-          placeholder="Wpisz imię, firmę lub miejsce…"
-          className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl space-y-2">
+          <p className="text-xs font-semibold text-blue-700">Nowy nabywca</p>
+
+          {/* Typ nabywcy */}
+          <div className="flex gap-2">
+            <button onClick={() => setNewAnon(false)}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${
+                !newAnon ? 'bg-brand-50 border-brand-300 text-brand-700' : 'bg-white border-gray-200 text-gray-500'
+              }`}>👤 Osoba / Firma</button>
+            <button onClick={() => setNewAnon(true)}
+              className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-medium border transition-colors ${
+                newAnon ? 'bg-amber-50 border-amber-300 text-amber-700' : 'bg-white border-gray-200 text-gray-500'
+              }`}>🏪 Targ / Wystawa</button>
+          </div>
+
+          <input type="text" value={newName} onChange={e => setNewName(e.target.value)}
+            placeholder={newAnon ? 'Nazwa miejsca / wydarzenia' : 'Imię i nazwisko / Firma'}
+            className="w-full rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+
+          <div className="grid grid-cols-2 gap-2">
+            <input type="tel" value={newPhone} onChange={e => setNewPhone(e.target.value)}
+              placeholder="Telefon (opcjonalnie)"
+              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <input type="text" value={newAddress} onChange={e => setNewAddress(e.target.value)}
+              placeholder="Adres (opcjonalnie)"
+              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+          </div>
+
+          {newError && <p className="text-xs text-red-600">⚠ {newError}</p>}
+          <Button size="sm" loading={newSaving} disabled={!newName.trim()} onClick={handleSaveNew}>
+            Zapisz i wybierz
+          </Button>
+        </div>
       )}
     </div>
   );
@@ -189,7 +247,12 @@ export function UnifiedSaleFormPage() {
           </div>
         </div>
 
-        <BuyerSelector buyers={buyers} value={buyerName} onChange={setBuyerName} />
+        <BuyerSelector
+          buyers={buyers}
+          value={buyerName}
+          onChange={setBuyerName}
+          onBuyerAdded={setBuyers}
+        />
 
         <div>
           <label className="block text-xs font-medium text-gray-600 mb-1">Uwagi do dokumentu</label>
