@@ -429,7 +429,8 @@ export function CashFlowPage() {
   const accountMap = new Map(accounts.map(a => [a.id!, a]));
 
   // ── Wykres salda konta ─────────────────────────────────────────────────────
-  const [chartAccount, setChartAccount] = useState<CashAccount | null>(null);
+  const [chartAccount,  setChartAccount]  = useState<CashAccount | null>(null);
+  const [showAllChart,  setShowAllChart]  = useState(false);
 
   const accountChartData = useMemo(() => {
     if (!chartAccount) return { balanceHistory: [], monthlyBars: [] };
@@ -474,6 +475,89 @@ export function CashFlowPage() {
     }
     return { balanceHistory, monthlyBars: Object.values(months) };
   }, [chartAccount, allTxs]);
+
+  // ── Dane wykresu zbiorczego (wszystkie konta) ────────────────────────────
+  const allChartData = useMemo(() => {
+    if (!showAllChart && accounts.length === 0) return null;
+
+    const sorted = [...allTxs].sort((a, b) => a.date.localeCompare(b.date));
+
+    // Bieżące saldo = suma sald otwarcia
+    let running = accounts.reduce((s, a) => s + a.openingBalance, 0);
+    const seen = new Set<number>();
+    const balanceHistory: { date: string; value: number }[] = [];
+
+    for (const tx of sorted) {
+      if (tx.id != null && seen.has(tx.id)) continue;
+      if (tx.id != null) seen.add(tx.id);
+      // Transfery wewnętrzne niwelują się (wychodzi z A, wchodzi do B)
+      if (tx.type === 'income')  running += tx.amountPln;
+      if (tx.type === 'expense') running -= tx.amountPln;
+      balanceHistory.push({ date: tx.date, value: Math.round(running * 100) / 100 });
+    }
+
+    // Ostatnie 12 miesięcy — wpływy vs wydatki
+    const now = new Date();
+    const monthMap12: Record<string, { month: string; income: number; cost: number }> = {};
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      monthMap12[key] = {
+        month: d.toLocaleDateString('pl-PL', { month: 'short', year: '2-digit' }),
+        income: 0, cost: 0,
+      };
+    }
+    for (const tx of sorted) {
+      if (tx.type === 'transfer') continue;
+      const m = tx.date.slice(0, 7);
+      if (!monthMap12[m]) continue;
+      if (tx.type === 'income')  monthMap12[m].income += tx.amountPln;
+      if (tx.type === 'expense') monthMap12[m].cost   += tx.amountPln;
+    }
+    const monthlyBars = Object.values(monthMap12);
+
+    // Ostatnie 6 miesięcy — przychody per działalność
+    const scopes = [...new Set(allTxs.filter(t => t.type === 'income').map(t => t.scope))];
+    const SCOPE_COLORS: Record<string, string> = {
+      drob: '#f97316', sery: '#8b5cf6', kiszonki: '#22c55e',
+      agroturystyka: '#06b6d4', osobiste: '#64748b',
+    };
+    const monthMap6: Record<string, Record<string, unknown> & { month: string }> = {};
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const entry: Record<string, unknown> & { month: string } = {
+        month: d.toLocaleDateString('pl-PL', { month: 'short' }),
+      };
+      scopes.forEach(sc => { entry[sc] = 0; });
+      monthMap6[key] = entry;
+    }
+    for (const tx of sorted) {
+      if (tx.type !== 'income') continue;
+      const m = tx.date.slice(0, 7);
+      if (!monthMap6[m]) continue;
+      const prev = (monthMap6[m][tx.scope] as number | undefined) ?? 0;
+      monthMap6[m][tx.scope] = prev + tx.amountPln;
+    }
+    const activityBars = Object.values(monthMap6);
+    const activitySeries = scopes
+      .filter(sc => activityBars.some(m => ((m[sc] as number | undefined) ?? 0) > 0))
+      .map(sc => ({
+        key: sc,
+        label: sc.charAt(0).toUpperCase() + sc.slice(1),
+        color: SCOPE_COLORS[sc] ?? '#94a3b8',
+      }));
+
+    // Bieżący miesiąc
+    const thisMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const thisMonthIncome  = monthlyBars.find(m => Object.keys(monthMap12).includes(thisMonthKey) &&
+      m.month === monthMap12[thisMonthKey]?.month)?.income ?? 0;
+    const thisMonthExpense = monthlyBars.find(m => Object.keys(monthMap12).includes(thisMonthKey) &&
+      m.month === monthMap12[thisMonthKey]?.month)?.cost ?? 0;
+
+    return { balanceHistory, monthlyBars, activityBars, activitySeries,
+             currentTotal: running, thisMonthIncome, thisMonthExpense };
+  }, [showAllChart, accounts, allTxs]);
 
   // ── Miesiące do filtra ─────────────────────────────────────────────────────
   const months = useMemo(() => {
@@ -637,20 +721,29 @@ export function CashFlowPage() {
 
           {/* Podsumowanie */}
           {accounts.length > 1 && (
-            <button
-              onClick={() => setFilterAccount('')}
-              className={`text-left rounded-xl border p-4 flex flex-col gap-1 shadow-sm transition-all active:scale-[0.98] cursor-pointer hover:shadow-md ${
+            <div
+              className={`text-left rounded-xl border p-4 flex flex-col gap-1 shadow-sm transition-all hover:shadow-md ${
                 filterAccount === ''
                   ? 'bg-brand-50 border-brand-300 ring-2 ring-brand-300'
                   : 'bg-brand-50 border-brand-200 hover:border-brand-300'
               }`}
             >
-              <span className="text-xs text-brand-600 font-medium">Razem wszystkie</span>
-              <div className={`text-lg font-bold ${totalBalance < 0 ? 'text-red-600' : 'text-brand-700'}`}>
-                {formatPln(totalBalance)}
+              <div className="flex items-center justify-between">
+                <button onClick={() => setFilterAccount('')} className="text-xs text-brand-600 font-medium">
+                  Razem wszystkie
+                </button>
+                <button
+                  onClick={e => { e.stopPropagation(); setShowAllChart(true); }}
+                  className="text-gray-400 hover:text-brand-600 transition-colors p-0.5"
+                  title="Wykres przepływu pieniędzy"
+                >📊</button>
               </div>
+              <button onClick={() => setFilterAccount('')}
+                className={`text-lg font-bold text-left ${totalBalance < 0 ? 'text-red-600' : 'text-brand-700'}`}>
+                {formatPln(totalBalance)}
+              </button>
               <span className="text-xs text-brand-500">🐔 Drób: {formatPln(drobBalance)}</span>
-            </button>
+            </div>
           )}
         </div>
       )}
@@ -1667,6 +1760,116 @@ export function CashFlowPage() {
               )}
 
               <Button variant="outline" className="w-full" onClick={() => setChartAccount(null)}>Zamknij</Button>
+            </div>
+          );
+        })()}
+      </Modal>
+
+      {/* ── Modal wykresu zbiorczego — wszystkie konta ───────────────────── */}
+      <Modal
+        open={showAllChart}
+        onClose={() => setShowAllChart(false)}
+        title="📊 Przepływ pieniędzy — wszystkie konta"
+        size="lg"
+      >
+        {showAllChart && allChartData && (() => {
+          const { balanceHistory, monthlyBars, activityBars, activitySeries, currentTotal } = allChartData;
+          const fmt = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(Math.round(v));
+          const hasBal = balanceHistory.length >= 2;
+          const hasMonthly = monthlyBars.some(m => m.income > 0 || m.cost > 0);
+          const hasActivity = activitySeries.length > 0;
+
+          const thisM = new Date();
+          const thisKey = `${thisM.getFullYear()}-${String(thisM.getMonth() + 1).padStart(2, '0')}`;
+          const thisMBar = monthlyBars[monthlyBars.length - 1];
+          const thisIncome  = thisMBar?.income  ?? 0;
+          const thisExpense = thisMBar?.cost ?? 0;
+          const netThisMonth = thisIncome - thisExpense;
+
+          return (
+            <div className="space-y-6">
+
+              {/* KPI – trzy karty */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className={`rounded-xl px-3 py-3 text-center ${currentTotal < 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                  <div className="text-xs text-gray-500 mb-1">Łączne saldo</div>
+                  <div className={`text-2xl font-bold ${currentTotal < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                    {formatPln(currentTotal)}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-0.5">{accounts.length} kont</div>
+                </div>
+                <div className="rounded-xl px-3 py-3 text-center bg-blue-50">
+                  <div className="text-xs text-gray-500 mb-1">Wpływy (bm)</div>
+                  <div className="text-2xl font-bold text-blue-700">{formatPln(thisIncome)}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{thisM.toLocaleDateString('pl-PL', { month: 'long' })}</div>
+                </div>
+                <div className={`rounded-xl px-3 py-3 text-center ${netThisMonth < 0 ? 'bg-red-50' : 'bg-green-50'}`}>
+                  <div className="text-xs text-gray-500 mb-1">Wynik (bm)</div>
+                  <div className={`text-2xl font-bold ${netThisMonth < 0 ? 'text-red-600' : 'text-green-700'}`}>
+                    {netThisMonth >= 0 ? '+' : ''}{formatPln(netThisMonth)}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-0.5">po {formatPln(thisExpense)} wydatków</div>
+                </div>
+              </div>
+
+              {/* Historia salda */}
+              {hasBal ? (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Historia łącznego salda
+                  </div>
+                  <SimpleArea
+                    data={balanceHistory}
+                    label="Saldo łączne (PLN)"
+                    color={currentTotal >= 0 ? '#16a34a' : '#dc2626'}
+                    height={160}
+                    formatValue={fmt}
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">
+                  Za mało transakcji — historia salda pojawi się po dodaniu wpisów.
+                </p>
+              )}
+
+              {/* Wpływy vs Wydatki — 12 miesięcy */}
+              {hasMonthly && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Wpływy vs Wydatki — ostatnie 12 miesięcy
+                  </div>
+                  <MultiBar
+                    data={monthlyBars}
+                    xKey="month"
+                    bars={[
+                      { key: 'income', label: 'Wpływy',  color: '#22c55e' },
+                      { key: 'cost',   label: 'Wydatki', color: '#f87171' },
+                    ]}
+                    formatValue={fmt}
+                    height={160}
+                  />
+                </div>
+              )}
+
+              {/* Przychody per działalność */}
+              {hasActivity && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                    Przychody per działalność — ostatnie 6 miesięcy
+                  </div>
+                  <MultiBar
+                    data={activityBars}
+                    xKey="month"
+                    bars={activitySeries}
+                    formatValue={fmt}
+                    height={160}
+                  />
+                </div>
+              )}
+
+              <Button variant="outline" className="w-full" onClick={() => setShowAllChart(false)}>
+                Zamknij
+              </Button>
             </div>
           );
         })()}
