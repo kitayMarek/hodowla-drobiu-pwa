@@ -123,7 +123,8 @@ export const activityService = {
     return (count ?? 0) === 0;
   },
 
-  /** Tworzy działalności wybrane w wizardzie + zawsze dodaje 'osobiste'. */
+  /** Tworzy działalności wybrane w wizardzie + zawsze dodaje 'osobiste'.
+   *  Gdy selectedKeys jest puste → tryb finansowy (tylko 'osobiste'). */
   async completeSetup(selectedKeys: string[]): Promise<void> {
     const user = await getAuthUser();
     const now = new Date().toISOString();

@@ -153,6 +153,55 @@ export function SettingsPage() {
     <div className="space-y-4 max-w-lg">
       <h1 className="text-xl font-bold text-gray-900">{pl.settings.title}</h1>
 
+      {/* ── Tryb aplikacji ───────────────────────────────────────────── */}
+      {(() => {
+        const hasAnyUserActivity = activities.some(a => a.isActive && a.key !== 'osobiste');
+        const isFinanceMode = !hasAnyUserActivity && activities.length > 0;
+
+        const switchToFinance = async () => {
+          for (const act of activities.filter(a => !a.isSystem && a.isActive)) {
+            if (act.id != null) await activityService.setActive(act.id, false);
+          }
+        };
+        const switchToFarm = async () => {
+          for (const act of activities.filter(a => !a.isSystem && !a.isActive)) {
+            if (act.id != null) await activityService.setActive(act.id, true);
+          }
+        };
+
+        return (
+          <Card title="⚙️ Tryb aplikacji">
+            <div className="flex gap-2">
+              <button
+                onClick={switchToFarm}
+                className={`flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 text-sm font-medium transition-colors ${
+                  !isFinanceMode ? 'border-brand-400 bg-brand-50 text-brand-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-2xl">🏡</span>
+                <span>Działalność / ferma</span>
+                {!isFinanceMode && <span className="text-[10px] text-brand-500 font-normal">aktywny</span>}
+              </button>
+              <button
+                onClick={switchToFinance}
+                className={`flex-1 flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border-2 text-sm font-medium transition-colors ${
+                  isFinanceMode ? 'border-blue-400 bg-blue-50 text-blue-800' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                }`}
+              >
+                <span className="text-2xl">💳</span>
+                <span>Tylko finanse</span>
+                {isFinanceMode && <span className="text-[10px] text-blue-500 font-normal">aktywny</span>}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-2">
+              {isFinanceMode
+                ? 'Tryb finansowy — moduły produkcyjne są ukryte. Przełącz na "Działalność" aby je przywrócić.'
+                : 'Tryb działalności — widoczne są wszystkie aktywne moduły produkcyjne.'}
+            </p>
+          </Card>
+        );
+      })()}
+
       {/* ── Działalności ─────────────────────────────────────────────── */}
       <Card title="🏭 Działalności">
         <div className="space-y-2">

@@ -144,6 +144,144 @@ function CommunityCard() {
   );
 }
 
+// ── Pulpit trybu finansowego ──────────────────────────────────────
+
+function FinanceDashboard() {
+  const today = new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' });
+  const month = new Date().toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
+
+  const allTxs = useLiveQuery(
+    () => db.cashTransactions.orderBy('date').reverse().toArray(), []
+  ) ?? [];
+  const allAccounts = useLiveQuery(
+    () => db.cashAccounts.where('isActive').equals(1).toArray(), []
+  ) ?? [];
+
+  const thisMonthKey = new Date().toISOString().slice(0, 7);
+  const monthTxs = allTxs.filter(t => t.date.startsWith(thisMonthKey));
+  const monthIncome  = monthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amountPln, 0);
+  const monthExpense = monthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amountPln, 0);
+  const netMonth = monthIncome - monthExpense;
+
+  // Sumy sald kont (simplified — bez pełnego calcBalance)
+  const recentTxs = allTxs.slice(0, 8);
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-bold text-gray-900">Finanse</h1>
+        <span className="text-sm text-gray-500">{today}</span>
+      </div>
+
+      {/* KPI bieżącego miesiąca */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-3 text-center">
+          <p className="text-xs text-gray-400 mb-1">Wpływy</p>
+          <p className="text-lg font-bold text-green-600">{formatPln(monthIncome)}</p>
+          <p className="text-[10px] text-gray-300 mt-0.5">{month}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-3 text-center">
+          <p className="text-xs text-gray-400 mb-1">Wydatki</p>
+          <p className="text-lg font-bold text-red-500">{formatPln(monthExpense)}</p>
+          <p className="text-[10px] text-gray-300 mt-0.5">{month}</p>
+        </div>
+        <div className={`rounded-xl border shadow-sm px-3 py-3 text-center ${
+          netMonth >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'
+        }`}>
+          <p className="text-xs text-gray-400 mb-1">Wynik</p>
+          <p className={`text-lg font-bold ${netMonth >= 0 ? 'text-green-700' : 'text-red-600'}`}>
+            {netMonth >= 0 ? '+' : ''}{formatPln(netMonth)}
+          </p>
+          <p className="text-[10px] text-gray-300 mt-0.5">{month}</p>
+        </div>
+      </div>
+
+      {/* Szybkie akcje */}
+      <div className="grid grid-cols-2 gap-3">
+        <Link to="/kasa"
+          className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-brand-200 hover:shadow-md transition-all">
+          <span className="text-3xl">💳</span>
+          <div>
+            <div className="text-sm font-semibold text-gray-800">Kasa i Bank</div>
+            <div className="text-xs text-gray-400">{allAccounts.length} kont · transakcje</div>
+          </div>
+        </Link>
+        <Link to="/sprzedaz"
+          className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-brand-200 hover:shadow-md transition-all">
+          <span className="text-3xl">💰</span>
+          <div>
+            <div className="text-sm font-semibold text-gray-800">Sprzedaż</div>
+            <div className="text-xs text-gray-400">Historia transakcji</div>
+          </div>
+        </Link>
+        <Link to="/inwestycje"
+          className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-brand-200 hover:shadow-md transition-all">
+          <span className="text-3xl">🏗️</span>
+          <div>
+            <div className="text-sm font-semibold text-gray-800">Inwestycje</div>
+            <div className="text-xs text-gray-400">Środki trwałe</div>
+          </div>
+        </Link>
+        <Link to="/raporty"
+          className="flex items-center gap-3 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-brand-200 hover:shadow-md transition-all">
+          <span className="text-3xl">📋</span>
+          <div>
+            <div className="text-sm font-semibold text-gray-800">Raporty</div>
+            <div className="text-xs text-gray-400">Zestawienia finansowe</div>
+          </div>
+        </Link>
+      </div>
+
+      {/* Ostatnie transakcje */}
+      {recentTxs.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Ostatnie transakcje</p>
+            <Link to="/kasa" className="text-xs text-brand-600 hover:underline">Wszystkie →</Link>
+          </div>
+          <div className="space-y-1.5">
+            {recentTxs.map(tx => (
+              <div key={tx.id}
+                className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 px-3 py-2.5 shadow-sm">
+                <span className="text-lg shrink-0">
+                  {tx.type === 'income' ? '⬆️' : tx.type === 'expense' ? '⬇️' : '↔️'}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-medium text-gray-800 truncate">{tx.description ?? tx.category}</div>
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    {new Date(tx.date + 'T12:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}
+                    {' · '}{tx.category}
+                  </div>
+                </div>
+                <span className={`text-sm font-bold shrink-0 ${
+                  tx.type === 'income' ? 'text-green-600' : tx.type === 'expense' ? 'text-red-500' : 'text-gray-500'
+                }`}>
+                  {tx.type === 'income' ? '+' : tx.type === 'expense' ? '−' : ''}{formatPln(tx.amountPln)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recentTxs.length === 0 && (
+        <div className="text-center py-8">
+          <div className="text-4xl mb-3">💳</div>
+          <p className="text-gray-500 text-sm mb-1">Brak transakcji</p>
+          <p className="text-xs text-gray-400">Przejdź do Kasy i Banku aby dodać konto i pierwsze wpisy.</p>
+          <Link to="/kasa" className="inline-block mt-3">
+            <button className="text-sm text-brand-600 font-medium border border-brand-200 bg-brand-50 px-4 py-2 rounded-lg hover:bg-brand-100 transition-colors">
+              Otwórz Kasę →
+            </button>
+          </Link>
+        </div>
+      )}
+
+      <CommunityCard />
+    </div>
+  );
+}
+
 export function DashboardPage() {
   const allKPIs = useAllBatchKPIs();
   const activeBatches = useActiveBatches();
@@ -221,7 +359,13 @@ export function DashboardPage() {
 
   const hasMonthlyData = monthlyData.some(m => m.income > 0 || m.cost > 0);
 
-  // Użytkownik bez drobiu — pokaż pulpit aktywnych działalności
+  // Tryb finansowy — brak działalności użytkownika (tylko 'osobiste' lub nic)
+  const hasAnyUserActivity = activities.some(a => a.isActive && a.key !== 'osobiste');
+  if (activities.length > 0 && !hasAnyUserActivity) {
+    return <FinanceDashboard />;
+  }
+
+  // Użytkownik bez drobiu ale z innymi działalnościami
   if (activities.length > 0 && !hasDropb) {
     return <NonDrobDashboard activeKeys={activeKeys} />;
   }
