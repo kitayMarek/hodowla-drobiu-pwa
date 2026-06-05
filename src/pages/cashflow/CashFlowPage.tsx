@@ -135,6 +135,10 @@ const emptyReceiptForm = (defaultScope = 'drob'): ReceiptFormState => ({
   lines: [newReceiptLine(defaultScope)],
 });
 
+// ─── Stałe ────────────────────────────────────────────────────────────────────
+
+const ONBOARD_KEY = 'fermly_cash_onboarded'; // localStorage — pierwsze wejście
+
 // ─── Komponent ────────────────────────────────────────────────────────────────
 
 export function CashFlowPage() {
@@ -150,7 +154,6 @@ export function CashFlowPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // ── Onboarding (pierwsze wejście) ─────────────────────────────────────────
-  const ONBOARD_KEY = 'fermly_cash_onboarded';
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   // ── Dynamiczne działalności ───────────────────────────────────────────────
