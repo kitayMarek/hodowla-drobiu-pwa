@@ -146,6 +146,13 @@ export function CashFlowPage() {
   const [rev, setRev] = useState(0);
   const reload = useCallback(() => setRev(r => r + 1), []);
 
+  // ── Ładowanie ─────────────────────────────────────────────────────────────
+  const [isLoading, setIsLoading] = useState(true);
+
+  // ── Onboarding (pierwsze wejście) ─────────────────────────────────────────
+  const ONBOARD_KEY = 'fermly_cash_onboarded';
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
   // ── Dynamiczne działalności ───────────────────────────────────────────────
   const activities = useActivities();
   const businessActivities = useMemo(
@@ -222,10 +229,23 @@ export function CashFlowPage() {
   const [deleteEvent,     setDeleteEvent]     = useState<FinancialEvent | null>(null);
 
   useEffect(() => {
-    cashFlowService.getAccounts().then(r => setAccounts(r.sort((a, b) => a.name.localeCompare(b.name)))).catch(() => {});
-    cashFlowService.getTransactions().then(r => setAllTxs(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
-    financialEventService.getPending().then(r => setPending(r.sort((a, b) => b.date.localeCompare(a.date)))).catch(() => {});
-    cashFlowService.getAllCategories().then(r => setCategories(r.sort((a, b) => a.name.localeCompare(b.name, 'pl')))).catch(() => {});
+    setIsLoading(true);
+    Promise.all([
+      cashFlowService.getAccounts(),
+      cashFlowService.getTransactions(),
+      financialEventService.getPending(),
+      cashFlowService.getAllCategories(),
+    ]).then(([accs, txs, evts, cats]) => {
+      setAccounts(accs.sort((a, b) => a.name.localeCompare(b.name)));
+      setAllTxs(txs.sort((a, b) => b.date.localeCompare(a.date)));
+      setPending(evts.sort((a, b) => b.date.localeCompare(a.date)));
+      setCategories(cats.sort((a, b) => a.name.localeCompare(b.name, 'pl')));
+      setIsLoading(false);
+      // Pokaż onboarding tylko przy pustej bazie i pierwszym wejściu
+      if (accs.length === 0 && !localStorage.getItem(ONBOARD_KEY)) {
+        setShowOnboarding(true);
+      }
+    }).catch(() => setIsLoading(false));
   }, [rev]);
 
   // Filtry
@@ -668,13 +688,50 @@ export function CashFlowPage() {
       ══════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'dziennik' && (<>
 
-      {/* Karty kont */}
-      {accounts.length === 0 ? (
-        <EmptyState
-          icon="💳"
-          title="Brak kont"
-          description='Dodaj pierwsze konto bankowe lub kasę, klikając "+ Konto"'
-        />
+      {/* Karty kont — skeleton podczas ładowania */}
+      {isLoading ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="rounded-xl border border-gray-100 bg-gray-50 p-4 animate-pulse">
+              <div className="h-3 bg-gray-200 rounded w-2/3 mb-3" />
+              <div className="h-6 bg-gray-200 rounded w-1/2 mb-2" />
+              <div className="h-3 bg-gray-100 rounded w-1/3" />
+            </div>
+          ))}
+        </div>
+      ) : accounts.length === 0 ? (
+        /* ── Guided EmptyState ───────────────────────────────────────── */
+        <div className="max-w-md mx-auto py-6 px-2 text-center space-y-6">
+          <div className="text-5xl">💳</div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800 mb-1">Zacznij śledzić swoje finanse</h3>
+            <p className="text-sm text-gray-500">Trzy proste kroki i masz pełną kontrolę nad przepływem pieniędzy.</p>
+          </div>
+
+          {/* Kroki */}
+          <div className="space-y-3 text-left">
+            {[
+              { n: '1', icon: '🏦', label: 'Dodaj konto', desc: 'Konto bankowe lub gotówkę — ile masz teraz' },
+              { n: '2', icon: '➕', label: 'Wpisz transakcję', desc: 'Wpływ ze sprzedaży lub wydatek na paszę' },
+              { n: '3', icon: '📊', label: 'Analizuj przepływy', desc: 'Wykresy, filtry i zestawienia zawsze pod ręką' },
+            ].map(s => (
+              <div key={s.n} className="flex items-center gap-3 bg-white rounded-xl border border-gray-100 px-4 py-3 shadow-sm">
+                <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-xs font-bold shrink-0">
+                  {s.n}
+                </div>
+                <span className="text-xl shrink-0">{s.icon}</span>
+                <div>
+                  <div className="text-sm font-semibold text-gray-800">{s.label}</div>
+                  <div className="text-xs text-gray-400">{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <Button className="w-full" onClick={() => setShowAccountForm(true)}>
+            🏦 Dodaj pierwsze konto →
+          </Button>
+        </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {accounts.map(acc => {
@@ -814,7 +871,23 @@ export function CashFlowPage() {
       )}
 
       {/* Lista transakcji + not wewnętrznych */}
-      {accounts.length > 0 && (
+      {isLoading && (
+        <Card>
+          <div className="divide-y divide-gray-100">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-gray-100 shrink-0" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 bg-gray-200 rounded w-1/2" />
+                  <div className="h-2.5 bg-gray-100 rounded w-1/3" />
+                </div>
+                <div className="h-4 bg-gray-200 rounded w-16 shrink-0" />
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+      {!isLoading && accounts.length > 0 && (
         journalItems.length === 0 ? (
           <EmptyState icon="📋" title="Brak transakcji" description="Dodaj pierwszą transakcję klikając &quot;+ Transakcja&quot;" />
         ) : (
@@ -1695,6 +1768,75 @@ export function CashFlowPage() {
               Zapisz notę
             </Button>
             <Button variant="outline" onClick={() => setShowTransferForm(false)}>Anuluj</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Modal onboardingu (pierwsze wejście) ──────────────────────────── */}
+      <Modal
+        open={showOnboarding}
+        onClose={() => { localStorage.setItem(ONBOARD_KEY, '1'); setShowOnboarding(false); }}
+        title="👋 Witaj w Kasie i Banku"
+        size="md"
+      >
+        <div className="space-y-5">
+          <p className="text-sm text-gray-600">
+            Tu będziesz śledzić wszystkie przepływy pieniężne — wpływy ze sprzedaży,
+            wydatki na paszę, leki, faktury. Zacznij od trzech kroków:
+          </p>
+
+          <div className="space-y-3">
+            {[
+              {
+                n: '1', icon: '🏦', color: 'bg-blue-100 text-blue-700',
+                label: 'Dodaj konto',
+                desc: 'Konto bankowe z aktualnym saldem lub portfel z gotówką. Możesz mieć kilka kont dla różnych działalności.',
+              },
+              {
+                n: '2', icon: '⬆️', color: 'bg-green-100 text-green-700',
+                label: 'Wpisz wpływ',
+                desc: 'Sprzedaż drobiu, serów, jaj — każdy przychód na odpowiednie konto z kategorią.',
+              },
+              {
+                n: '3', icon: '⬇️', color: 'bg-red-100 text-red-600',
+                label: 'Wpisz wydatek',
+                desc: 'Pasza, leki, faktura — wydatki odejmują się automatycznie od salda konta.',
+              },
+            ].map(s => (
+              <div key={s.n} className="flex items-start gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                <div className={`w-7 h-7 rounded-full ${s.color} flex items-center justify-center text-xs font-bold shrink-0 mt-0.5`}>
+                  {s.n}
+                </div>
+                <span className="text-xl shrink-0">{s.icon}</span>
+                <div>
+                  <div className="text-sm font-semibold text-gray-800">{s.label}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-brand-50 border border-brand-100 rounded-xl px-4 py-3 text-xs text-brand-700">
+            💡 <strong>Wskazówka:</strong> Sprzedaż zarejestrowana w module Sprzedaży trafia do kasy automatycznie — wybierz konto w formularzu sprzedaży.
+          </div>
+
+          <div className="flex gap-2">
+            <Button
+              className="flex-1"
+              onClick={() => {
+                localStorage.setItem(ONBOARD_KEY, '1');
+                setShowOnboarding(false);
+                setShowAccountForm(true);
+              }}
+            >
+              🏦 Dodaj pierwsze konto →
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => { localStorage.setItem(ONBOARD_KEY, '1'); setShowOnboarding(false); }}
+            >
+              Może później
+            </Button>
           </div>
         </div>
       </Modal>
