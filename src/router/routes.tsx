@@ -8,8 +8,9 @@ import { BatchDetailPage } from '@/pages/batches/BatchDetailPage';
 import { BatchPhotosPage } from '@/pages/batches/BatchPhotosPage';
 import { DailyEntryListPage } from '@/pages/daily/DailyEntryListPage';
 import { DailyEntryFormPage } from '@/pages/daily/DailyEntryFormPage';
-import { FeedPage }       from '@/pages/feed/FeedPage';
-import { FeedRecipePage } from '@/pages/feed/FeedRecipePage';
+import { FeedPage }             from '@/pages/feed/FeedPage';
+import { FeedRecipePage }       from '@/pages/feed/FeedRecipePage';
+import { FeedIngredientsPage }  from '@/pages/feed/FeedIngredientsPage';
 import { HousingPage } from '@/pages/housing/HousingPage';
 import { HealthPage } from '@/pages/health/HealthPage';
 import { WeighingListPage } from '@/pages/weighings/WeighingListPage';
@@ -82,8 +83,9 @@ export const router = createBrowserRouter([
       { path: 'stada/:batchId/uboj', element: <SlaughterPage /> },
 
       // Pasza
-      { path: 'pasze',          element: <FeedPage /> },
-      { path: 'pasze/receptury', element: <FeedRecipePage /> },
+      { path: 'pasze',             element: <FeedPage /> },
+      { path: 'pasze/receptury',   element: <FeedRecipePage /> },
+      { path: 'pasze/skladniki',   element: <FeedIngredientsPage /> },
 
       // Sprzedaż drób (stara strona — zamówienia, zakupy jaj, szczegółowe filtry)
       { path: 'sprzedaz-drob', element: <SalesPage /> },

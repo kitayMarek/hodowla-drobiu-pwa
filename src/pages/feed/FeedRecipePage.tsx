@@ -2,8 +2,31 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { feedRecipeService } from '@/services/feedRecipe.service';
 import { feedService } from '@/services/feed.service';
-import { NORMY_DROBIU, TYPY_DROBIU, SKLADNIKI_BAZA, type SkladnikPaszowy } from '@/data/poultryFeedData';
+import { feedIngredientService } from '@/services/feedIngredient.service';
+import { NORMY_DROBIU, TYPY_DROBIU, SKLADNIKI_BAZA } from '@/data/poultryFeedData';
 import type { FeedRecipe, RecipeIngredient } from '@/models/feedRecipe.model';
+import type { FeedIngredient, BirdType } from '@/types/feedIngredient';
+
+/** Mapuje FeedIngredient (Supabase) na RecipeIngredient (kalkulator) */
+function dbIngredientToRecipe(ing: FeedIngredient): Omit<RecipeIngredient, 'procent'> {
+  return {
+    nazwa:  ing.name,
+    em:     ing.energia_mj    ?? 0,
+    bialko: ing.bialko_ogolne_pct ?? 0,
+    ca:     ing.ca_pct        ?? 0,
+    p:      ing.p_przyswajalne_pct ?? ing.p_total_pct ?? 0,
+    wlokno: ing.wlokno_surowe_pct  ?? 0,
+    cenaKg: ing.cena_zl_100kg != null ? ing.cena_zl_100kg / 100 : 0,
+    na:     ing.na_pct        ?? 0,
+    k:      ing.k_pct         ?? 0,
+    mg:     ing.mg_pct        ?? 0,
+    mn:     ing.mn_mg         ?? 0,
+    zn:     ing.zn_mg         ?? 0,
+    se:     ing.se_mg         ?? 0,
+    fe:     ing.fe_mg         ?? 0,
+    i:      ing.i_mg          ?? 0,
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,38 +66,62 @@ const STATUS_CLASSES: Record<StatusCell, string> = {
 
 function CalculatorTab({ onSaved }: { onSaved: () => void }) {
   const { user } = useAuth();
-  const [birdType, setBirdType]       = useState('kury-nioski-lekkie');
-  const [period, setPeriod]           = useState('');
-  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([EMPTY_INGREDIENT()]);
-  const [recipeName, setRecipeName]   = useState('');
-  const [isPublic, setIsPublic]       = useState(false);
-  const [notes, setNotes]             = useState('');
-  const [saving, setSaving]           = useState(false);
-  const [saveMsg, setSaveMsg]         = useState('');
-  const [addToFeed, setAddToFeed]     = useState(true);
+  const [birdType, setBirdType]               = useState('kury-nioski-lekkie');
+  const [period, setPeriod]                   = useState('');
+  const [ingredients, setIngredients]         = useState<RecipeIngredient[]>([EMPTY_INGREDIENT()]);
+  const [recipeName, setRecipeName]           = useState('');
+  const [isPublic, setIsPublic]               = useState(false);
+  const [notes, setNotes]                     = useState('');
+  const [saving, setSaving]                   = useState(false);
+  const [saveMsg, setSaveMsg]                 = useState('');
+  const [addToFeed, setAddToFeed]             = useState(true);
+  const [dbIngredients, setDbIngredients]     = useState<FeedIngredient[]>([]);
+
+  // Ładuj składniki z bazy przy zmianie gatunku
+  useEffect(() => {
+    feedIngredientService.getByBirdType(birdType as BirdType)
+      .then(setDbIngredients)
+      .catch(() => {
+        // fallback do statycznej listy gdy brak połączenia lub tabela nie istnieje
+        setDbIngredients([]);
+      });
+  }, [birdType]);
 
   const normy        = period ? NORMY_DROBIU[birdType]?.find(n => n.okres === period) : null;
   const sumaProc     = ingredients.reduce((s, i) => s + (i.procent || 0), 0);
   const procentOk    = Math.abs(sumaProc - 100) < 0.5;
   const koszt        = obliczKoszt(ingredients);
 
+  // Lista nazw do datalist: Supabase (priorytet) + statyczne (fallback)
+  const availableNames = dbIngredients.length > 0
+    ? dbIngredients.map(i => i.name)
+    : SKLADNIKI_BAZA.map(s => s.nazwa);
+
   const updateIngr = useCallback((idx: number, field: keyof RecipeIngredient, value: string | number) => {
     setIngredients(prev => {
       const next = [...prev];
       if (field === 'nazwa') {
-        const ref = SKLADNIKI_BAZA.find(s => s.nazwa === value);
-        if (ref) {
-          // spread ref first, then override with current procent
-          next[idx] = { ...next[idx], ...ref, procent: next[idx].procent };
+        // Szukaj najpierw w Supabase
+        const dbRef = dbIngredients.find(s => s.name === value);
+        if (dbRef) {
+          next[idx] = { ...next[idx], ...dbIngredientToRecipe(dbRef), procent: next[idx].procent };
         } else {
-          next[idx] = { ...next[idx], nazwa: value as string };
+          // Fallback do statycznej bazy
+          const ref = SKLADNIKI_BAZA.find(s => s.nazwa === value);
+          if (ref) {
+            next[idx] = { ...next[idx], ...ref, procent: next[idx].procent };
+          } else {
+            next[idx] = { ...next[idx], nazwa: value as string };
+          }
         }
       } else {
         next[idx] = { ...next[idx], [field]: value };
       }
       return next;
     });
-  }, []);
+  // dbIngredients zmienia się przy zmianie gatunku — musi być w deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dbIngredients]);
 
   const addRow    = () => setIngredients(p => [...p, EMPTY_INGREDIENT()]);
   const removeRow = (i: number) => setIngredients(p => p.filter((_, j) => j !== i));
@@ -193,7 +240,7 @@ function CalculatorTab({ onSaved }: { onSaved: () => void }) {
                       placeholder="Wpisz lub wybierz…"
                       className="w-full rounded border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-brand-500" />
                     <datalist id={`baza-${idx}`}>
-                      {SKLADNIKI_BAZA.map(s => <option key={s.nazwa} value={s.nazwa} />)}
+                      {availableNames.map(n => <option key={n} value={n} />)}
                     </datalist>
                   </td>
                   <td className="px-2 py-1.5">
