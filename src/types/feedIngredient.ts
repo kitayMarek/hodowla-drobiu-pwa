@@ -95,6 +95,7 @@ export interface FeedIngredient {
   aa_tyr: number | null;
 
   source: string;
+  photo_url: string | null;   // URL zdjęcia składnika (opcjonalne, do późniejszego wypełnienia)
   created_at: string;
   updated_at: string;
 }

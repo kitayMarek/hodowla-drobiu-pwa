@@ -84,6 +84,7 @@ const EMPTY_FORM = (): FeedIngredientInsert => ({
   aa_phe: null,
   aa_tyr: null,
   source: 'użytkownik',
+  photo_url: null,
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,6 +176,7 @@ function IngredientForm({ initial, onSave, onCancel, isNew }: IngredientFormProp
           aa_phe: initial.aa_phe,
           aa_tyr: initial.aa_tyr,
           source: initial.source,
+          photo_url: initial.photo_url,
         }
       : EMPTY_FORM()
   );
