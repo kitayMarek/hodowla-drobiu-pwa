@@ -123,13 +123,37 @@ function legacyIngredient(ri: RecipeIngredient): FeedIngredient {
 // IngredientCard
 // ─────────────────────────────────────────────────────────────────────────────
 
-function IngredientCard({ line, onRemove, onChangePercent }: {
+function IngredientCard({ line, onRemove, onChangePercent, onPriceChange }: {
   line: RecipeLine;
   onRemove: () => void;
   onChangePercent: (v: number) => void;
+  onPriceChange: (pricePerKg: number) => void;
 }) {
   const i = line.ingredient;
   const isLegacy = i.id.startsWith('legacy-');
+
+  // Stan lokalny ceny — edytowalny inline
+  const [priceEdit, setPriceEdit] = useState<string>(
+    i.cena_zl_100kg != null ? (i.cena_zl_100kg / 100).toFixed(2) : ''
+  );
+  const [priceSaved, setPriceSaved] = useState(false);
+
+  // Gdy składnik się zmieni (np. po załadowaniu receptury), zsynchronizuj
+  useEffect(() => {
+    setPriceEdit(i.cena_zl_100kg != null ? (i.cena_zl_100kg / 100).toFixed(2) : '');
+  }, [i.id, i.cena_zl_100kg]);
+
+  const handlePriceBlur = () => {
+    const val = parseFloat(priceEdit);
+    if (!isNaN(val) && val >= 0) {
+      onPriceChange(val);
+      setPriceSaved(true);
+      setTimeout(() => setPriceSaved(false), 1500);
+    } else {
+      // przywróć poprzednią wartość
+      setPriceEdit(i.cena_zl_100kg != null ? (i.cena_zl_100kg / 100).toFixed(2) : '');
+    }
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 flex gap-3">
@@ -155,15 +179,30 @@ function IngredientCard({ line, onRemove, onChangePercent }: {
           </button>
         </div>
 
-        {/* Wartości odżywcze */}
-        <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
-          {i.energia_mj     != null && <span>EM {i.energia_mj.toFixed(1)} MJ</span>}
+        {/* Wartości odżywcze + cena edytowalna */}
+        <div className="text-xs text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+          {i.energia_mj        != null && <span>EM {i.energia_mj.toFixed(1)} MJ</span>}
           {i.bialko_ogolne_pct != null && <span>Białko {i.bialko_ogolne_pct.toFixed(1)}%</span>}
-          {i.ca_pct         != null && <span>Ca {i.ca_pct.toFixed(2)}%</span>}
+          {i.ca_pct            != null && <span>Ca {i.ca_pct.toFixed(2)}%</span>}
           {i.p_przyswajalne_pct != null && <span>P {i.p_przyswajalne_pct.toFixed(2)}%</span>}
-          {i.cena_zl_100kg  != null && (
-            <span className="text-green-600">💰 {(i.cena_zl_100kg / 100).toFixed(2)} zł/kg</span>
-          )}
+
+          {/* Cena — edytowalna inline */}
+          <span className="flex items-center gap-1 text-green-600">
+            💰
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={priceEdit}
+              onChange={e => setPriceEdit(e.target.value)}
+              onBlur={handlePriceBlur}
+              onKeyDown={e => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              className="w-14 text-right text-xs font-medium text-green-600 bg-transparent border-b border-green-200 focus:border-green-500 focus:outline-none"
+              title="Kliknij aby zmienić cenę — zostanie zapisana do bazy"
+            />
+            <span>zł/kg</span>
+            {priceSaved && <span className="text-green-500 font-bold">✓</span>}
+          </span>
         </div>
 
         {/* Suwak + input */}
@@ -580,6 +619,31 @@ function CalculatorTab({ initialRecipe, onSaved }: {
     });
   }, []);
 
+  /** Aktualizuje cenę lokalnie + zapisuje do bazy Supabase */
+  const handlePriceChange = useCallback((idx: number, pricePerKg: number) => {
+    const cena_zl_100kg = Math.round(pricePerKg * 100 * 100) / 100; // zł/100kg, 2 miejsca
+    // Aktualizuj lokalnie
+    setLines(prev => {
+      const next = [...prev];
+      next[idx] = {
+        ...next[idx],
+        ingredient: { ...next[idx].ingredient, cena_zl_100kg },
+      };
+      return next;
+    });
+    // Aktualizuj też w dbIngredients żeby picker miał świeżą cenę
+    setDbIngredients(prev =>
+      prev.map(i =>
+        i.id === lines[idx]?.ingredient.id ? { ...i, cena_zl_100kg } : i
+      )
+    );
+    // Zapisz do bazy (legacy ingredienty pomijamy — nie mają prawdziwego UUID)
+    const ingId = lines[idx]?.ingredient.id;
+    if (ingId && !ingId.startsWith('legacy-')) {
+      feedIngredientService.update(ingId, { cena_zl_100kg }).catch(console.error);
+    }
+  }, [lines]);
+
   const handleSave = async () => {
     if (!recipeName.trim()) { setSaveMsg('Podaj nazwę receptury.'); return; }
     if (!procentOk) { setSaveMsg('Suma składników musi wynosić 100%.'); return; }
@@ -698,6 +762,7 @@ function CalculatorTab({ initialRecipe, onSaved }: {
                   line={line}
                   onRemove={() => handleRemove(idx)}
                   onChangePercent={v => handleChangePercent(idx, v)}
+                  onPriceChange={v => handlePriceChange(idx, v)}
                 />
               ))}
 
