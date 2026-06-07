@@ -733,10 +733,19 @@ function CalculatorTab({ initialRecipe, onSaved }: {
 
       {/* Brak składników w DB */}
       {!dbLoading && dbIngredients.length === 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 mb-4">
-          ⚠️ Nie znaleziono składników w bazie. Uruchom seed SQL lub dodaj składniki w{' '}
-          <a href="/pasze/skladniki" className="underline font-medium">Składniki paszowe</a>.
-        </div>
+        user ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800 mb-4">
+            ⚠️ Nie znaleziono składników w bazie. Dodaj je w sekcji{' '}
+            <a href="/pasze/skladniki" className="underline font-medium">Składniki paszowe</a>.
+          </div>
+        ) : (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 text-sm text-blue-800 mb-4">
+            🔒 Pełna baza składników paszowych jest dostępna po zalogowaniu. W trybie demo lista
+            może być pusta lub ograniczona —{' '}
+            <a href="/logowanie" className="underline font-medium">zaloguj się</a>, aby zobaczyć wszystkie
+            dostępne składniki i korzystać z kalkulatora w pełni.
+          </div>
+        )
       )}
 
       {/* Layout: mobile one-col, desktop two-col */}
