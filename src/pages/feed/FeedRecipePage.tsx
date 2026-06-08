@@ -36,6 +36,37 @@ function fmtNum(val: number | null | undefined, decimals = 1): string {
   return val.toFixed(decimals);
 }
 
+/** Sugerowany udział % w mieszance na podstawie optymalnego/maks. udziału składnika */
+function suggestPercent(ing: FeedIngredient): number {
+  const raw = ing.udzial_optymalny_pct;
+  if (raw) {
+    const nums = raw.match(/\d+(?:[.,]\d+)?/g);
+    if (nums && nums.length >= 2) {
+      const a = parseFloat(nums[0].replace(',', '.'));
+      const b = parseFloat(nums[1].replace(',', '.'));
+      if (!isNaN(a) && !isNaN(b)) return Math.round(((a + b) / 2) * 10) / 10;
+    }
+    if (nums && nums.length === 1) {
+      const a = parseFloat(nums[0].replace(',', '.'));
+      if (!isNaN(a)) return a;
+    }
+  }
+  if (ing.udzial_max_pct != null) {
+    return Math.round((ing.udzial_max_pct / 2) * 10) / 10;
+  }
+  return 0;
+}
+
+type PickerColGroup = 'podstawowe' | 'mineraly' | 'aminokwasy' | 'witaminy' | 'udzial';
+
+const PICKER_COL_GROUP_LABELS: Record<PickerColGroup, string> = {
+  podstawowe: 'Podstawowe',
+  mineraly:   'Minerały',
+  aminokwasy: 'Aminokwasy',
+  witaminy:   'Witaminy',
+  udzial:     'Udział %',
+};
+
 function ingAvatar(ing: FeedIngredient): React.ReactNode {
   if (ing.photo_url) {
     return <img src={ing.photo_url} alt={ing.name} className="w-full h-full object-cover" />;
@@ -238,15 +269,18 @@ function IngredientCard({ line, onRemove, onChangePercent, onPriceChange }: {
 // IngredientPicker (bottom sheet)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
+function IngredientPicker({ ingredients, birdType, addedIds, addedCount, totalPercent, onToggle, onClose }: {
   ingredients: FeedIngredient[];
   birdType: string;
   addedIds: Set<string>;
-  onAdd: (i: FeedIngredient) => void;
+  addedCount: number;
+  totalPercent: number;
+  onToggle: (i: FeedIngredient) => void;
   onClose: () => void;
 }) {
   const [search, setSearch]         = useState('');
   const [filterBird, setFilterBird] = useState(true);
+  const [colGroup, setColGroup]     = useState<PickerColGroup>('podstawowe');
 
   const filtered = useMemo(() => {
     let list = ingredients;
@@ -273,6 +307,48 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
     return map;
   }, [filtered]);
 
+  // ── Kolumny wg wybranej zakładki (jak w „Składniki paszowe") ──
+  const colDefs = useMemo(() => {
+    if (colGroup === 'podstawowe') return [
+      { key: 'sucha_masa_pct',       label: 'Sucha\nmasa %',  dec: 1 },
+      { key: 'bialko_ogolne_pct',    label: 'Białko %',       dec: 1 },
+      { key: 'tluszcz_surowy_pct',   label: 'Tłuszcz %',      dec: 1 },
+      { key: 'wlokno_surowe_pct',    label: 'Włókno %',       dec: 1 },
+      { key: 'energia_kcal',         label: 'EM\n(kcal)',      dec: 0 },
+      { key: 'energia_mj',           label: 'EM\n(MJ)',        dec: 2 },
+    ];
+    if (colGroup === 'mineraly') return [
+      { key: 'ca_pct',               label: 'Ca %',    dec: 3 },
+      { key: 'p_total_pct',          label: 'P całk.', dec: 3 },
+      { key: 'p_przyswajalne_pct',   label: 'P przysw.',dec: 3 },
+      { key: 'na_pct',               label: 'Na %',    dec: 3 },
+      { key: 'mg_pct',               label: 'Mg %',    dec: 3 },
+      { key: 'k_pct',                label: 'K %',     dec: 3 },
+    ];
+    if (colGroup === 'aminokwasy') return [
+      { key: 'aa_lys',    label: 'Lys %', dec: 3 },
+      { key: 'aa_met',    label: 'Met %', dec: 3 },
+      { key: 'aa_met_cys',label: 'Met\n+Cys', dec: 3 },
+      { key: 'aa_trp',    label: 'Trp %', dec: 3 },
+      { key: 'aa_thr',    label: 'Thr %', dec: 3 },
+    ];
+    if (colGroup === 'witaminy') return [
+      { key: 'vit_e_mg',   label: 'Wit. E\n(mg)',  dec: 1 },
+      { key: 'vit_b1_mg',  label: 'B1\n(mg)',      dec: 2 },
+      { key: 'vit_b2_mg',  label: 'B2\n(mg)',      dec: 2 },
+      { key: 'niacyna_mg', label: 'Niacyna\n(mg)', dec: 1 },
+    ];
+    if (colGroup === 'udzial') return [
+      { key: 'udzial_optymalny_pct', label: 'Optymalny %', dec: -1 },
+      { key: 'udzial_max_pct',       label: 'Max %',        dec: 0 },
+      { key: 'cena_zl_100kg',        label: 'Cena\nzł/100kg', dec: 2 },
+    ];
+    return [];
+  }, [colGroup]);
+
+  const totalCols = colDefs.length + 4; // checkbox + nazwa + kategoria + polecane dla
+  const sumaOk = Math.abs(totalPercent - 100) < 0.5;
+
   return (
     <>
       {/* Backdrop */}
@@ -291,7 +367,7 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
         {/* Header */}
         <div className="px-4 pb-3 shrink-0">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-bold text-gray-800">Dodaj składnik</h3>
+            <h3 className="font-bold text-gray-800">Dodaj składniki</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 text-sm">✕</button>
           </div>
 
@@ -304,7 +380,7 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
             className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
           />
 
-          <div className="flex items-center gap-3 mt-2">
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
             <button
               onClick={() => setFilterBird(!filterBird)}
               className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
@@ -316,6 +392,35 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
               🐔 {BIRD_TYPE_LABELS[birdType as BirdType] ?? birdType}
             </button>
             <span className="text-xs text-gray-400">{filtered.length} składników</span>
+
+            {/* Liczniki: dodane składniki + suma udziałów */}
+            <span className="ml-auto flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-medium whitespace-nowrap">
+                ✓ {addedCount} {addedCount === 1 ? 'składnik' : 'składniki'} w recepturze
+              </span>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap ${
+                sumaOk ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+              }`}>
+                Σ udział {totalPercent.toFixed(0)}%
+              </span>
+            </span>
+          </div>
+
+          {/* Zakładki kolumn (jak w „Składniki paszowe") */}
+          <div className="flex gap-1 overflow-x-auto mt-2 -mx-1 px-1">
+            {(Object.keys(PICKER_COL_GROUP_LABELS) as PickerColGroup[]).map(g => (
+              <button
+                key={g}
+                onClick={() => setColGroup(g)}
+                className={`px-2.5 py-1 text-xs font-medium whitespace-nowrap rounded-lg transition-colors ${
+                  colGroup === g
+                    ? 'bg-green-600 text-white'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                {PICKER_COL_GROUP_LABELS[g]}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -330,12 +435,11 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
                   <th className="px-2 py-2 w-9"></th>
                   <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[160px]">Nazwa</th>
                   <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[110px]">Kategoria</th>
-                  <th className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight">Sucha{'\n'}masa %</th>
-                  <th className="text-right px-2 py-2 font-semibold text-gray-700">Białko %</th>
-                  <th className="text-right px-2 py-2 font-semibold text-gray-700">Tłuszcz %</th>
-                  <th className="text-right px-2 py-2 font-semibold text-gray-700">Włókno %</th>
-                  <th className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight">EM{'\n'}(kcal)</th>
-                  <th className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight">EM{'\n'}(MJ)</th>
+                  {colDefs.map(c => (
+                    <th key={c.key} className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight min-w-[70px]">
+                      {c.label}
+                    </th>
+                  ))}
                   <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[140px]">Polecane dla</th>
                 </tr>
               </thead>
@@ -344,7 +448,7 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
                   <React.Fragment key={cat}>
                     {/* Separator kategorii */}
                     <tr className="bg-green-50/60 border-t border-b border-green-100">
-                      <td colSpan={10} className="px-2 py-1.5">
+                      <td colSpan={totalCols} className="px-2 py-1.5">
                         <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
                           {CAT_EMOJI[cat] ?? '📦'} {CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat}
                         </span>
@@ -357,11 +461,12 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
                       return (
                         <tr
                           key={ing.id}
-                          onClick={() => !added && onAdd(ing)}
-                          className={`border-b border-gray-100 transition-colors ${
+                          onClick={() => onToggle(ing)}
+                          title={added ? 'Kliknij, aby usunąć z receptury' : 'Kliknij, aby dodać do receptury'}
+                          className={`border-b border-gray-100 cursor-pointer transition-colors ${
                             added
-                              ? 'bg-green-50/60'
-                              : `cursor-pointer hover:bg-green-50/30 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`
+                              ? 'bg-green-50/60 hover:bg-red-50/50'
+                              : `hover:bg-green-50/30 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`
                           }`}
                         >
                           <td className="px-2 py-2 text-center">
@@ -379,12 +484,14 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
                           <td className="px-2 py-2 text-gray-500 text-xs">
                             {ing.category ? CATEGORY_LABELS[ing.category as keyof typeof CATEGORY_LABELS] ?? ing.category : '—'}
                           </td>
-                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.sucha_masa_pct, 1)}</td>
-                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.bialko_ogolne_pct, 1)}</td>
-                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.tluszcz_surowy_pct, 1)}</td>
-                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.wlokno_surowe_pct, 1)}</td>
-                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.energia_kcal, 0)}</td>
-                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.energia_mj, 2)}</td>
+                          {colDefs.map(c => {
+                            const val = (ing as unknown as Record<string, unknown>)[c.key];
+                            return (
+                              <td key={c.key} className="px-2 py-2 text-right text-gray-700 tabular-nums">
+                                {c.dec === -1 ? String(val ?? '—') : fmtNum(val as number | null, c.dec)}
+                              </td>
+                            );
+                          })}
                           <td className="px-2 py-2">
                             <div className="flex flex-wrap gap-1">
                               {ing.recommended_for.map(bt => (
@@ -638,10 +745,15 @@ function CalculatorTab({ initialRecipe, onSaved }: {
   const bialkoSum = weighted(lines, i => i.bialko_ogolne_pct);
   const caSum     = weighted(lines, i => i.ca_pct);
 
-  const handleAdd = useCallback((ing: FeedIngredient) => {
-    if (addedIds.has(ing.id)) return;
-    setLines(prev => [...prev, { ingredient: ing, procent: 0 }]);
-  }, [addedIds]);
+  /** Dodaje lub usuwa składnik z receptury (klik w wierszu pickera) — z auto-podpowiedzią udziału % */
+  const handleToggleIngredient = useCallback((ing: FeedIngredient) => {
+    setLines(prev => {
+      if (prev.some(l => l.ingredient.id === ing.id)) {
+        return prev.filter(l => l.ingredient.id !== ing.id);
+      }
+      return [...prev, { ingredient: ing, procent: suggestPercent(ing) }];
+    });
+  }, []);
 
   const handleRemove = (idx: number) => {
     setLines(prev => prev.filter((_, i) => i !== idx));
@@ -944,7 +1056,9 @@ function CalculatorTab({ initialRecipe, onSaved }: {
           ingredients={dbIngredients}
           birdType={birdType}
           addedIds={addedIds}
-          onAdd={handleAdd}
+          addedCount={lines.length}
+          totalPercent={sumaProc}
+          onToggle={handleToggleIngredient}
           onClose={() => setShowPicker(false)}
         />
       )}
