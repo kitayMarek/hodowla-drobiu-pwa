@@ -7,17 +7,12 @@ import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
-import { Input, Textarea } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
 import { PageLoader } from '@/components/ui/LoadingSpinner';
 import { SPECIES_LABELS, SPECIES_EMOJI, isLayerSpecies } from '@/constants/species';
 import { BATCH_STATUS_LABELS, SALE_TYPE_LABELS, EXPENSE_CATEGORY_LABELS } from '@/constants/phases';
 import { formatDate, ageLabel, todayISO } from '@/utils/date';
 import { formatPln, formatPercent, formatFCR, formatGrams, formatKg } from '@/utils/format';
 import { healthService } from '@/services/health.service';
-import { birdTransferService } from '@/services/birdTransfer.service';
-import { batchService } from '@/services/batch.service';
-import { TRANSFER_REASON_LABELS, type TransferReason } from '@/models/birdTransfer.model';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { addDays, parseISO, isAfter, differenceInDays } from 'date-fns';
@@ -511,164 +506,6 @@ function KPIDetailModal({
   );
 }
 
-// ── Sekcja przesunięć ptaków ─────────────────────────────────────────────────
-function BirdTransferSection({ batchId }: { batchId: number }) {
-  const transfers  = useBirdTransfersByBatch(batchId);
-  const allBatches = useBatches();
-
-  const [showModal, setShowModal] = React.useState(false);
-  const [date, setDate]         = React.useState(todayISO());
-  const [direction, setDir]     = React.useState<'out' | 'in'>('out');
-  const [targetBatch, setTarget] = React.useState('');
-  const [count, setCount]       = React.useState(1);
-  const [reason, setReason]     = React.useState<TransferReason>('reorganizacja');
-  const [notes, setNotes]       = React.useState('');
-  const [saving, setSaving]         = React.useState(false);
-  const [autoClosed, setAutoClosed] = React.useState(false);
-
-  const otherBatches = allBatches.filter(b => b.id !== batchId);
-
-  async function save() {
-    if (!targetBatch || count < 1) return;
-    setSaving(true);
-    const fromId = direction === 'out' ? batchId : Number(targetBatch);
-    await birdTransferService.create({
-      transferDate: date,
-      fromBatchId: fromId,
-      toBatchId:   direction === 'out' ? Number(targetBatch) : batchId,
-      count,
-      reason,
-      notes: notes.trim() || undefined,
-    });
-    const toId = direction === 'out' ? Number(targetBatch) : batchId;
-    const [didClose] = await Promise.all([
-      batchService.checkAndAutoClose(fromId),
-      batchService.checkAndAutoReopen(toId),
-    ]);
-    setSaving(false);
-    setShowModal(false);
-    setNotes('');
-    setCount(1);
-    if (didClose && fromId === batchId) setAutoClosed(true);
-  }
-
-  async function remove(id: number) {
-    if (confirm('Usunąć to przesunięcie?')) await birdTransferService.delete(id);
-  }
-
-  return (
-    <>
-      {autoClosed && (
-        <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-sm text-green-800 flex items-center gap-2">
-          <span>✅</span>
-          <span>Stado zostało automatycznie zamknięte – stan ptaków wynosi 0. Przeniesione do historii.</span>
-        </div>
-      )}
-
-      <Card
-        title="Przesunięcia ptaków"
-        action={
-          <button
-            onClick={() => setShowModal(true)}
-            className="text-sm text-brand-700 hover:underline"
-          >
-            + Przesuń
-          </button>
-        }
-        padding={transfers.length === 0 ? undefined : 'none'}
-      >
-        {transfers.length === 0 ? (
-          <p className="text-sm text-gray-400">Brak przesunięć dla tego stada.</p>
-        ) : (
-          <div className="divide-y divide-gray-50">
-            {transfers.map(t => {
-              const isOut = t.fromBatchId === batchId;
-              const other = allBatches.find(b => b.id === (isOut ? t.toBatchId : t.fromBatchId));
-              return (
-                <div key={t.id} className="flex items-center gap-3 px-4 py-3">
-                  <span className={`text-lg ${isOut ? 'text-red-500' : 'text-green-500'}`}>
-                    {isOut ? '↗' : '↙'}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-gray-800">
-                      {isOut ? 'Do' : 'Z'}: <span className="font-medium">{other?.name ?? `#${isOut ? t.toBatchId : t.fromBatchId}`}</span>
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {formatDate(t.transferDate)} · {TRANSFER_REASON_LABELS[t.reason]}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-sm font-semibold ${isOut ? 'text-red-600' : 'text-green-600'}`}>
-                      {isOut ? '−' : '+'}{t.count} szt.
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => remove(t.id!)}
-                    className="text-gray-300 hover:text-red-400 text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-
-      {showModal && (
-        <Modal open title="Przesunięcie ptaków" onClose={() => setShowModal(false)}>
-          <div className="space-y-3">
-            <Input label="Data" type="date" value={date} onChange={e => setDate(e.target.value)} />
-            <Select
-              label="Kierunek"
-              value={direction}
-              onChange={e => setDir(e.target.value as 'out' | 'in')}
-              options={[
-                { value: 'out', label: '↗ Wysyłam ptaki do innego stada' },
-                { value: 'in',  label: '↙ Przyjmuję ptaki z innego stada' },
-              ]}
-            />
-            <Select
-              label={direction === 'out' ? 'Stado docelowe' : 'Stado źródłowe'}
-              value={targetBatch}
-              onChange={e => setTarget(e.target.value)}
-              options={[
-                { value: '', label: '— wybierz stado —' },
-                ...otherBatches.map(b => ({
-                  value: String(b.id),
-                  label: b.status !== 'active' ? `${b.name} (${BATCH_STATUS_LABELS[b.status]})` : b.name,
-                })),
-              ]}
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <Input
-                label="Liczba ptaków"
-                type="number" min={1} value={count}
-                onChange={e => setCount(Number(e.target.value))}
-              />
-              <Select
-                label="Powód"
-                value={reason}
-                onChange={e => setReason(e.target.value as TransferReason)}
-                options={Object.entries(TRANSFER_REASON_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-              />
-            </div>
-            <Textarea
-              label="Uwagi (opcjonalnie)"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={2}
-            />
-            <Button className="w-full" onClick={save} disabled={saving || !targetBatch || count < 1}>
-              {saving ? 'Zapisywanie…' : 'Zapisz przesunięcie'}
-            </Button>
-          </div>
-        </Modal>
-      )}
-    </>
-  );
-}
-
 export function BatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const id = Number(batchId);
@@ -724,6 +561,7 @@ export function BatchDetailPage() {
   const modules = [
     { to: 'dziennik', label: 'Dziennik dzienny', icon: '📅', desc: 'Wpisy dzienne – pasza, jaja, padnięcia' },
     { to: 'wazenia', label: 'Ważenia', icon: '⚖️', desc: 'Historia ważeń i krzywa wzrostu' },
+    { to: 'przesuniecia', label: 'Przesunięcia ptaków', icon: '↔️', desc: 'Przenoszenie ptaków pomiędzy stadami' },
     { to: 'zdrowie', label: 'Zdrowie', icon: '💊', desc: 'Zdarzenia zdrowotne i padnięcia' },
     { to: 'warunki', label: 'Warunki', icon: '🌡️', desc: 'Temperatura, wilgotność, ściółka' },
     { to: 'uboj', label: 'Ubój', icon: '🔪', desc: 'Rekordy uboju i wydajność tuszki' },
@@ -980,9 +818,6 @@ export function BatchDetailPage() {
           )}
         </div>
       )}
-
-      {/* Przesunięcia ptaków */}
-      <BirdTransferSection batchId={id} />
 
       {/* Quick add daily entry */}
       <div className="flex gap-3">

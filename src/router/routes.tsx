@@ -5,6 +5,7 @@ import { DashboardPage } from '@/pages/dashboard/DashboardPage';
 import { BatchListPage } from '@/pages/batches/BatchListPage';
 import { BatchFormPage } from '@/pages/batches/BatchFormPage';
 import { BatchDetailPage } from '@/pages/batches/BatchDetailPage';
+import { BirdTransferPage } from '@/pages/batches/BirdTransferPage';
 import { BatchPhotosPage } from '@/pages/batches/BatchPhotosPage';
 import { DailyEntryListPage } from '@/pages/daily/DailyEntryListPage';
 import { DailyEntryFormPage } from '@/pages/daily/DailyEntryFormPage';
@@ -78,6 +79,9 @@ export const router = createBrowserRouter([
 
       // Ważenia
       { path: 'stada/:batchId/wazenia', element: <WeighingListPage /> },
+
+      // Przesunięcia ptaków
+      { path: 'stada/:batchId/przesuniecia', element: <BirdTransferPage /> },
 
       // Ubój
       { path: 'stada/:batchId/uboj', element: <SlaughterPage /> },
