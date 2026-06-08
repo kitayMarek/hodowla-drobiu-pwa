@@ -61,9 +61,14 @@ export function BirdTransferPage() {
       setNotes('');
       setCount(1);
       if (didClose && fromId === id) setAutoClosed(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Błąd zapisu przesunięcia ptaków:', err);
-      setSaveError('Nie udało się zapisać przesunięcia. Sprawdź połączenie i spróbuj ponownie.');
+      const detail = err?.message || err?.error_description || err?.details || err?.hint || err?.code;
+      setSaveError(
+        detail
+          ? `Nie udało się zapisać przesunięcia: ${detail}`
+          : 'Nie udało się zapisać przesunięcia. Sprawdź połączenie i spróbuj ponownie.'
+      );
     } finally {
       setSaving(false);
     }
