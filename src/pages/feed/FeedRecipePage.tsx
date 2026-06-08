@@ -6,7 +6,7 @@ import { feedIngredientService } from '@/services/feedIngredient.service';
 import { NORMY_DROBIU, TYPY_DROBIU } from '@/data/poultryFeedData';
 import type { FeedRecipe, RecipeIngredient } from '@/models/feedRecipe.model';
 import type { FeedIngredient, BirdType } from '@/types/feedIngredient';
-import { BIRD_TYPE_LABELS, CATEGORY_LABELS } from '@/types/feedIngredient';
+import { BIRD_TYPE_LABELS, BIRD_TYPE_COLORS, CATEGORY_LABELS } from '@/types/feedIngredient';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Typy i helpery
@@ -31,18 +31,16 @@ const CAT_EMOJI: Record<string, string> = {
   'inne':                   '📦',
 };
 
+function fmtNum(val: number | null | undefined, decimals = 1): string {
+  if (val == null) return '—';
+  return val.toFixed(decimals);
+}
+
 function ingAvatar(ing: FeedIngredient): React.ReactNode {
   if (ing.photo_url) {
     return <img src={ing.photo_url} alt={ing.name} className="w-full h-full object-cover" />;
   }
   return <span className="text-2xl">{CAT_EMOJI[ing.category ?? ''] ?? '📦'}</span>;
-}
-
-function ingAvatarSm(ing: FeedIngredient): React.ReactNode {
-  if (ing.photo_url) {
-    return <img src={ing.photo_url} alt={ing.name} className="w-full h-full object-cover" />;
-  }
-  return <span className="text-lg">{CAT_EMOJI[ing.category ?? ''] ?? '📦'}</span>;
 }
 
 function weighted(lines: RecipeLine[], getter: (i: FeedIngredient) => number | null): number {
@@ -321,57 +319,95 @@ function IngredientPicker({ ingredients, birdType, addedIds, onAdd, onClose }: {
           </div>
         </div>
 
-        {/* Lista składników */}
-        <div className="overflow-y-auto flex-1 px-4 pb-8">
-          {filtered.length === 0 && (
+        {/* Tabela składników (jak w „Składniki paszowe") */}
+        <div className="overflow-auto flex-1 px-4 pb-8">
+          {filtered.length === 0 ? (
             <div className="text-center py-10 text-gray-400 text-sm">Brak wyników</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+                  <th className="px-2 py-2 w-9"></th>
+                  <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[160px]">Nazwa</th>
+                  <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[110px]">Kategoria</th>
+                  <th className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight">Sucha{'\n'}masa %</th>
+                  <th className="text-right px-2 py-2 font-semibold text-gray-700">Białko %</th>
+                  <th className="text-right px-2 py-2 font-semibold text-gray-700">Tłuszcz %</th>
+                  <th className="text-right px-2 py-2 font-semibold text-gray-700">Włókno %</th>
+                  <th className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight">EM{'\n'}(kcal)</th>
+                  <th className="text-right px-2 py-2 font-semibold text-gray-700 whitespace-pre-line leading-tight">EM{'\n'}(MJ)</th>
+                  <th className="text-left px-2 py-2 font-semibold text-gray-700 min-w-[140px]">Polecane dla</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from(grouped.entries()).map(([cat, items]) => (
+                  <React.Fragment key={cat}>
+                    {/* Separator kategorii */}
+                    <tr className="bg-green-50/60 border-t border-b border-green-100">
+                      <td colSpan={10} className="px-2 py-1.5">
+                        <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">
+                          {CAT_EMOJI[cat] ?? '📦'} {CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat}
+                        </span>
+                        <span className="ml-2 text-xs text-green-500">({items.length})</span>
+                      </td>
+                    </tr>
+
+                    {items.map((ing, idx) => {
+                      const added = addedIds.has(ing.id);
+                      return (
+                        <tr
+                          key={ing.id}
+                          onClick={() => !added && onAdd(ing)}
+                          className={`border-b border-gray-100 transition-colors ${
+                            added
+                              ? 'bg-green-50/60'
+                              : `cursor-pointer hover:bg-green-50/30 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}`
+                          }`}
+                        >
+                          <td className="px-2 py-2 text-center">
+                            <span
+                              className={`inline-flex w-5 h-5 items-center justify-center rounded border text-xs font-bold transition-colors ${
+                                added
+                                  ? 'bg-green-600 border-green-600 text-white'
+                                  : 'border-gray-300 text-transparent'
+                              }`}
+                            >
+                              ✓
+                            </span>
+                          </td>
+                          <td className="px-2 py-2 font-medium text-gray-800">{ing.name}</td>
+                          <td className="px-2 py-2 text-gray-500 text-xs">
+                            {ing.category ? CATEGORY_LABELS[ing.category as keyof typeof CATEGORY_LABELS] ?? ing.category : '—'}
+                          </td>
+                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.sucha_masa_pct, 1)}</td>
+                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.bialko_ogolne_pct, 1)}</td>
+                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.tluszcz_surowy_pct, 1)}</td>
+                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.wlokno_surowe_pct, 1)}</td>
+                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.energia_kcal, 0)}</td>
+                          <td className="px-2 py-2 text-right text-gray-700 tabular-nums">{fmtNum(ing.energia_mj, 2)}</td>
+                          <td className="px-2 py-2">
+                            <div className="flex flex-wrap gap-1">
+                              {ing.recommended_for.map(bt => (
+                                <span
+                                  key={bt}
+                                  className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${BIRD_TYPE_COLORS[bt as BirdType]}`}
+                                >
+                                  {BIRD_TYPE_LABELS[bt as BirdType]}
+                                </span>
+                              ))}
+                              {ing.recommended_for.length === 0 && (
+                                <span className="text-xs text-gray-400">wszystkie</span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
           )}
-
-          {Array.from(grouped.entries()).map(([cat, items]) => (
-            <React.Fragment key={cat}>
-              {/* Separator kategorii */}
-              <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide pt-3 pb-1 sticky top-0 bg-white">
-                {CAT_EMOJI[cat] ?? '📦'} {CATEGORY_LABELS[cat as keyof typeof CATEGORY_LABELS] ?? cat}
-              </div>
-
-              {items.map(ing => {
-                const added = addedIds.has(ing.id);
-                return (
-                  <button
-                    key={ing.id}
-                    onClick={() => onAdd(ing)}
-                    disabled={added}
-                    className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors mb-0.5 ${
-                      added
-                        ? 'bg-green-50 border border-green-200 opacity-60 cursor-default'
-                        : 'hover:bg-gray-50 border border-transparent'
-                    }`}
-                  >
-                    {/* Avatar */}
-                    <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
-                      {ingAvatarSm(ing)}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-800 truncate">{ing.name}</div>
-                      <div className="text-xs text-gray-400 flex gap-3">
-                        {ing.energia_mj     != null && <span>EM {ing.energia_mj.toFixed(1)} MJ</span>}
-                        {ing.bialko_ogolne_pct != null && <span>B {ing.bialko_ogolne_pct.toFixed(1)}%</span>}
-                        {ing.cena_zl_100kg  != null && (
-                          <span className="text-green-600">{(ing.cena_zl_100kg / 100).toFixed(2)} zł/kg</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <span className={`text-lg font-bold ${added ? 'text-green-500' : 'text-gray-300'}`}>
-                      {added ? '✓' : '+'}
-                    </span>
-                  </button>
-                );
-              })}
-            </React.Fragment>
-          ))}
         </div>
       </div>
     </>
