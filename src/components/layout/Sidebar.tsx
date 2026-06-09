@@ -54,7 +54,6 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/mleko',           label: 'Dashboard',       icon: '🧀' },
       { to: '/mleko/przyjecia', label: 'Przyjęcia mleka', icon: '🥛' },
       { to: '/mleko/partie',    label: 'Partie prod.',    icon: '📦' },
-      { to: '/mleko/rhd',       label: 'Rejestr RHD',    icon: '📋' },
       { to: '/mleko/dostawcy',  label: 'Dostawcy mleka', icon: '🚛' },
     ],
   },
