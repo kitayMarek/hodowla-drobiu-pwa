@@ -24,6 +24,11 @@ type RhdEntry =
 function entryProduct(e: RhdEntry): string {
   if (e.kind === 'dairy') return e.sale.productName;
   if (e.kind === 'drob') {
+    if (e.sale.saleType === 'inne') {
+      // "inne" — nazwa produktu zapisana w polu notes
+      const name = e.sale.notes?.split(' · ')[0] ?? 'Inne produkty';
+      return name;
+    }
     const t = SALE_TYPE_LABELS[e.sale.saleType as SaleType] ?? e.sale.saleType;
     return e.sale.invoiceNumber ? `${t} (${e.sale.invoiceNumber})` : t;
   }
@@ -35,6 +40,11 @@ function entryQuantity(e: RhdEntry): string {
     return `${e.sale.quantity} ${UNIT_LABELS[e.sale.unit as keyof typeof UNIT_LABELS] ?? e.sale.unit}`;
   }
   if (e.kind === 'drob') {
+    if (e.sale.saleType === 'inne') {
+      // ilość i jednostka w notes: "Miód lipowy · 5 sł."
+      const qtPart = e.sale.notes?.split(' · ')[1] ?? '';
+      return qtPart || '—';
+    }
     if (e.sale.saleType === 'jaja')     return `${e.sale.eggsCount ?? '—'} szt.`;
     if (e.sale.saleType === 'tuszki' || e.sale.saleType === 'elementy')
                                         return `${e.sale.weightKg ?? '—'} kg`;
@@ -141,7 +151,8 @@ export function RhdRegisterPage() {
   const years      = [currentYear, currentYear - 1, currentYear - 2].filter(y => y >= 2024);
   const countDocs  = entries.filter(e => e.kind === 'document').length;
   const countDairy = entries.filter(e => e.kind === 'dairy').length;
-  const countDrob  = entries.filter(e => e.kind === 'drob').length;
+  const countDrob  = entries.filter(e => e.kind === 'drob' && e.sale.saleType !== 'inne').length;
+  const countInne  = entries.filter(e => e.kind === 'drob' && e.sale.saleType === 'inne').length;
 
   return (
     <div className="space-y-4 max-w-4xl">
@@ -206,6 +217,7 @@ export function RhdRegisterPage() {
               {countDocs  > 0 && <span>📄 Dokumenty sprzedaży: {countDocs}</span>}
               {countDairy > 0 && <span>🧀 Mleko / sery: {countDairy}</span>}
               {countDrob  > 0 && <span>🐔 Drób: {countDrob}</span>}
+              {countInne  > 0 && <span>🍯 Inne produkty: {countInne}</span>}
             </div>
           )}
         </div>
@@ -266,7 +278,10 @@ export function RhdRegisterPage() {
                         const overLimit  = runningNew > rhdLimit;
                         const buyer      = entryBuyer(entry);
                         const rhdNum     = entryRhdNumber(entry);
-                        const sourceIcon = entry.kind === 'document' ? '📄' : entry.kind === 'drob' ? '🐔' : '🧀';
+                        const sourceIcon = entry.kind === 'document' ? '📄'
+                          : entry.kind === 'drob'
+                            ? (entry.sale.saleType === 'inne' ? '🍯' : entry.sale.saleType === 'jaja' ? '🥚' : '🐔')
+                          : '🧀';
 
                         rows.push(
                           <tr

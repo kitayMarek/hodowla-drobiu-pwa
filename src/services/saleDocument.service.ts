@@ -14,7 +14,7 @@ import { SALE_TYPE_LABELS } from '@/constants/phases';
 
 export interface FormLine {
   key: string;
-  activity: 'drob' | 'sery';
+  activity: 'drob' | 'sery' | 'inne';
   // drob
   drobSaleType: SaleType;
   drobBatchId: string;
@@ -23,6 +23,10 @@ export interface FormLine {
   drobEggsCount: string;
   // dairy
   dairyProductId: string;
+  // inne (produkty niestandardowe: miód, przetwory, świece, rozsady itp.)
+  inneName: string;     // np. "Miód lipowy"
+  inneUnit: string;     // np. "sł.", "kg", "szt."
+  inneQuantity: string; // liczba jednostek
   // wspólne
   quantity: string;
   unitPrice: string;
@@ -51,6 +55,7 @@ function docToRow(r: Record<string, unknown>): SaleDocument {
 
 export function lineTotal(l: FormLine): number {
   if (l.activity === 'sery') return (parseFloat(l.quantity)||0) * (parseFloat(l.unitPrice)||0);
+  if (l.activity === 'inne') return (parseFloat(l.inneQuantity)||0) * (parseFloat(l.unitPrice)||0);
   if (l.drobSaleType === 'jaja') return (parseInt(l.drobEggsCount)||0) * (parseFloat(l.unitPrice)||0);
   if (l.drobSaleType === 'tuszki' || l.drobSaleType === 'elementy')
     return (parseFloat(l.drobWeightKg)||0) * (parseFloat(l.unitPrice)||0);
@@ -227,14 +232,38 @@ export const saleDocumentService = {
           await batchService.checkAndAutoClose(batchId);
         }
       }
+
+      // Inne produkty (miód, przetwory, świece, rozsady itp.)
+      if (l.activity === 'inne') {
+        const qty   = parseFloat(l.inneQuantity) || 0;
+        const prc   = parseFloat(l.unitPrice) || 0;
+        const inneTotal = qty * prc;
+        if (inneTotal > 0) {
+          const notesDesc = [l.inneName.trim(), qty ? `${qty} ${l.inneUnit}`.trim() : ''].filter(Boolean).join(' · ');
+          await saleService.create({
+            batchId:         0,
+            saleDate:        docData.docDate,
+            saleType:        'inne',
+            totalRevenuePln: inneTotal,
+            buyerName:       docData.buyerName,
+            notes:           notesDesc || undefined,
+            inRhd:           docData.inRhd,
+            saleDocumentId:  docId,
+          });
+        }
+      }
     }
 
     // Transakcja kasowa
     if (docData.cashAccountId && total > 0) {
-      const scope   = lines.some(l => l.activity === 'drob') ? 'drob' : 'sery';
+      const scope = lines.some(l => l.activity === 'drob') ? 'drob'
+                  : lines.some(l => l.activity === 'sery') ? 'sery'
+                  : 'drob';
       const desc    = [...new Set(lines.map(l =>
         l.activity === 'sery'
           ? (products.find(p => p.id === Number(l.dairyProductId))?.name ?? 'produkt')
+          : l.activity === 'inne'
+          ? (l.inneName.trim() || 'Inne produkty')
           : SALE_TYPE_LABELS[l.drobSaleType]
       ))].join(', ');
       await cashFlowService.createTransaction({

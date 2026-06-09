@@ -40,7 +40,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/pasze',             label: 'Pasza',            icon: '🌾' },
       { to: '/pasze/receptury',  label: 'Receptury',       icon: '🧪' },
       { to: '/pasze/skladniki',  label: 'Składniki pasz.', icon: '🔬' },
-      { to: '/sprzedaz-drob',   label: 'Zamówienia/Jaja', icon: '📋' },
+      { to: '/sprzedaz/nowa',   label: 'Nowa sprzedaż',   icon: '💰' },
       { to: '/wyleglarnia',     label: 'Wylęgarnia',     icon: '🥚' },
       { to: '/finanse',         label: 'Finanse',        icon: '📈' },
       { to: '/szybki',          label: 'Szybki wpis',    icon: '⚡' },

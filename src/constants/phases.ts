@@ -34,7 +34,7 @@ export const HEALTH_EVENT_LABELS: Record<HealthEventType, string> = {
   profilaktyka: 'Profilaktyka',
 };
 
-export type SaleType = 'jaja' | 'ptaki_zywe' | 'tuszki' | 'elementy' | 'jaja_wewn';
+export type SaleType = 'jaja' | 'ptaki_zywe' | 'tuszki' | 'elementy' | 'jaja_wewn' | 'inne';
 
 export const SALE_TYPE_LABELS: Record<SaleType, string> = {
   jaja: 'Jaja',
@@ -42,6 +42,7 @@ export const SALE_TYPE_LABELS: Record<SaleType, string> = {
   tuszki: 'Tuszki',
   elementy: 'Elementy (części)',
   jaja_wewn: 'Jaja → Wylęgarnia',
+  inne: 'Inne produkty',
 };
 
 export type ExpenseCategory =

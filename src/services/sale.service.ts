@@ -158,4 +158,33 @@ export const saleService = {
     const sales = batchId != null ? await this.getByBatch(batchId) : await this.getAll();
     return sales.reduce((s, x) => s + x.totalRevenuePln, 0);
   },
+
+  /** Dostępny stan magazynu jaj (zebrane + kupione − sprzedane − do wylęgu). */
+  async getAvailableEggsCount(): Promise<number> {
+    const user = await getAuthUser();
+    if (user) {
+      const [entriesRes, salesRes, purchasesRes, hatchRes] = await Promise.all([
+        supabase.from('daily_entries').select('eggs_collected, eggs_defective').eq('user_id', user.id),
+        supabase.from('sales').select('eggs_count').eq('user_id', user.id).eq('sale_type', 'jaja'),
+        supabase.from('egg_purchases').select('count').eq('user_id', user.id),
+        supabase.from('egg_hatch_transfers').select('count').eq('user_id', user.id),
+      ]);
+      const collected   = (entriesRes.data ?? []).reduce((s, r) => s + ((r.eggs_collected ?? 0) - (r.eggs_defective ?? 0)), 0);
+      const sold        = (salesRes.data ?? []).reduce((s, r) => s + (r.eggs_count ?? 0), 0);
+      const purchased   = (purchasesRes.data ?? []).reduce((s, r) => s + (r.count ?? 0), 0);
+      const transferred = (hatchRes.data ?? []).reduce((s, r) => s + (r.count ?? 0), 0);
+      return Math.max(0, collected + purchased - sold - transferred);
+    }
+    const [entries, jajaS, purchases, hatches] = await Promise.all([
+      db.dailyEntries.toArray(),
+      db.sales.where('saleType').equals('jaja').toArray(),
+      db.eggPurchases.toArray(),
+      db.eggHatchTransfers.toArray(),
+    ]);
+    const collected   = entries.reduce((s, e) => s + ((e.eggsCollected ?? 0) - (e.eggsDefective ?? 0)), 0);
+    const sold        = jajaS.reduce((s, x) => s + (x.eggsCount ?? 0), 0);
+    const purchased   = purchases.reduce((s, p) => s + p.count, 0);
+    const transferred = hatches.reduce((s, t) => s + t.count, 0);
+    return Math.max(0, collected + purchased - sold - transferred);
+  },
 };

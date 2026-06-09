@@ -8,6 +8,7 @@ import type { FormLine } from '@/services/saleDocument.service';
 import { dairyService } from '@/services/dairy.service';
 import { cashFlowService } from '@/services/cashFlow.service';
 import { batchService } from '@/services/batch.service';
+import { saleService } from '@/services/sale.service';
 import type { DairyProduct, DairyBuyer } from '@/models/dairy.model';
 import { PRODUCT_ICONS, UNIT_LABELS } from '@/models/dairy.model';
 import type { CashAccount } from '@/models/cashFlow.model';
@@ -17,11 +18,11 @@ import { SALE_TYPE_LABELS } from '@/constants/phases';
 import { Button } from '@/components/ui/Button';
 import { useActivitiesContext } from '@/contexts/ActivitiesContext';
 
-type LineActivity = 'drob' | 'sery';
+type LineActivity = 'drob' | 'sery' | 'inne';
 
 const DROB_SALE_TYPES: SaleType[] = ['jaja', 'tuszki', 'ptaki_zywe', 'elementy'];
 const DROB_ICONS: Record<SaleType, string> = {
-  jaja: '🥚', tuszki: '🍗', ptaki_zywe: '🐔', elementy: '🦵', jaja_wewn: '🥚',
+  jaja: '🥚', tuszki: '🍗', ptaki_zywe: '🐔', elementy: '🦵', jaja_wewn: '🥚', inne: '🍯',
 };
 
 const newLine = (activity: LineActivity): FormLine => ({
@@ -29,7 +30,9 @@ const newLine = (activity: LineActivity): FormLine => ({
   activity,
   drobSaleType: 'tuszki',
   drobBatchId: '', drobBirdCount: '', drobWeightKg: '', drobEggsCount: '',
-  dairyProductId: '', quantity: '', unitPrice: '',
+  dairyProductId: '',
+  inneName: '', inneUnit: 'szt.', inneQuantity: '',
+  quantity: '', unitPrice: '',
 });
 
 // ── Nabywca selector z inline dodawaniem ────────────────────────
@@ -145,13 +148,14 @@ export function UnifiedSaleFormPage() {
   const activities = useActivitiesContext();
   const hasDrob = activities.some(a => a.key === 'drob' && a.isActive);
   const hasSery = activities.some(a => a.key === 'sery' && a.isActive);
-  const defaultActivity: LineActivity = hasSery ? 'sery' : 'drob';
+  const defaultActivity: LineActivity = hasDrob ? 'drob' : hasSery ? 'sery' : 'inne';
 
-  const [batches,    setBatches]    = useState<Batch[]>([]);
-  const [products,   setProducts]   = useState<DairyProduct[]>([]);
-  const [buyers,     setBuyers]     = useState<DairyBuyer[]>([]);
-  const [accounts,   setAccounts]   = useState<CashAccount[]>([]);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [batches,       setBatches]       = useState<Batch[]>([]);
+  const [products,      setProducts]      = useState<DairyProduct[]>([]);
+  const [buyers,        setBuyers]        = useState<DairyBuyer[]>([]);
+  const [accounts,      setAccounts]      = useState<CashAccount[]>([]);
+  const [availableEggs, setAvailableEggs] = useState<number | null>(null);
+  const [dataLoaded,    setDataLoaded]    = useState(false);
 
   const [saleDate,      setSaleDate]      = useState(new Date().toISOString().slice(0, 10));
   const [buyerName,     setBuyerName]     = useState('');
@@ -167,11 +171,13 @@ export function UnifiedSaleFormPage() {
       dairyService.getProducts(),
       dairyService.getBuyers(),
       cashFlowService.getActiveAccounts(),
-    ]).then(([b, p, buyerList, a]) => {
+      saleService.getAvailableEggsCount(),
+    ]).then(([b, p, buyerList, a, eggs]) => {
       setBatches(b.filter(x => x.status === 'active'));
       setProducts(p.filter(x => x.isActive));
       setBuyers(buyerList);
       setAccounts(a);
+      setAvailableEggs(eggs);
       setDataLoaded(true);
     });
   }, []);
@@ -188,6 +194,7 @@ export function UnifiedSaleFormPage() {
     for (const l of lines) {
       if (l.activity === 'sery' && !l.dairyProductId) { setError('Wybierz produkt mleczarski.'); return; }
       if (l.activity === 'drob' && l.drobSaleType !== 'jaja' && !l.drobBatchId) { setError('Wybierz stado dla pozycji drobiu.'); return; }
+      if (l.activity === 'inne' && !l.inneName.trim()) { setError('Podaj nazwę produktu w pozycji „Inne".'); return; }
     }
     setSaving(inRhd ? 'rhd' : 'norhd'); setError('');
     try {
@@ -279,18 +286,24 @@ export function UnifiedSaleFormPage() {
             <div key={l.key} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 space-y-2.5">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400 font-medium w-4">{idx + 1}.</span>
-                {hasDrob && hasSery && (
-                  <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                  {hasDrob && (
                     <button onClick={() => updateLine(l.key, { activity: 'drob' })}
                       className={`px-2 py-1 font-medium transition-colors ${l.activity === 'drob' ? 'bg-orange-500 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
                       🐔 Drób
                     </button>
+                  )}
+                  {hasSery && (
                     <button onClick={() => updateLine(l.key, { activity: 'sery' })}
                       className={`px-2 py-1 font-medium transition-colors ${l.activity === 'sery' ? 'bg-brand-600 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
                       🧀 Mleczarnia
                     </button>
-                  </div>
-                )}
+                  )}
+                  <button onClick={() => updateLine(l.key, { activity: 'inne' })}
+                    className={`px-2 py-1 font-medium transition-colors ${l.activity === 'inne' ? 'bg-amber-500 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
+                    🍯 Inne
+                  </button>
+                </div>
                 <div className="flex-1" />
                 {total > 0 && <span className="text-sm font-bold text-gray-800">{fmt(total)} zł</span>}
                 <button onClick={() => removeLine(l.key)} className="text-gray-300 hover:text-red-400 ml-1 text-lg leading-none">×</button>
@@ -318,16 +331,23 @@ export function UnifiedSaleFormPage() {
                     )}
                   </div>
                   {l.drobSaleType === 'jaja' && (
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Liczba jaj</label>
-                        <input type="number" min="0" step="1" value={l.drobEggsCount} onChange={e => updateLine(l.key, { drobEggsCount: e.target.value })} placeholder="0 szt."
-                          className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 mb-1">Cena (zł/szt)</label>
-                        <input type="number" min="0" step="0.01" value={l.unitPrice} onChange={e => updateLine(l.key, { unitPrice: e.target.value })} placeholder="0.30"
-                          className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    <div className="space-y-1.5">
+                      {availableEggs !== null && (
+                        <div className={`text-xs px-2 py-1.5 rounded-lg ${availableEggs > 0 ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                          🥚 Magazyn jaj: <strong>{availableEggs.toLocaleString('pl-PL')} szt.</strong> dostępnych
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Liczba jaj</label>
+                          <input type="number" min="0" step="1" value={l.drobEggsCount} onChange={e => updateLine(l.key, { drobEggsCount: e.target.value })} placeholder="0 szt."
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Cena (zł/szt)</label>
+                          <input type="number" min="0" step="0.01" value={l.unitPrice} onChange={e => updateLine(l.key, { unitPrice: e.target.value })} placeholder="0.30"
+                            className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                        </div>
                       </div>
                     </div>
                   )}
@@ -393,6 +413,38 @@ export function UnifiedSaleFormPage() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Cena{unitLbl ? ` (zł/${unitLbl})` : ' (zł)'} *</label>
+                      <input type="number" min="0" step="0.01" value={l.unitPrice} onChange={e => updateLine(l.key, { unitPrice: e.target.value })} placeholder="0.00"
+                        className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {l.activity === 'inne' && (
+                <div className="space-y-2">
+                  <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-2 py-1.5">
+                    🍯 Własne produkty: miód, dżemy, przetwory, świece, rozsady i inne.
+                  </p>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Nazwa produktu *</label>
+                    <input type="text" value={l.inneName} onChange={e => updateLine(l.key, { inneName: e.target.value })}
+                      placeholder="np. Miód lipowy, Powidła śliwkowe, Rozsady pomidorów…"
+                      className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Ilość *</label>
+                      <input type="number" min="0" step="1" value={l.inneQuantity} onChange={e => updateLine(l.key, { inneQuantity: e.target.value })} placeholder="0"
+                        className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Jednostka</label>
+                      <input type="text" value={l.inneUnit} onChange={e => updateLine(l.key, { inneUnit: e.target.value })}
+                        placeholder="szt."
+                        className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Cena (zł/szt) *</label>
                       <input type="number" min="0" step="0.01" value={l.unitPrice} onChange={e => updateLine(l.key, { unitPrice: e.target.value })} placeholder="0.00"
                         className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                     </div>
