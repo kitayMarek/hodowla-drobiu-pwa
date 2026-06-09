@@ -89,54 +89,63 @@ export function RhdRegisterPage() {
   const [farmName,  setFarmName]  = useState('');
   const [ownerName, setOwnerName] = useState('');
   const [loading,   setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = async (y: number) => {
     setLoading(true);
-    const yearStr = String(y);
+    setLoadError(null);
+    try {
+      const yearStr = String(y);
 
-    const [dairySales, drobSales, docs, limitStr, farm, owner] = await Promise.all([
-      dairyService.getSales(y),
-      saleService.getAll(),
-      saleDocumentService.getDocuments(y),
-      settingsService.get('rhd_limit_pln', '100000'),
-      settingsService.get('farm_name', '"Moja Ferma"'),
-      settingsService.get('owner_name', '""'),
-    ]);
+      const [dairySales, drobSales, docs, limitStr, farm, owner] = await Promise.all([
+        dairyService.getSales(y),
+        saleService.getAll(),
+        saleDocumentService.getDocuments(y),
+        settingsService.get('rhd_limit_pln', '100000'),
+        settingsService.get('farm_name', '"Moja Ferma"'),
+        settingsService.get('owner_name', '""'),
+      ]);
 
-    const combined: RhdEntry[] = [];
+      const combined: RhdEntry[] = [];
 
-    // 1. Samodzielne wpisy mleczarskie (bez dokumentu nadrzędnego)
-    dairySales
-      .filter(s => s.inRhd && !s.saleDocumentId)
-      .forEach(s => combined.push({ kind: 'dairy', sale: s, date: s.saleDate, value: s.totalValuePln }));
+      // 1. Samodzielne wpisy mleczarskie (bez dokumentu nadrzędnego)
+      dairySales
+        .filter(s => s.inRhd && !s.saleDocumentId)
+        .forEach(s => combined.push({ kind: 'dairy', sale: s, date: s.saleDate, value: s.totalValuePln }));
 
-    // 2. Samodzielne wpisy drobiowe (bez dokumentu, oznaczone jako RHD)
-    drobSales
-      .filter(s =>
-        s.inRhd !== false &&
-        !s.saleDocumentId &&
-        s.saleDate.startsWith(yearStr) &&
-        s.saleType !== 'jaja_wewn'
-      )
-      .forEach(s => combined.push({ kind: 'drob', sale: s, date: s.saleDate, value: s.totalRevenuePln }));
+      // 2. Samodzielne wpisy drobiowe (bez dokumentu, oznaczone jako RHD)
+      drobSales
+        .filter(s =>
+          s.inRhd !== false &&
+          !s.saleDocumentId &&
+          s.saleDate.startsWith(yearStr) &&
+          s.saleType !== 'jaja_wewn'
+        )
+        .forEach(s => combined.push({ kind: 'drob', sale: s, date: s.saleDate, value: s.totalRevenuePln }));
 
-    // 3. Dokumenty sprzedaży (nowy system — łączone pozycje drób + mleko)
-    docs
-      .filter(d => d.inRhd)
-      .forEach(d => combined.push({ kind: 'document', doc: d, date: d.docDate, value: d.totalValuePln }));
+      // 3. Dokumenty sprzedaży (nowy system — łączone pozycje drób + mleko)
+      docs
+        .filter(d => d.inRhd)
+        .forEach(d => combined.push({ kind: 'document', doc: d, date: d.docDate, value: d.totalValuePln }));
 
-    // Sortuj chronologicznie rosnąco (RHD wymaga porządku dat)
-    combined.sort((a, b) => {
-      const dateCmp = a.date.localeCompare(b.date);
-      if (dateCmp !== 0) return dateCmp;
-      return (entryRhdNumber(a) ?? 9999) - (entryRhdNumber(b) ?? 9999);
-    });
+      // Sortuj chronologicznie rosnąco (RHD wymaga porządku dat)
+      combined.sort((a, b) => {
+        const dateCmp = a.date.localeCompare(b.date);
+        if (dateCmp !== 0) return dateCmp;
+        return (entryRhdNumber(a) ?? 9999) - (entryRhdNumber(b) ?? 9999);
+      });
 
-    setEntries(combined);
-    if (limitStr) setRhdLimit(parseFloat(limitStr));
-    if (farm)     setFarmName(JSON.parse(farm));
-    if (owner)    setOwnerName(JSON.parse(owner));
-    setLoading(false);
+      setEntries(combined);
+      if (limitStr) setRhdLimit(parseFloat(limitStr));
+      if (farm)     setFarmName(JSON.parse(farm));
+      if (owner)    setOwnerName(JSON.parse(owner));
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? String(err);
+      setLoadError(msg);
+      console.error('Błąd ładowania RHD:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(year); }, [year]);
@@ -224,6 +233,14 @@ export function RhdRegisterPage() {
       )}
 
       {loading && <p className="text-sm text-gray-400 text-center py-8">Ładowanie…</p>}
+
+      {!loading && loadError && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700">
+          <p className="font-semibold mb-1">⚠️ Błąd ładowania rejestru RHD:</p>
+          <p className="font-mono text-xs break-all">{loadError}</p>
+          <button onClick={() => load(year)} className="mt-2 text-xs text-red-600 underline">Spróbuj ponownie</button>
+        </div>
+      )}
 
       {/* Rejestr */}
       {!loading && (
