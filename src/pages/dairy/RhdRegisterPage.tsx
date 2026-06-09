@@ -1,12 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
-import { saleDocumentService } from '@/services/saleDocument.service';
 import { saleService } from '@/services/sale.service';
 import { settingsService } from '@/services/settings.service';
 import type { DairySale } from '@/models/dairy.model';
 import type { Sale } from '@/models/sale.model';
-import type { SaleDocument } from '@/models/saleDocument.model';
 import { UNIT_LABELS } from '@/models/dairy.model';
 import { SALE_TYPE_LABELS } from '@/constants/phases';
 import type { SaleType } from '@/constants/phases';
@@ -17,64 +15,50 @@ const fmtD = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pl-PL'
 
 // ── Ujednolicony typ wpisów RHD ───────────────────────────────────────────────
 type RhdEntry =
-  | { kind: 'dairy';    sale: DairySale;    date: string; value: number }
-  | { kind: 'drob';     sale: Sale;         date: string; value: number }
-  | { kind: 'document'; doc:  SaleDocument; date: string; value: number };
+  | { kind: 'dairy'; sale: DairySale; date: string; value: number }
+  | { kind: 'drob';  sale: Sale;      date: string; value: number };
 
 function entryProduct(e: RhdEntry): string {
   if (e.kind === 'dairy') return e.sale.productName;
-  if (e.kind === 'drob') {
-    if (e.sale.saleType === 'inne') {
-      // "inne" — nazwa produktu zapisana w polu notes
-      const name = e.sale.notes?.split(' · ')[0] ?? 'Inne produkty';
-      return name;
-    }
-    const t = SALE_TYPE_LABELS[e.sale.saleType as SaleType] ?? e.sale.saleType;
-    return e.sale.invoiceNumber ? `${t} (${e.sale.invoiceNumber})` : t;
+  // drob
+  if (e.sale.saleType === 'inne') {
+    return e.sale.notes?.split(' · ')[0] ?? 'Inne produkty';
   }
-  return e.doc.buyerName ? `Dok. sprzedaży — ${e.doc.buyerName}` : 'Dok. sprzedaży';
+  const t = SALE_TYPE_LABELS[e.sale.saleType as SaleType] ?? e.sale.saleType;
+  return e.sale.invoiceNumber ? `${t} (${e.sale.invoiceNumber})` : t;
 }
 
 function entryQuantity(e: RhdEntry): string {
   if (e.kind === 'dairy') {
     return `${e.sale.quantity} ${UNIT_LABELS[e.sale.unit as keyof typeof UNIT_LABELS] ?? e.sale.unit}`;
   }
-  if (e.kind === 'drob') {
-    if (e.sale.saleType === 'inne') {
-      // ilość i jednostka w notes: "Miód lipowy · 5 sł."
-      const qtPart = e.sale.notes?.split(' · ')[1] ?? '';
-      return qtPart || '—';
-    }
-    if (e.sale.saleType === 'jaja')     return `${e.sale.eggsCount ?? '—'} szt.`;
-    if (e.sale.saleType === 'tuszki' || e.sale.saleType === 'elementy')
-                                        return `${e.sale.weightKg ?? '—'} kg`;
-    return `${e.sale.birdCount ?? '—'} szt.`;
+  // drob
+  if (e.sale.saleType === 'inne') {
+    return e.sale.notes?.split(' · ')[1] ?? '—';
   }
-  return '—';
+  if (e.sale.saleType === 'jaja')                                       return `${e.sale.eggsCount ?? '—'} szt.`;
+  if (e.sale.saleType === 'tuszki' || e.sale.saleType === 'elementy')  return `${e.sale.weightKg ?? '—'} kg`;
+  return `${e.sale.birdCount ?? '—'} szt.`;
 }
 
 function entryUnitPrice(e: RhdEntry): string {
   if (e.kind === 'dairy') return `${fmt(e.sale.unitPricePln)} zł`;
-  if (e.kind === 'drob') {
-    if (e.sale.saleType === 'jaja' && e.sale.eggPricePln != null)
-      return `${fmt(e.sale.eggPricePln)} zł/szt.`;
-    if (e.sale.pricePerKgPln != null)
-      return `${fmt(e.sale.pricePerKgPln)} zł/kg`;
-    return '—';
-  }
+  // drob
+  if (e.sale.saleType === 'jaja' && e.sale.eggPricePln != null)
+    return `${fmt(e.sale.eggPricePln)} zł/szt.`;
+  if (e.sale.pricePerKgPln != null)
+    return `${fmt(e.sale.pricePerKgPln)} zł/kg`;
   return '—';
 }
 
 function entryBuyer(e: RhdEntry): { name?: string; address?: string } {
-  if (e.kind === 'dairy')    return { name: e.sale.buyerName,   address: e.sale.buyerAddress };
-  if (e.kind === 'drob')     return { name: e.sale.buyerName };
-  return { name: e.doc.buyerName, address: e.doc.buyerAddress };
+  if (e.kind === 'dairy') return { name: e.sale.buyerName, address: e.sale.buyerAddress };
+  return { name: e.sale.buyerName };
 }
 
 function entryRhdNumber(e: RhdEntry): number | undefined {
-  if (e.kind === 'dairy')    return e.sale.rhdNumber;
-  if (e.kind === 'drob')     return undefined;
-  return e.doc.rhdNumber;
+  if (e.kind === 'dairy') return e.sale.rhdNumber;
+  return undefined;
 }
 
 // ── Komponent ─────────────────────────────────────────────────────────────────
@@ -98,10 +82,9 @@ export function RhdRegisterPage() {
     try {
       const yearStr = String(y);
 
-      const [dairySales, drobSales, docs, limitStr, farm, owner] = await Promise.all([
+      const [dairySales, drobSales, limitStr, farm, owner] = await Promise.all([
         dairyService.getSales(y),
         saleService.getAll(),
-        saleDocumentService.getDocuments(y),
         settingsService.get('rhd_limit_pln', '100000'),
         settingsService.get('farm_name', '"Moja Ferma"'),
         settingsService.get('owner_name', '""'),
@@ -109,31 +92,25 @@ export function RhdRegisterPage() {
 
       const combined: RhdEntry[] = [];
 
-      // 1. Samodzielne wpisy mleczarskie (bez dokumentu nadrzędnego)
+      // 1. Wszystkie wpisy mleczarskie oznaczone jako RHD (własne i z dokumentów)
       dairySales
-        .filter(s => s.inRhd && !s.saleDocumentId)
+        .filter(s => s.inRhd)
         .forEach(s => combined.push({ kind: 'dairy', sale: s, date: s.saleDate, value: s.totalValuePln }));
 
-      // 2. Samodzielne wpisy drobiowe (bez dokumentu, oznaczone jako RHD)
+      // 2. Wszystkie wpisy drobiowe oznaczone jako RHD (własne i z dokumentów)
       drobSales
         .filter(s =>
           s.inRhd !== false &&
-          !s.saleDocumentId &&
           s.saleDate.startsWith(yearStr) &&
           s.saleType !== 'jaja_wewn'
         )
         .forEach(s => combined.push({ kind: 'drob', sale: s, date: s.saleDate, value: s.totalRevenuePln }));
 
-      // 3. Dokumenty sprzedaży (nowy system — łączone pozycje drób + mleko)
-      docs
-        .filter(d => d.inRhd)
-        .forEach(d => combined.push({ kind: 'document', doc: d, date: d.docDate, value: d.totalValuePln }));
-
-      // Sortuj chronologicznie rosnąco (RHD wymaga porządku dat)
+      // Sortuj od najnowszych (widok roboczy) — do wydruku można odwrócić
       combined.sort((a, b) => {
-        const dateCmp = a.date.localeCompare(b.date);
+        const dateCmp = b.date.localeCompare(a.date); // malejąco
         if (dateCmp !== 0) return dateCmp;
-        return (entryRhdNumber(a) ?? 9999) - (entryRhdNumber(b) ?? 9999);
+        return (entryRhdNumber(b) ?? 0) - (entryRhdNumber(a) ?? 0);
       });
 
       setEntries(combined);
@@ -156,10 +133,8 @@ export function RhdRegisterPage() {
     try {
       if (entry.kind === 'dairy') {
         await dairyService.updateSale(entry.sale.id!, { inRhd: false });
-      } else if (entry.kind === 'drob') {
-        await saleService.update(entry.sale.id!, { inRhd: false });
       } else {
-        await saleDocumentService.updateHeader(entry.doc.id!, { inRhd: false });
+        await saleService.update(entry.sale.id!, { inRhd: false });
       }
       setEntries(prev => prev.filter((_, i) => `${i}` !== key));
     } catch (err: unknown) {
@@ -175,9 +150,8 @@ export function RhdRegisterPage() {
     setLoading(true);
     try {
       await Promise.all(entries.map(async e => {
-        if (e.kind === 'dairy')    await dairyService.updateSale(e.sale.id!, { inRhd: false });
-        else if (e.kind === 'drob') await saleService.update(e.sale.id!, { inRhd: false });
-        else                        await saleDocumentService.updateHeader(e.doc.id!, { inRhd: false });
+        if (e.kind === 'dairy') await dairyService.updateSale(e.sale.id!, { inRhd: false });
+        else                    await saleService.update(e.sale.id!, { inRhd: false });
       }));
       setEntries([]);
     } catch (err: unknown) {
@@ -197,7 +171,6 @@ export function RhdRegisterPage() {
   const isOver       = totalRevenue > rhdLimit;
 
   const years      = [currentYear, currentYear - 1, currentYear - 2].filter(y => y >= 2024);
-  const countDocs  = entries.filter(e => e.kind === 'document').length;
   const countDairy = entries.filter(e => e.kind === 'dairy').length;
   const countDrob  = entries.filter(e => e.kind === 'drob' && e.sale.saleType !== 'inne').length;
   const countInne  = entries.filter(e => e.kind === 'drob' && e.sale.saleType === 'inne').length;
@@ -272,10 +245,9 @@ export function RhdRegisterPage() {
           </div>
           {entries.length > 0 && (
             <div className="flex gap-4 mt-2 justify-center flex-wrap text-xs text-gray-500">
-              {countDocs  > 0 && <span>📄 Dokumenty sprzedaży: {countDocs}</span>}
               {countDairy > 0 && <span>🧀 Mleko / sery: {countDairy}</span>}
               {countDrob  > 0 && <span>🐔 Drób: {countDrob}</span>}
-              {countInne  > 0 && <span>🍯 Inne produkty: {countInne}</span>}
+              {countInne  > 0 && <span>🍯 Inne: {countInne}</span>}
             </div>
           )}
         </div>
@@ -345,9 +317,8 @@ export function RhdRegisterPage() {
                         const overLimit  = runningNew > rhdLimit;
                         const buyer      = entryBuyer(entry);
                         const rhdNum     = entryRhdNumber(entry);
-                        const sourceIcon = entry.kind === 'document' ? '📄'
-                          : entry.kind === 'drob'
-                            ? (entry.sale.saleType === 'inne' ? '🍯' : entry.sale.saleType === 'jaja' ? '🥚' : '🐔')
+                        const sourceIcon = entry.kind === 'drob'
+                          ? (entry.sale.saleType === 'inne' ? '🍯' : entry.sale.saleType === 'jaja' ? '🥚' : '🐔')
                           : '🧀';
 
                         rows.push(
