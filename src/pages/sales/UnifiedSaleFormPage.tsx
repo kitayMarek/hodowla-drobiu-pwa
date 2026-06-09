@@ -2,7 +2,7 @@
  * UnifiedSaleFormPage — tworzy dokument sprzedaży z wieloma pozycjami.
  */
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { saleDocumentService, lineTotal } from '@/services/saleDocument.service';
 import type { FormLine } from '@/services/saleDocument.service';
 import { dairyService } from '@/services/dairy.service';
@@ -145,6 +145,8 @@ function BuyerSelector({ buyers, value, onChange, onBuyerAdded }: {
 
 export function UnifiedSaleFormPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnTo = searchParams.get('returnTo');
   const activities = useActivitiesContext();
   const hasDrob = activities.some(a => a.key === 'drob' && a.isActive);
   const hasSery = activities.some(a => a.key === 'sery' && a.isActive);
@@ -214,7 +216,7 @@ export function UnifiedSaleFormPage() {
         products,
         buyer,
       );
-      navigate(`/sprzedaz/${docId}`);
+      navigate(returnTo ?? `/sprzedaz/${docId}`);
     } catch (e: unknown) {
       const msg    = (e as { message?: string })?.message ?? String(e);
       const detail = (e as { details?: string })?.details ?? '';
@@ -230,8 +232,11 @@ export function UnifiedSaleFormPage() {
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center gap-2">
-        <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600 text-sm">← Wróć</button>
+        <button onClick={() => returnTo ? navigate(returnTo) : navigate(-1)} className="text-gray-400 hover:text-gray-600 text-sm">← Wróć</button>
         <h1 className="text-xl font-bold text-gray-900">Nowa sprzedaż</h1>
+        {returnTo === '/mleko/rhd' && (
+          <span className="text-xs text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full font-medium">→ RHD</span>
+        )}
       </div>
 
       {/* Nagłówek dokumentu */}
@@ -492,7 +497,7 @@ export function UnifiedSaleFormPage() {
         >
           Zapisz tylko wewnętrznie (bez RHD)
         </Button>
-        <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>Anuluj</Button>
+        <Button variant="outline" className="w-full" onClick={() => returnTo ? navigate(returnTo) : navigate(-1)}>Anuluj</Button>
         <p className="text-xs text-gray-400 text-center">RHD — sprzedaż bezpośrednia wliczana do limitu {new Date().getFullYear()} r.</p>
       </div>
     </div>

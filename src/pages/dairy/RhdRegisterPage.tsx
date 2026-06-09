@@ -63,6 +63,8 @@ function entryRhdNumber(e: RhdEntry): number | undefined {
 
 // ── Komponent ─────────────────────────────────────────────────────────────────
 
+const RHD_FORM_URL = '/sprzedaz/nowa?returnTo=/mleko/rhd';
+
 export function RhdRegisterPage() {
   const printRef    = useRef<HTMLDivElement>(null);
   const currentYear = new Date().getFullYear();
@@ -180,11 +182,16 @@ export function RhdRegisterPage() {
 
       {/* Nagłówek */}
       <div className="flex items-center justify-between print:hidden">
+        <h1 className="text-xl font-bold text-gray-900">📋 Rejestr RHD</h1>
         <div className="flex items-center gap-2">
-          <Link to="/zamowienia" className="text-gray-400 hover:text-gray-600 text-sm">← Sprzedaż</Link>
-          <h1 className="text-xl font-bold text-gray-900">Rejestr RHD</h1>
+          <Link
+            to={RHD_FORM_URL}
+            className="inline-flex items-center gap-1 px-3 py-1.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
+          >
+            + Nowy wpis
+          </Link>
+          <Button size="sm" variant="outline" onClick={() => window.print()}>🖨 Drukuj</Button>
         </div>
-        <Button size="sm" onClick={() => window.print()}>🖨 Drukuj</Button>
       </div>
 
       {/* Wybór roku + czyszczenie */}
@@ -286,11 +293,16 @@ export function RhdRegisterPage() {
           {entries.length === 0 ? (
             <div className="text-center py-12 print:hidden">
               <div className="text-5xl mb-3">📋</div>
-              <p className="text-gray-500 text-sm">Brak wpisów RHD w {year} r.</p>
-              <p className="text-gray-400 text-xs mt-2">
-                Wpisy pojawiają się tu automatycznie gdy zaznaczysz „Ujmij w RHD" przy zapisywaniu sprzedaży
-                (dokumenty sprzedaży 📄, sprzedaż drobiu 🐔, sprzedaż mleka/serów 🧀).
+              <p className="text-gray-600 font-medium text-sm">Brak wpisów RHD w {year} r.</p>
+              <p className="text-gray-400 text-xs mt-2 mb-5 max-w-xs mx-auto">
+                Każda sprzedaż zapisana z opcją „Ujmij w RHD" pojawia się tu automatycznie.
               </p>
+              <Link
+                to={RHD_FORM_URL}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-xl hover:bg-brand-700 transition-colors shadow-sm"
+              >
+                + Dodaj pierwszą sprzedaż
+              </Link>
             </div>
           ) : (
             <>
