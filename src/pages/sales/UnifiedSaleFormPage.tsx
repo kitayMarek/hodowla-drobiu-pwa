@@ -473,14 +473,25 @@ export function UnifiedSaleFormPage() {
       {error && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">⚠ {error}</div>}
 
       <div className="space-y-2 pb-6">
-        <div className="flex gap-2">
-          <Button className="flex-1" loading={saving === 'rhd'} disabled={!!saving || lines.length === 0 || grandTotal <= 0} onClick={() => handleSave(true)}>
-            📋 Zapisz do RHD
-          </Button>
-          <Button variant="secondary" className="flex-1" loading={saving === 'norhd'} disabled={!!saving || lines.length === 0 || grandTotal <= 0} onClick={() => handleSave(false)}>
-            📦 Zapisz bez RHD
-          </Button>
-        </div>
+        {/* Główny przycisk — zawsze "do RHD" (pełna szerokość, wyróżniony) */}
+        <Button
+          className="w-full text-base py-3"
+          loading={saving === 'rhd'}
+          disabled={!!saving || lines.length === 0 || grandTotal <= 0}
+          onClick={() => handleSave(true)}
+        >
+          📋 Zapisz sprzedaż do ewidencji RHD
+        </Button>
+        {/* Opcja drugorzędna — bez RHD (mniejsza, szara) */}
+        <Button
+          variant="outline"
+          className="w-full text-sm text-gray-400"
+          loading={saving === 'norhd'}
+          disabled={!!saving || lines.length === 0 || grandTotal <= 0}
+          onClick={() => handleSave(false)}
+        >
+          Zapisz tylko wewnętrznie (bez RHD)
+        </Button>
         <Button variant="outline" className="w-full" onClick={() => navigate(-1)}>Anuluj</Button>
         <p className="text-xs text-gray-400 text-center">RHD — sprzedaż bezpośrednia wliczana do limitu {new Date().getFullYear()} r.</p>
       </div>
