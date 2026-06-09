@@ -90,6 +90,7 @@ export function RhdRegisterPage() {
   const [ownerName, setOwnerName] = useState('');
   const [loading,   setLoading]   = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [removing,  setRemoving]  = useState<string | null>(null); // klucz usuwanego wpisu
 
   const load = async (y: number) => {
     setLoading(true);
@@ -137,12 +138,50 @@ export function RhdRegisterPage() {
 
       setEntries(combined);
       if (limitStr) setRhdLimit(parseFloat(limitStr));
-      if (farm)     setFarmName(JSON.parse(farm));
-      if (owner)    setOwnerName(JSON.parse(owner));
+      if (farm)  { try { setFarmName(JSON.parse(farm));  } catch { setFarmName(farm);  } }
+      if (owner) { try { setOwnerName(JSON.parse(owner)); } catch { setOwnerName(owner); } }
     } catch (err: unknown) {
       const msg = (err as { message?: string })?.message ?? String(err);
       setLoadError(msg);
       console.error('Błąd ładowania RHD:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /** Usuwa pojedynczy wpis z ewidencji RHD (ustawia in_rhd = false). */
+  const removeEntry = async (entry: RhdEntry, key: string) => {
+    if (!confirm('Usunąć ten wpis z ewidencji RHD?\n(Sprzedaż pozostanie w systemie — tylko przestanie być widoczna w RHD.)')) return;
+    setRemoving(key);
+    try {
+      if (entry.kind === 'dairy') {
+        await dairyService.updateSale(entry.sale.id!, { inRhd: false });
+      } else if (entry.kind === 'drob') {
+        await saleService.update(entry.sale.id!, { inRhd: false });
+      } else {
+        await saleDocumentService.updateHeader(entry.doc.id!, { inRhd: false });
+      }
+      setEntries(prev => prev.filter((_, i) => `${i}` !== key));
+    } catch (err: unknown) {
+      alert('Błąd usuwania: ' + ((err as { message?: string })?.message ?? String(err)));
+    } finally {
+      setRemoving(null);
+    }
+  };
+
+  /** Usuwa wszystkie wpisy z ewidencji RHD dla wybranego roku. */
+  const clearAll = async () => {
+    if (!confirm(`Usunąć WSZYSTKIE ${entries.length} wpisy z ewidencji RHD za ${year} rok?\n\nSprzedaże pozostaną w systemie — tylko znikną z RHD.`)) return;
+    setLoading(true);
+    try {
+      await Promise.all(entries.map(async e => {
+        if (e.kind === 'dairy')    await dairyService.updateSale(e.sale.id!, { inRhd: false });
+        else if (e.kind === 'drob') await saleService.update(e.sale.id!, { inRhd: false });
+        else                        await saleDocumentService.updateHeader(e.doc.id!, { inRhd: false });
+      }));
+      setEntries([]);
+    } catch (err: unknown) {
+      alert('Błąd czyszczenia: ' + ((err as { message?: string })?.message ?? String(err)));
     } finally {
       setLoading(false);
     }
@@ -175,21 +214,31 @@ export function RhdRegisterPage() {
         <Button size="sm" onClick={() => window.print()}>🖨 Drukuj</Button>
       </div>
 
-      {/* Wybór roku */}
-      <div className="flex items-center gap-2 print:hidden">
-        {years.map(y => (
+      {/* Wybór roku + czyszczenie */}
+      <div className="flex items-center justify-between print:hidden">
+        <div className="flex items-center gap-2">
+          {years.map(y => (
+            <button
+              key={y}
+              onClick={() => setYear(y)}
+              className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
+                year === y
+                  ? 'bg-brand-600 text-white border-brand-600'
+                  : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+              }`}
+            >
+              {y}
+            </button>
+          ))}
+        </div>
+        {entries.length > 0 && (
           <button
-            key={y}
-            onClick={() => setYear(y)}
-            className={`px-3 py-1 rounded-full text-sm font-medium border transition-colors ${
-              year === y
-                ? 'bg-brand-600 text-white border-brand-600'
-                : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-            }`}
+            onClick={clearAll}
+            className="text-xs text-red-400 hover:text-red-600 border border-red-200 hover:border-red-400 px-2 py-1 rounded-lg transition-colors"
           >
-            {y}
+            🗑 Wyczyść RHD {year}
           </button>
-        ))}
+        )}
       </div>
 
       {/* Podsumowanie limitu */}
@@ -286,6 +335,7 @@ export function RhdRegisterPage() {
                       <th className="border border-gray-200 px-3 py-2 text-right font-semibold text-gray-600 whitespace-nowrap">Narastająco (zł)</th>
                       <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600">Nabywca</th>
                       <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600 print:hidden">Podpis</th>
+                      <th className="border border-gray-200 px-1 py-2 print:hidden" />
                     </tr>
                   </thead>
                   <tbody>
@@ -338,6 +388,16 @@ export function RhdRegisterPage() {
                               {buyer.address && <div className="text-gray-400">{buyer.address}</div>}
                             </td>
                             <td className="border border-gray-200 px-3 py-2 print:hidden" />
+                            <td className="border border-gray-200 px-1 py-2 text-center print:hidden">
+                              <button
+                                onClick={() => removeEntry(entry, String(idx))}
+                                disabled={removing === String(idx)}
+                                title="Usuń z ewidencji RHD"
+                                className="text-gray-300 hover:text-red-500 text-base leading-none transition-colors disabled:opacity-40"
+                              >
+                                {removing === String(idx) ? '…' : '✕'}
+                              </button>
+                            </td>
                           </tr>
                         );
                         return { rows, running: runningNew };
@@ -355,7 +415,7 @@ export function RhdRegisterPage() {
                       }`}>
                         {fmt(totalRevenue)} zł
                       </td>
-                      <td colSpan={3} className={`border border-gray-200 px-3 py-2 text-xs ${
+                      <td colSpan={4} className={`border border-gray-200 px-3 py-2 text-xs ${
                         isOver ? 'text-red-600' : 'text-gray-500'
                       }`}>
                         {isOver

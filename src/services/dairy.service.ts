@@ -858,6 +858,20 @@ export const dairyService = {
     return saleId;
   },
 
+  async updateSale(id: number, patch: Partial<Pick<DairySale, 'inRhd' | 'buyerName' | 'buyerAddress' | 'notes'>>): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      const row: Record<string, unknown> = {};
+      if (patch.inRhd        !== undefined) row.in_rhd        = patch.inRhd;
+      if (patch.buyerName    !== undefined) row.buyer_name    = patch.buyerName ?? null;
+      if (patch.buyerAddress !== undefined) row.buyer_address = patch.buyerAddress ?? null;
+      if (patch.notes        !== undefined) row.notes         = patch.notes ?? null;
+      await supabase.from('dairy_sales').update(row).eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.dairySales.update(id, patch);
+  },
+
   async deleteSale(id: number): Promise<void> {
     await cashFlowService.deleteBySource('dairy_sale', id);
     const user = await getAuthUser();
