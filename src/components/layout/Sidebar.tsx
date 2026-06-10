@@ -12,6 +12,8 @@ interface NavItem {
   icon: string;
   end?: boolean;
   comingSoon?: boolean;
+  /** true = widoczne tylko gdy aktywna jest jakakolwiek działalność produkcyjna */
+  requiresProduction?: boolean;
 }
 
 interface NavSection {
@@ -77,8 +79,8 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'general',
     label: 'Ogólne',
     items: [
-      { to: '/sprzedaz',   label: 'Sprzedaż',     icon: '💰' },
-      { to: '/mleko/rhd',  label: 'Rejestr RHD',  icon: '📋' },
+      { to: '/sprzedaz',   label: 'Sprzedaż',     icon: '💰', requiresProduction: true },
+      { to: '/mleko/rhd',  label: 'Rejestr RHD',  icon: '📋', requiresProduction: true },
       { to: '/kasa',       label: 'Kasa i Bank',  icon: '💳' },
       { to: '/inwestycje', label: 'Inwestycje',   icon: '🏗️' },
       { to: '/raporty',    label: pl.nav.reports, icon: '📊' },
@@ -123,11 +125,16 @@ export function Sidebar({ onNavClick }: SidebarProps) {
   const [logoErr, setLogoErr] = useState(false);
   const activities = useActivitiesContext();
   const activeKeys = new Set(activities.filter(a => a.isActive).map(a => a.key));
+  // Tryb finansowy = brak działalności produkcyjnych (tylko 'osobiste')
+  const hasProduction = activities.some(a => a.isActive && a.key !== 'osobiste');
 
-  // Filtruj sekcje wg aktywnych działalności
-  const visibleSections = NAV_SECTIONS.filter(
-    section => !section.activity || activeKeys.has(section.activity)
-  );
+  // Filtruj sekcje wg aktywnych działalności + pozycje wymagające produkcji
+  const visibleSections = NAV_SECTIONS
+    .filter(section => !section.activity || activeKeys.has(section.activity))
+    .map(section => ({
+      ...section,
+      items: section.items.filter(item => !item.requiresProduction || hasProduction),
+    }));
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">

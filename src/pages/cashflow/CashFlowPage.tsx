@@ -79,8 +79,8 @@ interface AccountFormState {
   openingBalance: string;
 }
 
-const emptyAccountForm = (): AccountFormState => ({
-  name: '', type: 'bank', scope: 'drob', openingBalance: '0',
+const emptyAccountForm = (defaultScope = 'osobiste'): AccountFormState => ({
+  name: '', type: 'bank', scope: defaultScope, openingBalance: '0',
 });
 
 // ─── Formularz transakcji ────────────────────────────────────────────────────
@@ -97,11 +97,11 @@ interface TxFormState {
   notes:       string;
 }
 
-const emptyTxForm = (defaultAccountId?: number): TxFormState => ({
+const emptyTxForm = (defaultAccountId?: number, defaultScope = 'osobiste'): TxFormState => ({
   accountId:   defaultAccountId != null ? String(defaultAccountId) : '',
   date:        todayISO(),
   type:        'expense',
-  scope:       'drob',
+  scope:       defaultScope,
   category:    '',
   description: '',
   amountPln:   '',
@@ -130,7 +130,7 @@ function newReceiptLine(scope: string): ReceiptLine {
   return { key: Math.random().toString(36).slice(2), scope, category: '', amountPln: '', description: '' };
 }
 
-const emptyReceiptForm = (defaultScope = 'drob'): ReceiptFormState => ({
+const emptyReceiptForm = (defaultScope = 'osobiste'): ReceiptFormState => ({
   date: todayISO(), accountId: '', store: '',
   lines: [newReceiptLine(defaultScope)],
 });
@@ -176,6 +176,9 @@ export function CashFlowPage() {
     ]) as Record<string, 'blue' | 'green' | 'yellow' | 'orange' | 'red' | 'gray'>,
     [activities],
   );
+  // Domyślny zakres nowych wpisów: pierwsza aktywna działalność,
+  // w trybie finansowym (bez produkcji) — 'osobiste'.
+  const defaultScope = businessActivities[0]?.key ?? 'osobiste';
 
   // ── Noty wewnętrzne ───────────────────────────────────────────────────────
   const allInternalTransfers = useInternalTransfers();
@@ -340,7 +343,7 @@ export function CashFlowPage() {
     });
     setSaving(false);
     setShowAccountForm(false);
-    setAccountForm(emptyAccountForm());
+    setAccountForm(emptyAccountForm(defaultScope));
     reload();
   };
 
@@ -406,7 +409,7 @@ export function CashFlowPage() {
     }
     setSaving(false);
     setShowTxForm(false);
-    setTxForm(emptyTxForm());
+    setTxForm(emptyTxForm(undefined, defaultScope));
     setTxDuplicates([]);
     reload();
   };
@@ -439,7 +442,6 @@ export function CashFlowPage() {
         });
       }
       setShowReceiptForm(false);
-      const defaultScope = businessActivities[0]?.key ?? 'drob';
       setReceiptForm(emptyReceiptForm(defaultScope));
       reload();
     } catch (e) {
@@ -640,7 +642,7 @@ export function CashFlowPage() {
           <Button variant="outline" size="sm" onClick={() => setShowCatModal(true)}>
             + Kategoria
           </Button>
-          <Button variant="outline" size="sm" onClick={() => { setAccountForm(emptyAccountForm()); setShowAccountForm(true); }}>
+          <Button variant="outline" size="sm" onClick={() => { setAccountForm(emptyAccountForm(defaultScope)); setShowAccountForm(true); }}>
             + Konto
           </Button>
           <Button variant="outline" size="sm" onClick={() => {
@@ -654,7 +656,6 @@ export function CashFlowPage() {
           </Button>
           <Button variant="outline" size="sm"
             onClick={() => {
-              const defaultScope = businessActivities[0]?.key ?? 'drob';
               setReceiptForm(emptyReceiptForm(defaultScope));
               setReceiptError('');
               setShowReceiptForm(true);
@@ -662,7 +663,7 @@ export function CashFlowPage() {
             disabled={accounts.length === 0}>
             📄 Paragon
           </Button>
-          <Button size="sm" onClick={() => { setTxForm(emptyTxForm()); setShowTxForm(true); }}
+          <Button size="sm" onClick={() => { setTxForm(emptyTxForm(undefined, defaultScope)); setShowTxForm(true); }}
             disabled={accounts.length === 0}>
             + Transakcja
           </Button>

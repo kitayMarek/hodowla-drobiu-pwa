@@ -108,11 +108,12 @@ export function RhdRegisterPage() {
         )
         .forEach(s => combined.push({ kind: 'drob', sale: s, date: s.saleDate, value: s.totalRevenuePln }));
 
-      // Sortuj od najnowszych (widok roboczy) — do wydruku można odwrócić
+      // Sortuj chronologicznie (rosnąco) — tak liczy się Lp. i suma narastająca.
+      // Widok ekranowy odwraca kolejność (najnowsze na górze), wydruk zostaje chronologiczny.
       combined.sort((a, b) => {
-        const dateCmp = b.date.localeCompare(a.date); // malejąco
+        const dateCmp = a.date.localeCompare(b.date);
         if (dateCmp !== 0) return dateCmp;
-        return (entryRhdNumber(b) ?? 0) - (entryRhdNumber(a) ?? 0);
+        return (entryRhdNumber(a) ?? 0) - (entryRhdNumber(b) ?? 0);
       });
 
       setEntries(combined);
@@ -138,7 +139,7 @@ export function RhdRegisterPage() {
       } else {
         await saleService.update(entry.sale.id!, { inRhd: false });
       }
-      setEntries(prev => prev.filter((_, i) => `${i}` !== key));
+      setEntries(prev => prev.filter(e => e !== entry));
     } catch (err: unknown) {
       alert('Błąd usuwania: ' + ((err as { message?: string })?.message ?? String(err)));
     } finally {
@@ -166,6 +167,77 @@ export function RhdRegisterPage() {
   useEffect(() => { load(year); }, [year]);
 
   const totalRevenue = entries.reduce((s, e) => s + e.value, 0);
+
+  // Lp. i suma narastająca liczone chronologicznie (entries są posortowane rosnąco).
+  // Ekran pokazuje wiersze od najnowszych, wydruk — chronologicznie.
+  let runningAcc = 0;
+  const computedRows = entries.map((entry, idx) => {
+    runningAcc += entry.value;
+    return {
+      entry,
+      lp: idx + 1,
+      running: runningAcc,
+      key: `${entry.kind}-${entry.sale.id ?? idx}`,
+    };
+  });
+  const screenRows = [...computedRows].reverse();
+
+  const renderRow = ({ entry, lp, running, key }: typeof computedRows[number]) => {
+    const overLimit  = running > rhdLimit;
+    const buyer      = entryBuyer(entry);
+    const rhdNum     = entryRhdNumber(entry);
+    const sourceIcon = entry.kind === 'drob'
+      ? (entry.sale.saleType === 'inne' ? '🍯' : entry.sale.saleType === 'jaja' ? '🥚' : '🐔')
+      : '🧀';
+
+    return (
+      <tr key={key} className={`hover:bg-gray-50 ${overLimit ? 'bg-red-50 print:bg-red-50' : ''}`}>
+        <td className="border border-gray-200 px-3 py-2 text-center font-mono text-gray-600 whitespace-nowrap">
+          {lp}
+          {rhdNum != null && (
+            <span className="text-xs text-gray-400 ml-1">#{rhdNum}</span>
+          )}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 whitespace-nowrap text-gray-700">
+          {fmtD(entry.date)}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 text-gray-800 font-medium">
+          <span className="mr-1 print:hidden">{sourceIcon}</span>
+          {entryProduct(entry)}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 text-right text-gray-700 whitespace-nowrap">
+          {entryQuantity(entry)}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 text-right text-gray-700 whitespace-nowrap">
+          {entryUnitPrice(entry)}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 text-right font-medium text-gray-800 whitespace-nowrap">
+          {fmt(entry.value)} zł
+        </td>
+        <td className={`border border-gray-200 px-3 py-2 text-right font-semibold whitespace-nowrap ${
+          overLimit ? 'text-red-600' : running > rhdLimit * 0.9 ? 'text-amber-600' : 'text-gray-800'
+        }`}>
+          {fmt(running)} zł
+          {overLimit && <span className="ml-1 text-red-500">⚠</span>}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 text-gray-700 text-xs">
+          {buyer.name    && <div>{buyer.name}</div>}
+          {buyer.address && <div className="text-gray-400">{buyer.address}</div>}
+        </td>
+        <td className="border border-gray-200 px-3 py-2 print:hidden" />
+        <td className="border border-gray-200 px-1 py-2 text-center print:hidden">
+          <button
+            onClick={() => removeEntry(entry, key)}
+            disabled={removing === key}
+            title="Usuń z ewidencji RHD"
+            className="text-gray-300 hover:text-red-500 text-base leading-none transition-colors disabled:opacity-40"
+          >
+            {removing === key ? '…' : '✕'}
+          </button>
+        </td>
+      </tr>
+    );
+  };
   const remaining    = rhdLimit - totalRevenue;
   const pct          = Math.min(100, (totalRevenue / rhdLimit) * 100);
   const isWarn       = pct >= 70;
@@ -322,71 +394,12 @@ export function RhdRegisterPage() {
                       <th className="border border-gray-200 px-1 py-2 print:hidden" />
                     </tr>
                   </thead>
-                  <tbody>
-                    {entries.reduce<{ rows: React.ReactElement[]; running: number }>(
-                      ({ rows, running }, entry, idx) => {
-                        const runningNew = running + entry.value;
-                        const overLimit  = runningNew > rhdLimit;
-                        const buyer      = entryBuyer(entry);
-                        const rhdNum     = entryRhdNumber(entry);
-                        const sourceIcon = entry.kind === 'drob'
-                          ? (entry.sale.saleType === 'inne' ? '🍯' : entry.sale.saleType === 'jaja' ? '🥚' : '🐔')
-                          : '🧀';
-
-                        rows.push(
-                          <tr
-                            key={`${entry.kind}-${idx}`}
-                            className={`hover:bg-gray-50 ${overLimit ? 'bg-red-50 print:bg-red-50' : ''}`}
-                          >
-                            <td className="border border-gray-200 px-3 py-2 text-center font-mono text-gray-600 whitespace-nowrap">
-                              {idx + 1}
-                              {rhdNum != null && (
-                                <span className="text-xs text-gray-400 ml-1">#{rhdNum}</span>
-                              )}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 whitespace-nowrap text-gray-700">
-                              {fmtD(entry.date)}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 text-gray-800 font-medium">
-                              <span className="mr-1 print:hidden">{sourceIcon}</span>
-                              {entryProduct(entry)}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 text-right text-gray-700 whitespace-nowrap">
-                              {entryQuantity(entry)}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 text-right text-gray-700 whitespace-nowrap">
-                              {entryUnitPrice(entry)}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 text-right font-medium text-gray-800 whitespace-nowrap">
-                              {fmt(entry.value)} zł
-                            </td>
-                            <td className={`border border-gray-200 px-3 py-2 text-right font-semibold whitespace-nowrap ${
-                              overLimit ? 'text-red-600' : runningNew > rhdLimit * 0.9 ? 'text-amber-600' : 'text-gray-800'
-                            }`}>
-                              {fmt(runningNew)} zł
-                              {overLimit && <span className="ml-1 text-red-500">⚠</span>}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 text-gray-700 text-xs">
-                              {buyer.name    && <div>{buyer.name}</div>}
-                              {buyer.address && <div className="text-gray-400">{buyer.address}</div>}
-                            </td>
-                            <td className="border border-gray-200 px-3 py-2 print:hidden" />
-                            <td className="border border-gray-200 px-1 py-2 text-center print:hidden">
-                              <button
-                                onClick={() => removeEntry(entry, String(idx))}
-                                disabled={removing === String(idx)}
-                                title="Usuń z ewidencji RHD"
-                                className="text-gray-300 hover:text-red-500 text-base leading-none transition-colors disabled:opacity-40"
-                              >
-                                {removing === String(idx) ? '…' : '✕'}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                        return { rows, running: runningNew };
-                      },
-                      { rows: [], running: 0 }
-                    ).rows}
+                  {/* Ekran: najnowsze na górze. Wydruk: chronologicznie. */}
+                  <tbody className="print:hidden">
+                    {screenRows.map(row => renderRow(row))}
+                  </tbody>
+                  <tbody className="hidden print:table-row-group">
+                    {computedRows.map(row => renderRow(row))}
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 font-semibold">
