@@ -1,0 +1,23 @@
+# Fermly
+
+Fermly to aplikacja webowa do zarządzania małym i średnim gospodarstwem rolnym.
+Pomaga prowadzić hodowlę drobiu oraz przetwórstwo mleka i serów, a także ewidencję
+sprzedaży wymaganą w ramach Rolniczego Handlu Detalicznego (RHD). Działa w przeglądarce
+i offline (aplikacja PWA), więc można z niej korzystać również w terenie bez internetu.
+
+## Główne funkcje
+- Prowadzenie stad drobiu: dziennik, pasze i receptury, ważenia, zdrowie, ubój, wylęgarnia.
+- Przetwórstwo mleka: przyjęcia mleka, partie produkcyjne serów, dostawcy, katalog produktów.
+- Sprzedaż i nabywcy: dokumenty sprzedaży drobiu, jaj, mięsa, serów i innych produktów.
+- Ewidencja RHD: automatyczny rejestr sprzedaży z kolejną numeracją i licznikiem rocznego limitu.
+- Finanse: kasa i bank, raporty, inwestycje, śledzenie przychodów i kosztów per działalność.
+
+## Dla kogo
+Rolnicy i właściciele gospodarstw prowadzący sprzedaż bezpośrednią w ramach RHD,
+hodowcy drobiu oraz wytwórcy serów zagrodowych.
+
+## Język
+Polish / pl
+
+## URL
+https://fermly.pl
