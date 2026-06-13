@@ -1,6 +1,7 @@
 import { db } from '@/db/database';
 import { supabase, getAuthUser } from '@/lib/supabase';
 import { cashFlowService } from '@/services/cashFlow.service';
+import { dairyService } from '@/services/dairy.service';
 import type { Sale } from '@/models/sale.model';
 import type { SaleType } from '@/constants/phases';
 
@@ -20,6 +21,8 @@ function rowToSale(r: Record<string, unknown>): Sale {
     invoiceNumber:    r.invoice_number as string | undefined,
     notes:            r.notes as string | undefined,
     inRhd:            r.in_rhd !== false,
+    rhdNumber:        r.rhd_number != null ? Number(r.rhd_number) : undefined,
+    rhdYear:          r.rhd_year   != null ? Number(r.rhd_year)   : undefined,
     saleDocumentId:   r.sale_document_id != null ? Number(r.sale_document_id) : undefined,
     createdAt:        r.created_at as string,
   };
@@ -79,6 +82,20 @@ export const saleService = {
   async create(data: Omit<Sale, 'id' | 'createdAt'>): Promise<number> {
     const user = await getAuthUser();
     const now = new Date().toISOString();
+    const year = data.rhdYear ?? new Date(data.saleDate).getFullYear();
+
+    // Kolejny numer w rocznej ewidencji RHD — wspólna sekwencja z dairy_sales
+    // i sale_documents. Linie dokumentów dostają numer dokumentu z zewnątrz.
+    let rhdNumber = data.rhdNumber;
+    if (data.inRhd !== false && rhdNumber == null && data.saleType !== 'jaja_wewn') {
+      try {
+        const stats = await dairyService.getRhdStats(year);
+        rhdNumber = stats.nextNumber;
+      } catch {
+        rhdNumber = 1;
+      }
+    }
+
     if (user) {
       const { data: row, error } = await supabase.from('sales').insert({
         user_id: user.id, batch_id: data.batchId, sale_date: data.saleDate,
@@ -88,13 +105,15 @@ export const saleService = {
         total_revenue_pln: data.totalRevenuePln, buyer_name: data.buyerName ?? null,
         invoice_number: data.invoiceNumber ?? null, notes: data.notes ?? null,
         in_rhd: data.inRhd ?? true,
+        // rhd_number/rhd_year dodawane tylko gdy nadano numer — kolumny mogą jeszcze nie być w bazie
+        ...(rhdNumber != null ? { rhd_number: rhdNumber, rhd_year: year } : {}),
         ...(data.saleDocumentId != null ? { sale_document_id: data.saleDocumentId } : {}),
         created_at: now,
       }).select('id').single();
       if (error) throw error;
       return row.id;
     }
-    return db.sales.add({ ...data, createdAt: now });
+    return db.sales.add({ ...data, rhdNumber, rhdYear: year, createdAt: now });
   },
 
   async update(id: number, data: Partial<Sale>): Promise<void> {
@@ -113,6 +132,8 @@ export const saleService = {
       if (data.invoiceNumber   !== undefined) row.invoice_number    = data.invoiceNumber;
       if (data.notes           !== undefined) row.notes             = data.notes;
       if (data.inRhd           !== undefined) row.in_rhd            = data.inRhd;
+      if (data.rhdNumber       !== undefined) row.rhd_number        = data.rhdNumber ?? null;
+      if (data.rhdYear         !== undefined) row.rhd_year          = data.rhdYear   ?? null;
       await supabase.from('sales').update(row).eq('id', id).eq('user_id', user.id);
       return;
     }

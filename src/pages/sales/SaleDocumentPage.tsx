@@ -16,6 +16,18 @@ const DROB_ICONS: Record<string, string> = {
   jaja: '🥚', tuszki: '🍗', ptaki_zywe: '🐔', elementy: '🦵',
 };
 
+/** Etykieta numerów RHD dokumentu — pojedynczy numer lub zakres (np. #43–45). */
+function rhdLabel(doc: SaleDocumentWithLines): string {
+  const nums = [...doc.dairyLines, ...doc.drobLines]
+    .map(l => l.rhdNumber)
+    .filter((n): n is number => n != null);
+  if (nums.length) {
+    const lo = Math.min(...nums), hi = Math.max(...nums);
+    return lo === hi ? `#${lo}` : `#${lo}–${hi}`;
+  }
+  return doc.rhdNumber != null ? `#${doc.rhdNumber}` : '';
+}
+
 export function SaleDocumentPage() {
   const { id }  = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -169,7 +181,7 @@ export function SaleDocumentPage() {
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                 doc.inRhd ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
               }`}>
-                {doc.inRhd ? `📋 RHD #${doc.rhdNumber}/${doc.rhdYear}` : '📦 Wewnętrzna'}
+                {doc.inRhd ? `📋 RHD ${rhdLabel(doc)}/${doc.rhdYear}` : '📦 Wewnętrzna'}
               </span>
             </div>
             <div>
@@ -203,7 +215,10 @@ export function SaleDocumentPage() {
             className="bg-white rounded-xl border border-brand-100 shadow-sm px-4 py-3 flex items-center gap-3">
             <span className="text-xl">{PRODUCT_ICONS[line.productCategory] ?? '🧀'}</span>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-semibold text-gray-800">{line.productName}</div>
+              <div className="text-sm font-semibold text-gray-800">
+                {line.productName}
+                {line.rhdNumber != null && <span className="ml-1.5 text-[10px] font-normal text-blue-500">RHD #{line.rhdNumber}</span>}
+              </div>
               <div className="text-xs text-gray-400 mt-0.5">
                 {line.quantity} {UNIT_LABELS[line.unit as keyof typeof UNIT_LABELS] ?? line.unit}
                 {' × '}{fmt(line.unitPricePln)} zł
@@ -229,7 +244,10 @@ export function SaleDocumentPage() {
               className="bg-white rounded-xl border border-orange-100 shadow-sm px-4 py-3 flex items-center gap-3">
               <span className="text-xl">{DROB_ICONS[line.saleType] ?? '🐔'}</span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-gray-800">{SALE_TYPE_LABELS[line.saleType]}</div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {SALE_TYPE_LABELS[line.saleType]}
+                  {line.rhdNumber != null && <span className="ml-1.5 text-[10px] font-normal text-blue-500">RHD #{line.rhdNumber}</span>}
+                </div>
                 <div className="text-xs text-gray-400 mt-0.5">{detail}</div>
               </div>
               <div className="text-right shrink-0">

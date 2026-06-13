@@ -57,8 +57,7 @@ function entryBuyer(e: RhdEntry): { name?: string; address?: string } {
 }
 
 function entryRhdNumber(e: RhdEntry): number | undefined {
-  if (e.kind === 'dairy') return e.sale.rhdNumber;
-  return undefined;
+  return e.sale.rhdNumber;
 }
 
 // ── Komponent ─────────────────────────────────────────────────────────────────
@@ -193,10 +192,7 @@ export function RhdRegisterPage() {
     return (
       <tr key={key} className={`hover:bg-gray-50 ${overLimit ? 'bg-red-50 print:bg-red-50' : ''}`}>
         <td className="border border-gray-200 px-3 py-2 text-center font-mono text-gray-600 whitespace-nowrap">
-          {lp}
-          {rhdNum != null && (
-            <span className="text-xs text-gray-400 ml-1">#{rhdNum}</span>
-          )}
+          {rhdNum ?? <span className="text-gray-300">{lp}</span>}
         </td>
         <td className="border border-gray-200 px-3 py-2 whitespace-nowrap text-gray-700">
           {fmtD(entry.date)}
@@ -382,7 +378,7 @@ export function RhdRegisterPage() {
                 <table className="w-full border-collapse text-sm print:text-xs">
                   <thead>
                     <tr className="bg-gray-50 print:bg-gray-100">
-                      <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">Lp.</th>
+                      <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">Nr</th>
                       <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600 whitespace-nowrap">Data sprzedaży</th>
                       <th className="border border-gray-200 px-3 py-2 text-left font-semibold text-gray-600">Produkt</th>
                       <th className="border border-gray-200 px-3 py-2 text-right font-semibold text-gray-600 whitespace-nowrap">Ilość</th>

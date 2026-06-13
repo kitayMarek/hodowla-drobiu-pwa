@@ -119,19 +119,26 @@ export const saleDocumentService = {
     const year  = header.rhdYear ?? new Date(header.docDate).getFullYear();
     const total = lines.reduce((s, l) => s + lineTotal(l), 0);
 
-    // Numer RHD
-    let rhdNumber = header.rhdNumber;
-    if (header.inRhd && !rhdNumber) {
-      try {
-        const stats = await dairyService.getRhdStats(year);
-        rhdNumber = stats.nextNumber;
-      } catch { rhdNumber = 1; }
+    // Numeracja RHD — KAŻDA pozycja (linia) dostaje własny kolejny numer we
+    // wspólnej rocznej sekwencji (dairy_sales + sales). Dokument z 3 produktami
+    // zajmuje 3 kolejne numery, np. 43, 44, 45. Numerujemy lokalnie, bez
+    // dodatkowych odczytów z bazy między liniami.
+    let nextNum: number | null = null;
+    if (header.inRhd) {
+      try { nextNum = (await dairyService.getRhdStats(year)).nextNumber; }
+      catch { nextNum = 1; }
     }
+    const takeRhdNum = (): number | undefined => {
+      if (nextNum == null) return undefined;
+      const n = nextNum; nextNum += 1; return n;
+    };
+    const hasCountedLine = lines.some(l => lineTotal(l) > 0);
 
     const docData = {
       ...header,
       totalValuePln: total,
-      rhdNumber,
+      // Na dokumencie zapisujemy numer PIERWSZEJ pozycji (do sortowania i etykiety).
+      rhdNumber: header.inRhd && hasCountedLine ? nextNum ?? undefined : undefined,
       rhdYear: year,
       updatedAt: now,
     };
@@ -165,6 +172,7 @@ export const saleDocumentService = {
     const effectiveBuyer = docData.buyerName ?? 'Nabywca detaliczny';
     for (const l of lines) {
       if (lineTotal(l) <= 0) continue;
+      const lineRhdNum = header.inRhd ? takeRhdNum() : undefined;
 
       if (l.activity === 'sery') {
         const prod = products.find(p => p.id === Number(l.dairyProductId));
@@ -184,7 +192,7 @@ export const saleDocumentService = {
           buyerName:       effectiveBuyer,
           buyerAddress:    buyer?.address,
           inRhd:           docData.inRhd,
-          rhdNumber,
+          rhdNumber:       lineRhdNum,
           rhdYear:         year,
           saleDocumentId:  docId,
         } as Parameters<typeof dairyService.saveSale>[0]);
@@ -200,6 +208,8 @@ export const saleDocumentService = {
           totalRevenuePln: total,
           buyerName:       docData.buyerName,
           inRhd:           docData.inRhd,
+          rhdNumber:       lineRhdNum,
+          rhdYear:         year,
           saleDocumentId:  docId,
         } as Parameters<typeof saleService.create>[0];
 
@@ -248,6 +258,8 @@ export const saleDocumentService = {
             buyerName:       docData.buyerName,
             notes:           notesDesc || undefined,
             inRhd:           docData.inRhd,
+            rhdNumber:       lineRhdNum,
+            rhdYear:         year,
             saleDocumentId:  docId,
           });
         }

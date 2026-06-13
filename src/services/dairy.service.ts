@@ -765,22 +765,47 @@ export const dairyService = {
     return col.toArray();
   },
 
-  /** Statystyki RHD dla danego roku kalendarzowego */
+  /** Statystyki RHD dla danego roku kalendarzowego.
+   *  totalPln / count dotyczą sprzedaży mleczarskich; nextNumber to kolejny
+   *  numer WSPÓLNEJ rocznej sekwencji RHD (dairy_sales + sales + sale_documents). */
   async getRhdStats(year: number): Promise<{ totalPln: number; nextNumber: number; count: number }> {
     const user = await getAuthUser();
     let sales: DairySale[];
+    let drobMax = 0;
+    let docsMax = 0;
     if (user) {
       const { data } = await supabase.from('dairy_sales').select('*')
         .eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
       sales = (data ?? []).map(toDairySale);
+      // sales (drób + inne) — kolumna rhd_number może jeszcze nie istnieć w bazie
+      const { data: drobRows, error: drobErr } = await supabase.from('sales')
+        .select('rhd_number').eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
+      if (!drobErr) drobMax = (drobRows ?? []).reduce((m, r) => Math.max(m, Number(r.rhd_number ?? 0)), 0);
+      const { data: docRows, error: docErr } = await supabase.from('sale_documents')
+        .select('rhd_number').eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
+      if (!docErr) docsMax = (docRows ?? []).reduce((m, r) => Math.max(m, Number(r.rhd_number ?? 0)), 0);
     } else {
       sales = await db.dairySales
         .where('rhdYear').equals(year)
         .and(s => s.inRhd === true)
         .toArray();
+      const drobSales = await db.sales.filter(s =>
+        s.inRhd !== false &&
+        (s.rhdYear ?? new Date(s.saleDate).getFullYear()) === year
+      ).toArray();
+      drobMax = drobSales.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0);
+      const docs = await db.saleDocuments.filter(d =>
+        d.inRhd !== false &&
+        (d.rhdYear ?? new Date(d.docDate).getFullYear()) === year
+      ).toArray();
+      docsMax = docs.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0);
     }
     const totalPln = sales.reduce((s, r) => s + r.totalValuePln, 0);
-    const maxNum   = sales.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0);
+    const maxNum   = Math.max(
+      sales.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0),
+      drobMax,
+      docsMax,
+    );
     return { totalPln, nextNumber: maxNum + 1, count: sales.length };
   },
 

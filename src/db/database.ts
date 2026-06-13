@@ -276,6 +276,11 @@ export class FarmDatabase extends Dexie {
       sales:         '++id, batchId, saleDate, saleType, saleDocumentId, [batchId+saleDate], [saleType+saleDate]',
     });
 
+    // v22: numeracja RHD dla sprzedaży drobiu/innych (wspólna sekwencja z dairySales)
+    this.version(22).stores({
+      sales: '++id, batchId, saleDate, saleType, saleDocumentId, rhdYear, rhdNumber, [batchId+saleDate], [saleType+saleDate], [rhdYear+rhdNumber]',
+    });
+
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.
     // Poprzednia wersja createTransfer tworzyła dwa rekordy (jeden per konto).
     // Teraz przelew = jeden rekord z accountId=źródło, toAccountId=cel.

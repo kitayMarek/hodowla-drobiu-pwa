@@ -19,6 +19,10 @@ export interface Sale {
   notes?: string;
   /** Czy ujmować w ewidencji RHD i liczniku 100 tys. zł (domyślnie: true) */
   inRhd?: boolean;
+  /** Kolejny numer w rocznej ewidencji RHD (wspólna sekwencja z dairy_sales) */
+  rhdNumber?: number;
+  /** Rok ewidencji RHD */
+  rhdYear?: number;
   /** Dokument sprzedaży (nagłówek grupujący) */
   saleDocumentId?: number;
   createdAt: string;
