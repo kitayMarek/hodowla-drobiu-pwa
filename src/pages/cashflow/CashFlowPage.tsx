@@ -671,7 +671,7 @@ export function CashFlowPage() {
         </div>
       </div>
 
-      <div><AskLLM defaultQuery="jak prowadzić kasę i bank w gospodarstwie rolnym ewidencja kosztów" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić kasę i bank w gospodarstwie rolnym ewidencja kosztów" contextUrl="https://fermly.pl/przewodnik-kasa-bank.html" /></div>
 
       {/* ── Zakładki ──────────────────────────────────────────────────────── */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">

@@ -31,3 +31,4 @@ Szczegółowa, statyczna strona z opisem wszystkich modułów i funkcji aplikacj
 
 ## Przewodniki i dokumentacja
 - [Przewodnik RHD dla rolników](https://fermly.pl/przewodnik-rhd.html): ewidencja sprzedaży, limity przychodów i ilościowe, rejestracja w PIW i Sanepidzie, oznakowanie produktów — dla hodowców drobiu i wytwórców serów.
+- [Jak prowadzić kasę i bank w gospodarstwie rolnym](https://fermly.pl/przewodnik-kasa-bank.html): konta, transakcje wpływów i wydatków, przelewy między kontami, ewidencja kosztów i przypisanie operacji do działalności — krok po kroku w aplikacji Fermly.
