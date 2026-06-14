@@ -11,7 +11,7 @@ i offline (aplikacja PWA), więc można z niej korzystać również w terenie be
 - Prowadzenie stad drobiu: dziennik, pasze i receptury, ważenia, zdrowie, ubój, wylęgarnia.
 - Przetwórstwo mleka: przyjęcia mleka, partie produkcyjne serów, dostawcy, katalog produktów.
 - Sprzedaż i nabywcy: dokumenty sprzedaży drobiu, jaj, mięsa, serów i innych produktów.
-- Ewidencja RHD: automatyczny rejestr sprzedaży z kolejną numeracją i licznikiem rocznego limitu.
+- Ewidencja RHD: automatyczny rejestr sprzedaży z kolejną numeracją i licznikiem rocznego limitu; generuje wydruk ewidencji gotowy do okazania podczas kontroli (lub zapisania jako PDF). Dane można eksportować do CSV i Excela.
 - Finanse: kasa i bank, raporty, inwestycje, śledzenie przychodów i kosztów per działalność.
 
 ## Dla kogo
