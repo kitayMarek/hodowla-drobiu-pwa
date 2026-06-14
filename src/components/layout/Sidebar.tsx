@@ -3,6 +3,7 @@ import { NavLink, Link } from 'react-router-dom';
 import { pl } from '@/i18n/pl';
 import { getDaysSinceBackup, WARN_AFTER_DAYS } from '@/services/backupReminder';
 import { useActivitiesContext } from '@/contexts/ActivitiesContext';
+import { trackHelpClick } from '@/components/HelpLink';
 
 // ── Typy ────────────────────────────────────────────────────────
 
@@ -12,6 +13,8 @@ interface NavItem {
   icon: string;
   end?: boolean;
   comingSoon?: boolean;
+  /** true = link zewnętrzny (otwiera się w nowej karcie zamiast routingu) */
+  external?: boolean;
   /** true = widoczne tylko gdy aktywna jest jakakolwiek działalność produkcyjna */
   requiresProduction?: boolean;
 }
@@ -85,6 +88,18 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/inwestycje', label: 'Inwestycje',   icon: '🏗️' },
       { to: '/raporty',    label: pl.nav.reports, icon: '📊' },
       { to: '/ustawienia', label: pl.nav.settings, icon: '⚙️' },
+    ],
+  },
+  {
+    key: 'help',
+    label: 'Pomoc',
+    items: [
+      { to: 'https://fermly.pl/przewodnik-rhd.html', label: 'Przewodnik RHD', icon: '📄', external: true },
+      { to: 'https://fermly.pl/o-aplikacji.html',    label: 'O aplikacji',    icon: 'ℹ️', external: true },
+      {
+        to: 'https://www.perplexity.ai/search?q=' + encodeURIComponent('jak używać Fermly gospodarstwo rolne RHD'),
+        label: 'Zapytaj Perplexity', icon: '🔍', external: true,
+      },
     ],
   },
 ];
@@ -175,7 +190,20 @@ export function Sidebar({ onNavClick }: SidebarProps) {
 
             <div className="space-y-0.5">
               {section.items.map(item =>
-                item.comingSoon ? (
+                item.external ? (
+                  <a
+                    key={item.to}
+                    href={item.to}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => { onNavClick?.(); trackHelpClick(item.to); }}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  >
+                    <span>{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    <span className="text-xs text-gray-300" aria-hidden="true">↗</span>
+                  </a>
+                ) : item.comingSoon ? (
                   <div
                     key={item.to}
                     className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-gray-300 cursor-default select-none"

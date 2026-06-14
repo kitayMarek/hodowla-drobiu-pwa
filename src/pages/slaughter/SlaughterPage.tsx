@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { HelpLink } from '@/components/HelpLink';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -67,6 +68,8 @@ export function SlaughterPage() {
         </Button>
       </div>
       <div className="text-sm text-gray-500">{batch.name}</div>
+
+      <div><HelpLink query="ubój drobiu na użytek własny przepisy RHD sprzedaż tuszek" /></div>
 
       <div className="grid grid-cols-3 gap-3">
         <KPICard label="Masa poubojowa" value={formatKg(totalCarcass)} icon="🥩" color="green" />

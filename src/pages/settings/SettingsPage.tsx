@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { HelpLink } from '@/components/HelpLink';
 import { settingsService } from '@/services/settings.service';
 import { useSettings } from '@/hooks/useSettings';
 import { useAuth } from '@/contexts/AuthContext';
@@ -152,6 +153,8 @@ export function SettingsPage() {
   return (
     <div className="space-y-4 max-w-lg">
       <h1 className="text-xl font-bold text-gray-900">{pl.settings.title}</h1>
+
+      <div><HelpLink query="Fermly aplikacja gospodarstwo rolne drób RHD jak zacząć" /></div>
 
       {/* ── Tryb aplikacji ───────────────────────────────────────────── */}
       {(() => {

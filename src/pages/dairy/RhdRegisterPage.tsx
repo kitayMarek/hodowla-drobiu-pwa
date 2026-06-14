@@ -9,6 +9,7 @@ import { UNIT_LABELS } from '@/models/dairy.model';
 import { SALE_TYPE_LABELS } from '@/constants/phases';
 import type { SaleType } from '@/constants/phases';
 import { Button } from '@/components/ui/Button';
+import { HelpLink } from '@/components/HelpLink';
 
 const fmt  = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtD = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -447,6 +448,9 @@ export function RhdRegisterPage() {
         <p className="mt-1 text-gray-400">
           Rejestr zbiera automatycznie wszystkie sprzedaże oznaczone „Ujmij w RHD":
           📄 dokumenty sprzedaży · 🐔 sprzedaż drobiu · 🧀 sprzedaż mleka/serów.
+        </p>
+        <p className="mt-2">
+          <HelpLink href="https://fermly.pl/przewodnik-rhd.html" label="Przewodnik RHD — limity, ewidencja, dokumenty" />
         </p>
       </div>
     </div>

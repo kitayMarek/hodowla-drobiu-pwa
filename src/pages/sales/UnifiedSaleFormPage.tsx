@@ -2,6 +2,7 @@
  * UnifiedSaleFormPage — tworzy dokument sprzedaży z wieloma pozycjami.
  */
 import React, { useEffect, useState } from 'react';
+import { HelpLink } from '@/components/HelpLink';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { saleDocumentService, lineTotal } from '@/services/saleDocument.service';
 import type { FormLine } from '@/services/saleDocument.service';
@@ -238,6 +239,8 @@ export function UnifiedSaleFormPage() {
           <span className="text-xs text-brand-600 bg-brand-50 px-2 py-0.5 rounded-full font-medium">→ RHD</span>
         )}
       </div>
+
+      <div><HelpLink query="co wpisać w ewidencji RHD rodzaj ilość produktu przykład" /></div>
 
       {/* Nagłówek dokumentu */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">

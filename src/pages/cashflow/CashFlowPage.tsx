@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { HelpLink } from '@/components/HelpLink';
 import { db } from '@/db/database';
 import { cashFlowService } from '@/services/cashFlow.service';
 import { financialEventService } from '@/services/financialEvent.service';
@@ -669,6 +670,8 @@ export function CashFlowPage() {
           </Button>
         </div>
       </div>
+
+      <div><HelpLink query="jak prowadzić kasę i bank w gospodarstwie rolnym ewidencja kosztów" /></div>
 
       {/* ── Zakładki ──────────────────────────────────────────────────────── */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">

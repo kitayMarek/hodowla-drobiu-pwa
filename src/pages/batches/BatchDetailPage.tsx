@@ -1,4 +1,5 @@
 import React from 'react';
+import { HelpLink } from '@/components/HelpLink';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useBatch } from '@/hooks/useBatch';
 import { useKPIs, useAllBatchKPIs } from '@/hooks/useKPIs';
@@ -592,6 +593,8 @@ export function BatchDetailPage() {
           Edytuj
         </Button>
       </div>
+
+      <div><HelpLink query="jak interpretować FCR brojlery normy żywieniowe" /></div>
 
       {/* Withdrawal alert */}
       {withdrawals.length > 0 && (
