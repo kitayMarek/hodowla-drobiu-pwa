@@ -28,3 +28,6 @@ https://fermly.pl
 Szczegółowa, statyczna strona z opisem wszystkich modułów i funkcji aplikacji
 (czytelna bez JavaScriptu — przeznaczona m.in. dla botów i wyszukiwarek):
 - [Pełny opis aplikacji Fermly](https://fermly.pl/o-aplikacji.html): kompletna charakterystyka — hodowla drobiu, przetwórstwo mleka i serów, ewidencja sprzedaży RHD, finanse, dla kogo i jak działa.
+
+## Przewodniki i dokumentacja
+- [Przewodnik RHD dla rolników](https://fermly.pl/przewodnik-rhd.html): ewidencja sprzedaży, limity przychodów i ilościowe, rejestracja w PIW i Sanepidzie, oznakowanie produktów — dla hodowców drobiu i wytwórców serów.
