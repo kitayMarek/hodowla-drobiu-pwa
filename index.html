@@ -17,6 +17,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#15803d" />
     <meta name="description" content="Fermly – zarządzaj hodowlą drobiu online. Stada, pasza, sprzedaż, finanse. Działa offline." />
+    <!-- Strony statyczne dla botów które nie renderują JS -->
+    <link rel="alternate" href="https://fermly.pl/o-aplikacji.html"
+          title="Opis aplikacji Fermly — hodowla drobiu, RHD, sery" />
+    <link rel="alternate" href="https://fermly.pl/przewodnik-rhd.html"
+          title="Przewodnik RHD — ewidencja sprzedaży, limity, dokumenty" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -57,16 +62,27 @@
     <title>Fermly – Menadżer Farmy</title>
   </head>
   <body>
-    <div id="root"></div>
     <noscript>
-      <h1>Fermly — menadżer gospodarstwa rolnego</h1>
-      <p>
-        Fermly to aplikacja PWA do zarządzania gospodarstwem rolnym: hodowla drobiu,
-        przetwórstwo mleka i serów oraz ewidencja sprzedaży w ramach Rolniczego Handlu
-        Detalicznego (RHD). Działa offline, po polsku.
-      </p>
-      <p><a href="/o-aplikacji.html">Pełny opis i charakterystyka aplikacji →</a></p>
+      <style>
+        .noscript-info { max-width: 600px; margin: 2rem auto; padding: 1.5rem;
+          font: 16px/1.6 system-ui, sans-serif; color: #1f2937; }
+        .noscript-info h1 { font-size: 1.4rem; color: #14532d; margin-bottom: .75rem; }
+        .noscript-info a { color: #15803d; }
+      </style>
+      <div class="noscript-info">
+        <h1>Fermly — aplikacja do hodowli drobiu i ewidencji sprzedaży RHD</h1>
+        <p>
+          Fermly to aplikacja PWA do zarządzania gospodarstwem rolnym: hodowla drobiu,
+          przetwórstwo mleka i serów oraz ewidencja sprzedaży w ramach Rolniczego
+          Handlu Detalicznego (RHD). Działa również offline.
+        </p>
+        <ul>
+          <li><a href="/o-aplikacji.html">Pełny opis aplikacji i modułów</a></li>
+          <li><a href="/przewodnik-rhd.html">Przewodnik RHD — ewidencja, limity, dokumenty</a></li>
+        </ul>
+      </div>
     </noscript>
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
