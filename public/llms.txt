@@ -1,5 +1,7 @@
 # Fermly
 
+> Aplikacja PWA do zarządzania gospodarstwem rolnym: hodowla drobiu, przetwórstwo mleka i serów oraz ewidencja sprzedaży RHD. Działa offline.
+
 Fermly to aplikacja webowa do zarządzania małym i średnim gospodarstwem rolnym.
 Pomaga prowadzić hodowlę drobiu oraz przetwórstwo mleka i serów, a także ewidencję
 sprzedaży wymaganą w ramach Rolniczego Handlu Detalicznego (RHD). Działa w przeglądarce
