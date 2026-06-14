@@ -23,3 +23,8 @@ Polish / pl
 
 ## URL
 https://fermly.pl
+
+## Pełny opis i charakterystyka
+Szczegółowa, statyczna strona z opisem wszystkich modułów i funkcji aplikacji
+(czytelna bez JavaScriptu — przeznaczona m.in. dla botów i wyszukiwarek):
+- [Pełny opis aplikacji Fermly](https://fermly.pl/o-aplikacji.html): kompletna charakterystyka — hodowla drobiu, przetwórstwo mleka i serów, ewidencja sprzedaży RHD, finanse, dla kogo i jak działa.
