@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { useExport } from '@/hooks/useExport';
 import { useBatches } from '@/hooks/useBatch';
 import { Card } from '@/components/ui/Card';
@@ -48,7 +48,7 @@ export function ReportsPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold text-gray-900">Raporty i eksport</h1>
 
-      <div><HelpLink query="jak liczyć marżę na stadzie drobiu koszty przychody FCR" /></div>
+      <div><AskLLM defaultQuery="jak liczyć marżę na stadzie drobiu koszty przychody FCR" /></div>
 
       {/* Raporty drobiu */}
       {hasDrob && (

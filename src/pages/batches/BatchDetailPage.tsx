@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useBatch } from '@/hooks/useBatch';
 import { useKPIs, useAllBatchKPIs } from '@/hooks/useKPIs';
@@ -594,7 +594,7 @@ export function BatchDetailPage() {
         </Button>
       </div>
 
-      <div><HelpLink query="jak interpretować FCR brojlery normy żywieniowe" /></div>
+      <div><AskLLM defaultQuery="jak interpretować FCR brojlery normy żywieniowe" /></div>
 
       {/* Withdrawal alert */}
       {withdrawals.length > 0 && (

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { Link } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
 import type { MilkSupplier } from '@/models/dairy.model';
@@ -107,7 +107,7 @@ export function SuppliersPage() {
         )}
       </div>
 
-      <div><HelpLink query="skup mleka od dostawców rolniczy handel detaliczny przepisy" /></div>
+      <div><AskLLM defaultQuery="skup mleka od dostawców rolniczy handel detaliczny przepisy" /></div>
 
       {/* Formularz nowego */}
       {showAdd && (

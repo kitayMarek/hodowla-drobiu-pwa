@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { useBatches } from '@/hooks/useBatch';
 import { batchService } from '@/services/batch.service';
 import { Button } from '@/components/ui/Button';
@@ -96,7 +96,7 @@ export function BatchListPage() {
         </Button>
       </div>
 
-      <div><HelpLink query="jak prowadzić stado brojlerów dziennik wskaźniki FCR upadki" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić stado brojlerów dziennik wskaźniki FCR upadki" /></div>
 
       {/* Aktywne stada */}
       {active.length === 0 ? (

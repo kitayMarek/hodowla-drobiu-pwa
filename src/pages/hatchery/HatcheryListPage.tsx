@@ -1,5 +1,5 @@
 import React from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
@@ -164,7 +164,7 @@ export function HatcheryListPage() {
         }
       </div>
 
-      <div><HelpLink query="jak prowadzić wylęgarnię drobiu ewidencja jaj wylęgowych" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić wylęgarnię drobiu ewidencja jaj wylęgowych" /></div>
 
       {/* Zakładki */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">

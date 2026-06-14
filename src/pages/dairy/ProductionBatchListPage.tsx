@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { Link, useSearchParams } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
 import type { ProductionBatch, BatchStatus } from '@/models/dairy.model';
@@ -55,7 +55,7 @@ export function ProductionBatchListPage() {
         </Link>
       </div>
 
-      <div><HelpLink query="jak prowadzić ewidencję partii sera zagrodowego RHD" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić ewidencję partii sera zagrodowego RHD" /></div>
 
       {/* Filtry */}
       <div className="flex gap-2 flex-wrap">

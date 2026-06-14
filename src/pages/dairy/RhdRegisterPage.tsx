@@ -9,7 +9,7 @@ import { UNIT_LABELS } from '@/models/dairy.model';
 import { SALE_TYPE_LABELS } from '@/constants/phases';
 import type { SaleType } from '@/constants/phases';
 import { Button } from '@/components/ui/Button';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 
 const fmt  = (n: number) => n.toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtD = (d: string) => new Date(d + 'T12:00:00').toLocaleDateString('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -263,6 +263,13 @@ export function RhdRegisterPage() {
         </div>
       </div>
 
+      <div className="print:hidden">
+        <AskLLM
+          defaultQuery="jak prowadzić ewidencję sprzedaży RHD drób jaja sery wzór"
+          contextUrl="https://fermly.pl/przewodnik-rhd.html"
+        />
+      </div>
+
       {/* Wybór roku + czyszczenie */}
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-2">
@@ -450,7 +457,8 @@ export function RhdRegisterPage() {
           📄 dokumenty sprzedaży · 🐔 sprzedaż drobiu · 🧀 sprzedaż mleka/serów.
         </p>
         <p className="mt-2">
-          <HelpLink href="https://fermly.pl/przewodnik-rhd.html" label="Przewodnik RHD — limity, ewidencja, dokumenty" />
+          <a href="https://fermly.pl/przewodnik-rhd.html" target="_blank" rel="noopener noreferrer"
+             className="text-brand-600 hover:underline">📄 Przewodnik RHD — limity, ewidencja, dokumenty</a>
         </p>
       </div>
     </div>

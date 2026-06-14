@@ -3,7 +3,7 @@ import { NavLink, Link } from 'react-router-dom';
 import { pl } from '@/i18n/pl';
 import { getDaysSinceBackup, WARN_AFTER_DAYS } from '@/services/backupReminder';
 import { useActivitiesContext } from '@/contexts/ActivitiesContext';
-import { trackHelpClick } from '@/components/HelpLink';
+import { trackHelpClick } from '@/components/AskLLM';
 
 // ── Typy ────────────────────────────────────────────────────────
 

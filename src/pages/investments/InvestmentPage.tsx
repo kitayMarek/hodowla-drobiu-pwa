@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useInvestments, useActiveCashAccounts, useActivities } from '@/hooks/useTableData';
@@ -149,7 +149,7 @@ export function InvestmentPage() {
         </Button>
       </div>
 
-      <div><HelpLink query="amortyzacja inwestycji w gospodarstwie rolnym kurnik chłodnia" /></div>
+      <div><AskLLM defaultQuery="amortyzacja inwestycji w gospodarstwie rolnym kurnik chłodnia" /></div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

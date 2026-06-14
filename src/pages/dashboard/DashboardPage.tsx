@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { HelpLink } from '@/components/HelpLink';
+import { AskLLM } from '@/components/AskLLM';
 import { Link } from 'react-router-dom';
 import { useActivitiesContext } from '@/contexts/ActivitiesContext';
 import { useAllBatchKPIs } from '@/hooks/useKPIs';
@@ -378,7 +378,7 @@ export function DashboardPage() {
         <span className="text-sm text-gray-500">{new Date().toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
       </div>
 
-      <div><HelpLink query="jak analizować wyniki fermy drobiu FCR upadki marża" /></div>
+      <div><AskLLM defaultQuery="jak analizować wyniki fermy drobiu FCR upadki marża" /></div>
 
       {activeBatches.length === 0 ? (
         <div className="space-y-3">
