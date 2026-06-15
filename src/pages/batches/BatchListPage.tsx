@@ -96,7 +96,7 @@ export function BatchListPage() {
         </Button>
       </div>
 
-      <div><AskLLM defaultQuery="jak prowadzić stado brojlerów dziennik wskaźniki FCR upadki" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić stado brojlerów dziennik wskaźniki FCR upadki" contextUrl="https://fermly.pl/przewodnik-stado-drob.html" /></div>
 
       {/* Aktywne stada */}
       {active.length === 0 ? (

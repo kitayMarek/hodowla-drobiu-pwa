@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jak prowadzić stado drobiu i dziennik hodowlany — Fermly</title>
+  <meta name="description" content="Przewodnik: jak prowadzić stado drobiu i dziennik hodowlany w aplikacji Fermly — codzienne wpisy, FCR, procent upadków, ważenia, karencja lekowa, ubój. Krok po kroku." />
+  <link rel="canonical" href="https://fermly.pl/przewodnik-stado-drob.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#15803d" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Jak prowadzić stado drobiu i dziennik hodowlany — Fermly" />
+  <meta property="og:description" content="Codzienne wpisy, FCR, upadki, ważenia, karencja lekowa, ubój — krok po kroku w aplikacji Fermly." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://fermly.pl/przewodnik-stado-drob.html" />
+  <meta property="og:site_name" content="Fermly" />
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:image" content="https://fermly.pl/fermly-logo.jpg" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Jak prowadzić stado drobiu i dziennik hodowlany w aplikacji Fermly",
+    "description": "Prowadzenie stada drobiu: zakładanie stada, codzienny dziennik (padnięcia, pasza, jaja), wskaźniki FCR i procent upadków, ważenia, ewidencja zdrowia i karencji lekowej oraz ubój.",
+    "inLanguage": "pl",
+    "publisher": { "@type": "Organization", "name": "Fermly", "url": "https://fermly.pl" },
+    "step": [
+      { "@type": "HowToStep", "name": "Załóż stado", "text": "Dodaj stado (nazwa, gatunek, data wstawienia, liczebność początkowa, kurnik) przyciskiem „+ Nowe stado”." },
+      { "@type": "HowToStep", "name": "Prowadź codzienny dziennik", "text": "Każdego dnia notuj padnięcia, wybrakowane, zużycie paszy, zebrane jaja i uwagi." },
+      { "@type": "HowToStep", "name": "Czytaj wskaźniki", "text": "Śledź FCR, procent upadków i bieżącą liczebność stada na karcie stada i na pulpicie." },
+      { "@type": "HowToStep", "name": "Rób ważenia", "text": "Zapisuj okresowe ważenia, aby kontrolować przyrosty i wyrównanie stada." },
+      { "@type": "HowToStep", "name": "Ewidencjonuj zdrowie i karencję", "text": "Notuj leczenie i okres karencji — Fermly ostrzega przed sprzedażą w trakcie karencji." },
+      { "@type": "HowToStep", "name": "Zarejestruj ubój i sprzedaż", "text": "Zapisz ubój i sprzedaż; dane zasilą ewidencję RHD i finanse, a partia może zamknąć się automatycznie." }
+    ]
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 5rem;
+      font: 16px/1.7 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1f2937; }
+    header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #d1fae5; }
+    header a { color: #15803d; text-decoration: none; font-size: .9rem; }
+    header a:hover { text-decoration: underline; }
+    h1 { font-size: 1.75rem; color: #14532d; margin: .75rem 0 .5rem; line-height: 1.3; }
+    .lead { font-size: 1.05rem; color: #374151; }
+    h2 { font-size: 1.2rem; color: #166534; margin: 2.25rem 0 .6rem; padding-bottom: .25rem; border-bottom: 1px solid #d1fae5; }
+    h3 { font-size: 1rem; color: #1f2937; margin: 1.25rem 0 .4rem; font-weight: 600; }
+    p { margin: .5rem 0; }
+    ul, ol { padding-left: 1.4rem; margin: .5rem 0; }
+    li { margin: .3rem 0; }
+    .box { background: #f0fdf4; border-left: 4px solid #15803d; border-radius: 0 .5rem .5rem 0; padding: 1rem 1.25rem; margin: 1.25rem 0; }
+    .box.warn { background: #fefce8; border-left-color: #ca8a04; }
+    .box strong { color: #14532d; }
+    .box.warn strong { color: #854d0e; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .95rem; }
+    th { background: #f0fdf4; color: #14532d; text-align: left; padding: .5rem .75rem; border: 1px solid #d1fae5; }
+    td { padding: .5rem .75rem; border: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .cta { display: inline-block; margin-top: .5rem; padding: .65rem 1.25rem; background: #15803d; color: #fff; border-radius: .6rem; text-decoration: none; font-weight: 500; }
+    .cta:hover { background: #166534; }
+    footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; font-size: .85rem; color: #6b7280; }
+    footer a { color: #15803d; }
+    @media (max-width: 600px) { h1 { font-size: 1.4rem; } table { font-size: .85rem; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="https://fermly.pl">← Fermly — aplikacja do zarządzania gospodarstwem</a>
+  <h1>Jak prowadzić stado drobiu i dziennik hodowlany</h1>
+  <p class="lead">Przewodnik po module hodowli drobiu w Fermly: zakładanie stada, codzienny dziennik, wskaźniki FCR i upadków, ważenia, karencja lekowa oraz ubój. Bez żargonu — krok po kroku.</p>
+</header>
+
+<h2>Po co prowadzić dziennik stada</h2>
+<p>
+  Regularny dziennik to nie biurokracja, tylko <strong>kontrola nad hodowlą i pieniędzmi</strong>.
+  Codzienne wpisy pozwalają Fermly liczyć kluczowe wskaźniki — zużycie paszy na kilogram przyrostu
+  (FCR), procent upadków i bieżącą liczebność stada — dzięki czemu od razu widzisz, czy cykl idzie
+  dobrze, czy coś wymaga reakcji. Te same dane służą potem do rozliczenia opłacalności stada.
+</p>
+
+<h2>Krok 1. Załóż stado</h2>
+<p>
+  Przyciskiem <strong>„+ Nowe stado"</strong> utwórz osobne stado dla każdej partii, np.
+  „Brojler Wiosna 2026 — Kurnik A" albo „Nioski 2026 — Stado 1". Podajesz m.in.:
+</p>
+<ul>
+  <li>nazwę i lokalizację (kurnik),</li>
+  <li>gatunek (np. kury, brojlery, kaczki, gęsi),</li>
+  <li>datę wstawienia,</li>
+  <li>liczebność początkową.</li>
+</ul>
+<div class="box">
+  <strong>Wskazówka:</strong> zakładaj <strong>osobne stado dla każdej partii</strong>. Dzięki temu
+  policzysz koszt i wynik per partia, a nie „wszystko razem".
+</div>
+
+<h2>Krok 2. Prowadź codzienny dziennik</h2>
+<p>
+  Każdego dnia (lub po każdym obrządku) dodaj wpis do dziennika stada. Notujesz przede wszystkim:
+</p>
+<table>
+  <thead><tr><th>Pole</th><th>Co wpisać</th></tr></thead>
+  <tbody>
+    <tr><td>Padnięcia</td><td>liczba ptaków padłych danego dnia</td></tr>
+    <tr><td>Wybrakowane</td><td>ptaki usunięte ze stada (selekcja)</td></tr>
+    <tr><td>Zużycie paszy</td><td>ile paszy zjadło stado (kg)</td></tr>
+    <tr><td>Jaja zebrane / wadliwe</td><td>dla niosek — liczba jaj i sztuk wadliwych</td></tr>
+    <tr><td>Woda, temperatura</td><td>opcjonalnie, dla kontroli warunków</td></tr>
+    <tr><td>Uwagi</td><td>obserwacje: zachowanie, objawy, zdarzenia</td></tr>
+  </tbody>
+</table>
+<p>Do szybkiego dodawania wpisów służy też skrót <strong>„Szybki wpis"</strong>.</p>
+<div class="box warn">
+  <strong>Wpisuj na bieżąco.</strong> Pulpit pokazuje <strong>kompletność wpisów</strong> w kalendarzu —
+  jeśli widzisz luki, uzupełnij je tego samego dnia, póki pamiętasz liczby.
+</div>
+
+<h2>Krok 3. Czytaj wskaźniki</h2>
+<p>Na karcie stada i na pulpicie Fermly pokazuje na bieżąco:</p>
+<ul>
+  <li><strong>FCR</strong> (współczynnik wykorzystania paszy) — ile kilogramów paszy przypada na
+      kilogram przyrostu masy. <em>Im niżej, tym lepiej.</em> U brojlerów orientacyjnie ok. 1,5–2,0,
+      ale właściwa wartość zależy od rasy, wieku i paszy.</li>
+  <li><strong>Procent upadków</strong> — suma padnięć w stosunku do liczebności. Nagły wzrost to
+      sygnał ostrzegawczy (warunki, choroba, jakość paszy).</li>
+  <li><strong>Bieżąca liczebność</strong> — liczebność początkowa minus padnięcia, wybrakowania,
+      sprzedaż i ubój.</li>
+</ul>
+<div class="box">
+  <strong>Jak reagować:</strong> jeśli FCR rośnie albo upadki skaczą — sprawdź temperaturę, dostęp
+  do wody, recepturę paszy i obsadę. Notatka w dzienniku „co zmieniłem" ułatwia późniejszą analizę.
+</div>
+
+<h2>Krok 4. Rób ważenia</h2>
+<p>
+  Okresowe ważenia próby ptaków pozwalają kontrolować przyrosty i <strong>wyrównanie stada</strong>.
+  Zapisujesz datę, wiek, masę średnią (oraz min/max), a Fermly pomaga ocenić rozrzut. Wyrównane stado
+  to lepsza sprzedaż i przewidywalny ubój.
+</p>
+
+<h2>Krok 5. Ewidencjonuj zdrowie i karencję</h2>
+<p>
+  W module zdrowia notujesz zdarzenia: diagnozy, podane leki, koszt i — co najważniejsze —
+  <strong>okres karencji lekowej</strong> (liczba dni, przez które nie wolno sprzedawać mięsa/jaj
+  po podaniu leku).
+</p>
+<div class="box warn">
+  <strong>Fermly ostrzega o aktywnej karencji.</strong> Jeśli w stadzie trwa karencja lekowa,
+  zobaczysz alert — to chroni Cię przed sprzedażą produktów w okresie, w którym jest to niedozwolone.
+</div>
+
+<h2>Krok 6. Ubój i sprzedaż</h2>
+<p>
+  Ubój zapisujesz z liczbą ptaków oraz masą żywą i poubojową — Fermly liczy wydajność rzeźną.
+  Sprzedaż (tuszki, ptaki żywe, jaja) trafia do <strong>ewidencji RHD</strong> i do finansów.
+  Po sprzedaniu lub uboju ostatnich ptaków partia może <strong>zamknąć się automatycznie</strong>.
+</p>
+
+<h2>Dobre praktyki</h2>
+<ul>
+  <li>5–10 minut dziennie na wpis — taniej niż odtwarzanie danych z pamięci po tygodniu.</li>
+  <li>Każdy koszt paszy/leku przypisuj do konkretnego stada (w module Kasa i Bank) — wtedy dostaniesz
+      koszt „na ptaka".</li>
+  <li>Na koniec cyklu zamknij partię i sprawdź wynik: koszt 1 kg/sztuki, marżę, porównanie z poprzednim cyklem.</li>
+</ul>
+
+<h2>Jak to się łączy z resztą Fermly</h2>
+<ul>
+  <li><strong>Kasa i Bank</strong> — koszty i przychody stada; zob.
+      <a href="https://fermly.pl/przewodnik-kasa-bank.html">przewodnik o kasie i banku</a>.</li>
+  <li><strong>Sprzedaż i RHD</strong> — sprzedaż drobiu zasila ewidencję; zob.
+      <a href="https://fermly.pl/przewodnik-rhd.html">przewodnik RHD</a>.</li>
+  <li><strong>Raporty / eksport</strong> — pełne dane stada (dziennik, ważenia, zdrowie, ubój, sprzedaż,
+      koszty) wyeksportujesz do pliku Excel.</li>
+</ul>
+
+<p style="margin-top:1.25rem;">
+  <a class="cta" href="https://fermly.pl">Otwórz Fermly i załóż stado →</a>
+</p>
+
+<footer>
+  <p>
+    Ten przewodnik jest materiałem informacyjnym zespołu <a href="https://fermly.pl">Fermly</a>
+    i opisuje sposób korzystania z aplikacji. Podane wartości wskaźników (np. FCR) są orientacyjne —
+    zależą od rasy, wieku i żywienia; w sprawach zdrowia zwierząt i karencji kieruj się zaleceniami
+    lekarza weterynarii.
+  </p>
+  <p style="margin-top:.75rem;">
+    <a href="https://fermly.pl">Fermly</a> ·
+    <a href="https://fermly.pl/o-aplikacji.html">Opis aplikacji</a> ·
+    <a href="https://fermly.pl/przewodnik-kasa-bank.html">Kasa i Bank</a> ·
+    <a href="https://fermly.pl/przewodnik-rhd.html">Przewodnik RHD</a>
+  </p>
+</footer>
+
+</body>
+</html>

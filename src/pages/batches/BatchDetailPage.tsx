@@ -594,7 +594,7 @@ export function BatchDetailPage() {
         </Button>
       </div>
 
-      <div><AskLLM defaultQuery="jak interpretować FCR brojlery normy żywieniowe" /></div>
+      <div><AskLLM defaultQuery="jak interpretować FCR brojlery normy żywieniowe" contextUrl="https://fermly.pl/przewodnik-stado-drob.html" /></div>
 
       {/* Withdrawal alert */}
       {withdrawals.length > 0 && (
