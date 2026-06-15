@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jak prowadzić produkcję serów i partie produkcyjne — Fermly</title>
+  <meta name="description" content="Przewodnik: jak prowadzić produkcję serów zagrodowych w aplikacji Fermly — przyjęcia mleka, partie produkcyjne, etapy, dojrzewanie, serwatka, dobór kultur starterowych i sprzedaż RHD. Krok po kroku." />
+  <link rel="canonical" href="https://fermly.pl/przewodnik-sery.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#15803d" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Jak prowadzić produkcję serów i partie produkcyjne — Fermly" />
+  <meta property="og:description" content="Przyjęcia mleka, partie produkcyjne, etapy, dojrzewanie, serwatka, dobór kultur i sprzedaż RHD — krok po kroku w aplikacji Fermly." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://fermly.pl/przewodnik-sery.html" />
+  <meta property="og:site_name" content="Fermly" />
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:image" content="https://fermly.pl/fermly-logo.jpg" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Jak prowadzić produkcję serów i partie produkcyjne w aplikacji Fermly",
+    "description": "Produkcja serów zagrodowych: przyjęcia mleka, zakładanie partii produkcyjnej, etapy produkcji z temperaturą i czasem, dojrzewanie, serwatka, dobór kultury starterowej i sprzedaż w ramach RHD.",
+    "inLanguage": "pl",
+    "publisher": { "@type": "Organization", "name": "Fermly", "url": "https://fermly.pl" },
+    "step": [
+      { "@type": "HowToStep", "name": "Przyjmij mleko", "text": "Zarejestruj przyjęcie mleka (ilość, temperatura, tłuszcz, dostawca lub mleko własne, cena)." },
+      { "@type": "HowToStep", "name": "Załóż partię produkcyjną", "text": "Utwórz partię: numer, rodzaj produktu, ilość mleka, przewidywana wydajność, data produkcji i przydatności." },
+      { "@type": "HowToStep", "name": "Dobierz kulturę starterową", "text": "Dobierz kulturę do typu sera, korzystając z bazy kultur starterowych." },
+      { "@type": "HowToStep", "name": "Prowadź etapy produkcji", "text": "Notuj kolejne etapy z temperaturą i czasem; po zakończeniu zapisz rzeczywistą wydajność." },
+      { "@type": "HowToStep", "name": "Pilnuj dojrzewania", "text": "Śledź czas dojrzewania i datę przydatności oraz pozostałą ilość produktu." },
+      { "@type": "HowToStep", "name": "Sprzedaj i zaewidencjonuj", "text": "Sprzedaż serów zasila ewidencję RHD i finanse gospodarstwa." }
+    ]
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 5rem;
+      font: 16px/1.7 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1f2937; }
+    header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #d1fae5; }
+    header a { color: #15803d; text-decoration: none; font-size: .9rem; }
+    header a:hover { text-decoration: underline; }
+    h1 { font-size: 1.75rem; color: #14532d; margin: .75rem 0 .5rem; line-height: 1.3; }
+    .lead { font-size: 1.05rem; color: #374151; }
+    h2 { font-size: 1.2rem; color: #166534; margin: 2.25rem 0 .6rem; padding-bottom: .25rem; border-bottom: 1px solid #d1fae5; }
+    h3 { font-size: 1rem; color: #1f2937; margin: 1.25rem 0 .4rem; font-weight: 600; }
+    p { margin: .5rem 0; }
+    ul, ol { padding-left: 1.4rem; margin: .5rem 0; }
+    li { margin: .3rem 0; }
+    .box { background: #f0fdf4; border-left: 4px solid #15803d; border-radius: 0 .5rem .5rem 0; padding: 1rem 1.25rem; margin: 1.25rem 0; }
+    .box.warn { background: #fefce8; border-left-color: #ca8a04; }
+    .box.tip { background: #eff6ff; border-left-color: #2563eb; }
+    .box strong { color: #14532d; }
+    .box.warn strong { color: #854d0e; }
+    .box.tip strong { color: #1e40af; }
+    .box.tip a { color: #1d4ed8; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .95rem; }
+    th { background: #f0fdf4; color: #14532d; text-align: left; padding: .5rem .75rem; border: 1px solid #d1fae5; }
+    td { padding: .5rem .75rem; border: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .cta { display: inline-block; margin-top: .5rem; padding: .65rem 1.25rem; background: #15803d; color: #fff; border-radius: .6rem; text-decoration: none; font-weight: 500; }
+    .cta:hover { background: #166534; }
+    footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; font-size: .85rem; color: #6b7280; }
+    footer a { color: #15803d; }
+    @media (max-width: 600px) { h1 { font-size: 1.4rem; } table { font-size: .85rem; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="https://fermly.pl">← Fermly — aplikacja do zarządzania gospodarstwem</a>
+  <h1>Jak prowadzić produkcję serów i partie produkcyjne</h1>
+  <p class="lead">Przewodnik po module przetwórstwa mleka w Fermly: od przyjęcia mleka, przez partię produkcyjną i etapy, po dojrzewanie i sprzedaż serów w ramach RHD. Bez żargonu — krok po kroku.</p>
+</header>
+
+<h2>Po co prowadzić partie produkcyjne</h2>
+<p>
+  Praca na <strong>partiach</strong> daje Ci dwie rzeczy, których wymaga zarówno zdrowy rozsądek, jak
+  i kontrola: <strong>identyfikowalność</strong> (wiesz, z którego mleka i kiedy powstał dany ser)
+  oraz <strong>rachunek opłacalności</strong> (ile mleka weszło, ile sera wyszło, jaki koszt na kilogram).
+  W Fermly służy do tego moduł przetwórstwa mleka — przyjęcia, partie produkcyjne, dojrzewanie i sprzedaż.
+</p>
+
+<h2>Krok 1. Przyjmij mleko</h2>
+<p>
+  Zacznij od <strong>przyjęcia mleka</strong>. Rejestrujesz datę, ilość (litry), a opcjonalnie
+  temperaturę, zawartość tłuszczu, źródło (mleko własne lub od dostawcy), cenę i numer dokumentu.
+  Dostawców prowadzisz w osobnej sekcji, dzięki czemu każda partia ma jasne pochodzenie surowca.
+</p>
+<div class="box">
+  <strong>Po co tłuszcz i temperatura?</strong> To parametry, które wpływają na wydajność i jakość sera.
+  Notuj je od początku — przy reklamacji albo słabej partii łatwiej znajdziesz przyczynę.
+</div>
+
+<h2>Krok 2. Załóż partię produkcyjną</h2>
+<p>
+  Utwórz <strong>partię produkcyjną</strong> i podaj m.in.: numer partii, rodzaj produktu (np. twaróg,
+  ser podpuszczkowy, ser dojrzewający), ilość zużytego mleka, przewidywaną wydajność, datę produkcji
+  oraz datę przydatności. Numer partii to Twój identyfikator — wykorzystasz go na etykiecie i w ewidencji.
+</p>
+
+<h2>Krok 3. Dobierz kulturę starterową</h2>
+<p>
+  Zanim ruszysz produkcję, dobierz <strong>kulturę starterową</strong> odpowiednią do typu sera —
+  to ona decyduje o smaku, strukturze i tym, czy ser w ogóle wyjdzie. Mezofilne, termofilne, pleśniowe,
+  z czerwoną mazią — każdy typ sera ma swoje.
+</p>
+<div class="box tip">
+  <strong>🧫 Nie wiesz, jaką kulturę wybrać?</strong> Skorzystaj z bazy kultur starterowych na
+  <a href="https://mojaserowarnia.pl/baza-kultur" target="_blank" rel="noopener">mojaserowarnia.pl/baza-kultur</a> —
+  znajdziesz tam kultury według typu sera (mezofilne, termofilne, pleśniowe), ich skład bakteryjny,
+  zalecane temperatury i zastosowanie. Dobierzesz kulturę tam, a samą produkcję poprowadzisz w Fermly.
+</div>
+
+<h2>Krok 4. Prowadź etapy produkcji</h2>
+<p>
+  Fermly prowadzi partię przez kolejne <strong>etapy produkcji</strong>, z możliwością zapisania
+  temperatury i czasu trwania każdego z nich. To pozwala odtworzyć dokładnie, co i kiedy robiłeś —
+  bezcenne, gdy chcesz powtórzyć udaną partię albo zrozumieć nieudaną. Typowe etapy to na przykład:
+</p>
+<ul>
+  <li>pasteryzacja / podgrzanie mleka,</li>
+  <li>dodanie kultury i dojrzewanie wstępne,</li>
+  <li>dodanie podpuszczki i krzepnięcie,</li>
+  <li>krojenie skrzepu, dogrzewanie,</li>
+  <li>formowanie, prasowanie, solenie,</li>
+  <li>dojrzewanie.</li>
+</ul>
+<p>Po zakończeniu zapisz <strong>rzeczywistą wydajność</strong> — porównanie z przewidywaną pokaże, jak realnie wypadła partia.</p>
+
+<h2>Krok 5. Dojrzewanie i pozostała ilość</h2>
+<p>
+  Dla serów dojrzewających śledź <strong>czas dojrzewania</strong> i <strong>datę przydatności</strong>,
+  a także <strong>pozostałą ilość</strong> produktu (maleje wraz ze sprzedażą). Dzięki temu wiesz,
+  co jest już gotowe do sprzedaży, a co jeszcze leżakuje.
+</p>
+
+<h2>Krok 6. Serwatka (produkt uboczny)</h2>
+<p>
+  Produkcja sera zostawia <strong>serwatkę</strong>. W Fermly możesz ją zaewidencjonować jako produkt
+  uboczny — do wykorzystania (np. pasza, ricotta) zamiast marnowania.
+</p>
+
+<h2>Krok 7. Sprzedaż i ewidencja RHD</h2>
+<p>
+  Sprzedaż serów (świeżych i dojrzewających) zapisujesz w Fermly i trafia ona automatycznie do
+  <strong>ewidencji RHD</strong> oraz do finansów gospodarstwa. Szczegóły limitów i obowiązków znajdziesz
+  w <a href="https://fermly.pl/przewodnik-rhd.html">przewodniku RHD</a>.
+</p>
+
+<h2>Dobre praktyki</h2>
+<ul>
+  <li>Każda partia = osobny numer i jasne pochodzenie mleka — to podstawa identyfikowalności.</li>
+  <li>Notuj temperatury i czasy etapów — udane partie da się wtedy powtórzyć.</li>
+  <li>Pilnuj dat przydatności i kolejności sprzedaży (najpierw to, co dojrzało wcześniej).</li>
+  <li>Koszty (mleko, kultury, podpuszczka, energia) przypisuj do działalności „sery" w module Kasa i Bank.</li>
+</ul>
+
+<p style="margin-top:1.25rem;">
+  <a class="cta" href="https://fermly.pl">Otwórz Fermly i załóż partię →</a>
+</p>
+
+<h2>Powiązane zasoby</h2>
+<ul>
+  <li><a href="https://mojaserowarnia.pl/baza-kultur" target="_blank" rel="noopener">Baza kultur starterowych (mojaserowarnia.pl)</a> — dobór kultury wg typu sera, skład, temperatury.</li>
+  <li><a href="https://fermly.pl/przewodnik-kasa-bank.html">Jak prowadzić kasę i bank</a> — koszty i przychody produkcji serów.</li>
+  <li><a href="https://fermly.pl/przewodnik-rhd.html">Przewodnik RHD</a> — ewidencja sprzedaży, limity, dokumenty.</li>
+</ul>
+
+<footer>
+  <p>
+    Ten przewodnik jest materiałem informacyjnym zespołu <a href="https://fermly.pl">Fermly</a>
+    i opisuje sposób korzystania z aplikacji. Podane etapy produkcji są przykładowe — szczegóły
+    receptury i doboru kultur zależą od rodzaju sera; korzystaj z wiedzy serowarskiej i wymogów
+    higienicznych właściwych dla Twojej produkcji.
+  </p>
+  <p style="margin-top:.75rem;">
+    <a href="https://fermly.pl">Fermly</a> ·
+    <a href="https://fermly.pl/o-aplikacji.html">Opis aplikacji</a> ·
+    <a href="https://fermly.pl/przewodnik-kasa-bank.html">Kasa i Bank</a> ·
+    <a href="https://fermly.pl/przewodnik-stado-drob.html">Stado drobiu</a> ·
+    <a href="https://fermly.pl/przewodnik-rhd.html">RHD</a>
+  </p>
+</footer>
+
+</body>
+</html>
