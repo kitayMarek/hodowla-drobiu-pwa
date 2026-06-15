@@ -69,7 +69,7 @@ export function SlaughterPage() {
       </div>
       <div className="text-sm text-gray-500">{batch.name}</div>
 
-      <div><AskLLM defaultQuery="ubój drobiu na użytek własny przepisy RHD sprzedaż tuszek" /></div>
+      <div><AskLLM defaultQuery="ubój drobiu na użytek własny przepisy RHD sprzedaż tuszek" contextUrl="https://fermly.pl/przewodnik-stado-drob.html" summaryUrl="/przewodnik-stado-drob.summary.txt" /></div>
 
       <div className="grid grid-cols-3 gap-3">
         <KPICard label="Masa poubojowa" value={formatKg(totalCarcass)} icon="🥩" color="green" />

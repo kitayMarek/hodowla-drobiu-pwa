@@ -55,7 +55,7 @@ export function ProductionBatchListPage() {
         </Link>
       </div>
 
-      <div><AskLLM defaultQuery="jak prowadzić ewidencję partii sera zagrodowego RHD" contextUrl="https://fermly.pl/przewodnik-sery.html" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić ewidencję partii sera zagrodowego RHD" contextUrl="https://fermly.pl/przewodnik-sery.html" summaryUrl="/przewodnik-sery.summary.txt" /></div>
 
       {/* Filtry */}
       <div className="flex gap-2 flex-wrap">

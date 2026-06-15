@@ -267,6 +267,7 @@ export function RhdRegisterPage() {
         <AskLLM
           defaultQuery="jak prowadzić ewidencję sprzedaży RHD drób jaja sery wzór"
           contextUrl="https://fermly.pl/przewodnik-rhd.html"
+          summaryUrl="/przewodnik-rhd.summary.txt"
         />
       </div>
 

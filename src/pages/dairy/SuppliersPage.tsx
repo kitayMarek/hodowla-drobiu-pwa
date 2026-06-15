@@ -107,7 +107,7 @@ export function SuppliersPage() {
         )}
       </div>
 
-      <div><AskLLM defaultQuery="skup mleka od dostawców rolniczy handel detaliczny przepisy" contextUrl="https://fermly.pl/przewodnik-sery.html" /></div>
+      <div><AskLLM defaultQuery="skup mleka od dostawców rolniczy handel detaliczny przepisy" contextUrl="https://fermly.pl/przewodnik-sery.html" summaryUrl="/przewodnik-sery.summary.txt" /></div>
 
       {/* Formularz nowego */}
       {showAdd && (

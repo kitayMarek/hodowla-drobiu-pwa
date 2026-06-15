@@ -1,0 +1,9 @@
+Kasa to gotówka (utarg, kasetka), bank to rachunek bankowy. Wpływ to przychód (sprzedaż), wydatek to koszt produkcji.
+
+Przelew między własnymi kontami (np. wpłata gotówki z kasy do banku) NIE jest ani przychodem, ani kosztem — to tylko przesunięcie środków. Zapisany błędnie jako przychód podwoiłby obrót, bo ten sam utarg policzyłbyś dwa razy.
+
+Przydatne kategorie kosztów w gospodarstwie: pasze i składniki, weterynaria, zakup zwierząt lub surowca, energia i media, materiały (opakowania, etykiety, ściółka), usługi obce (ubój kontraktowy, transport, naprawy).
+
+Koszt bieżący (pasza, paliwo, energia, weterynarz) różni się od inwestycji (kurnik, dojarka, chłodnia, sprzęt) — inwestycje ujmuj osobno, nie jako zwykły wydatek.
+
+Każdy wpływ i wydatek przypisuj do konkretnej działalności (drób, sery, agroturystyka), aby wiedzieć, która część gospodarstwa zarabia, a która generuje straty. Operacje notuj na bieżąco, by saldo kasy się zgadzało.

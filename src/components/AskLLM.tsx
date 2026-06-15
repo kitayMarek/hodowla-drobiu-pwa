@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 /**
  * Widget „Zapytaj LLM" — pole z gotowym pytaniem + przyciski Claude / Perplexity / ChatGPT.
- * Do pytania dokleja prefiks „Przeczytaj {contextUrl} i …", więc każdy z modeli najpierw
- * czyta naszą stronę statyczną (opis aplikacji / przewodnik RHD), a dopiero potem odpowiada.
+ * Buduje prompt, który: (1) wskazuje pełną dokumentację online (contextUrl) dla modeli, które
+ * potrafią ją pobrać, oraz (2) wkleja zwięzłe streszczenie kluczowej wiedzy (summaryUrl) — dzięki
+ * temu nawet modele bez dostępu do internetu dostają konkrety (liczby, limity, terminy).
+ *
+ * Streszczenie pobieramy raz przy montażu (nie przy kliknięciu), żeby klik pozostał w geście
+ * użytkownika i nie był blokowany przez popup-blocker.
  */
 interface AskLLMProps {
   defaultQuery: string;
   contextUrl?: string;
+  summaryUrl?: string;
 }
 
 /** Zdarzenie GA4 — pozwala zmierzyć, którego asystenta używają użytkownicy. */
@@ -16,19 +21,41 @@ export function trackHelpClick(target: string): void {
   w.gtag?.('event', 'help_click', { help_target: target });
 }
 
-export function AskLLM({ defaultQuery, contextUrl = 'https://fermly.pl/o-aplikacji.html' }: AskLLMProps) {
+export function AskLLM({ defaultQuery, contextUrl = 'https://fermly.pl/o-aplikacji.html', summaryUrl }: AskLLMProps) {
   const [query, setQuery] = useState(defaultQuery);
-  const fullQuery = `Przeczytaj ${contextUrl} i ${query}`;
+  const [summary, setSummary] = useState('');
 
-  const urls = {
-    claude:     `https://claude.ai/new?q=${encodeURIComponent(fullQuery)}`,
-    perplexity: `https://www.perplexity.ai/search?q=${encodeURIComponent(fullQuery)}`,
-    chatgpt:    `https://chatgpt.com/?q=${encodeURIComponent(fullQuery)}`,
-  } as const;
+  useEffect(() => {
+    if (!summaryUrl) return;
+    let cancelled = false;
+    fetch(summaryUrl)
+      .then(r => (r.ok ? r.text() : ''))
+      .then(t => { if (!cancelled) setSummary(t.trim()); })
+      .catch(() => { /* cicho — prompt zadziała bez streszczenia */ });
+    return () => { cancelled = true; };
+  }, [summaryUrl]);
 
-  const open = (provider: keyof typeof urls) => {
+  const buildPrompt = (): string => {
+    if (summary) {
+      return (
+        'Masz dostęp do dokumentacji na dwa sposoby:\n\n' +
+        `1. Pełna dokumentacja online: ${contextUrl}\n` +
+        '   (jeśli możesz, przeczytaj ją przed odpowiedzią)\n\n' +
+        `2. Streszczenie kluczowych informacji:\n${summary}\n\n` +
+        `Na podstawie powyższego odpowiedz: ${query}`
+      );
+    }
+    return `Przeczytaj ${contextUrl} i ${query}`;
+  };
+
+  const open = (provider: 'claude' | 'perplexity' | 'chatgpt') => {
+    const base = {
+      claude:     'https://claude.ai/new?q=',
+      perplexity: 'https://www.perplexity.ai/search?q=',
+      chatgpt:    'https://chatgpt.com/?q=',
+    }[provider];
     trackHelpClick(`ask_llm:${provider}`);
-    window.open(urls[provider], '_blank', 'noopener,noreferrer');
+    window.open(`${base}${encodeURIComponent(buildPrompt())}`, '_blank', 'noopener,noreferrer');
   };
 
   const btn = 'text-xs px-2.5 py-1.5 rounded-md text-white font-medium whitespace-nowrap transition-colors';

@@ -1,0 +1,7 @@
+W gospodarstwie warto rozróżnić podsumowania na żywo od eksportu danych do dalszej analizy.
+
+Podsumowania bieżące: ogólny wynik (przychody, koszty, marża, porównanie przychodów i kosztów w czasie), saldo kasy i banku (wpływy minus wydatki, z podziałem na konta i działalności), a dla RHD — przychód narastająco od początku roku wraz z kontrolą wykorzystania rocznego limitu.
+
+Eksport danych: format CSV nadaje się do prostych zestawień (np. dzienna produkcja jaj, tygodniowe zużycie paszy) i łatwo otwiera się w arkuszu. Format Excel wieloarkuszowy mieści pełną historię partii: dziennik, ważenia, zdrowie, ubój, sprzedaż i koszty.
+
+Raport RHD czytaj narastająco: każdy wpis dokłada przychód do sumy rocznej, którą porównujesz z limitem. Eksportuj dane kwartalnie do archiwizacji i policzenia rentowności (koszt na kilogram, porównanie cykli), a nie tylko obrotu.

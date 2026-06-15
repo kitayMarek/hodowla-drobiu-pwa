@@ -240,7 +240,7 @@ export function UnifiedSaleFormPage() {
         )}
       </div>
 
-      <div><AskLLM defaultQuery="co wpisać w ewidencji RHD rodzaj ilość produktu przykład" /></div>
+      <div><AskLLM defaultQuery="co wpisać w ewidencji RHD rodzaj ilość produktu przykład" contextUrl="https://fermly.pl/przewodnik-rhd.html" summaryUrl="/przewodnik-rhd.summary.txt" /></div>
 
       {/* Nagłówek dokumentu */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 space-y-3">

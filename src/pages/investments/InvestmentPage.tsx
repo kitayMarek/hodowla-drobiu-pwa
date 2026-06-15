@@ -149,7 +149,7 @@ export function InvestmentPage() {
         </Button>
       </div>
 
-      <div><AskLLM defaultQuery="amortyzacja inwestycji w gospodarstwie rolnym kurnik chłodnia" /></div>
+      <div><AskLLM defaultQuery="amortyzacja inwestycji w gospodarstwie rolnym kurnik chłodnia" contextUrl="https://fermly.pl/przewodnik-kasa-bank.html" summaryUrl="/przewodnik-kasa-bank.summary.txt" /></div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
