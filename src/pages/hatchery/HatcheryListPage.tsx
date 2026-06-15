@@ -164,7 +164,7 @@ export function HatcheryListPage() {
         }
       </div>
 
-      <div><AskLLM defaultQuery="jak prowadzić wylęgarnię drobiu ewidencja jaj wylęgowych" /></div>
+      <div><AskLLM defaultQuery="jak prowadzić wylęgarnię drobiu ewidencja jaj wylęgowych" contextUrl="https://fermly.pl/przewodnik-wyleglarnia.html" /></div>
 
       {/* Zakładki */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">

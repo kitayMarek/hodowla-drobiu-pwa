@@ -48,7 +48,7 @@ export function ReportsPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold text-gray-900">Raporty i eksport</h1>
 
-      <div><AskLLM defaultQuery="jak liczyć marżę na stadzie drobiu koszty przychody FCR" /></div>
+      <div><AskLLM defaultQuery="jak liczyć marżę na stadzie drobiu koszty przychody FCR" contextUrl="https://fermly.pl/przewodnik-raporty.html" /></div>
 
       {/* Raporty drobiu */}
       {hasDrob && (

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Raporty i podsumowania w gospodarstwie — Fermly</title>
+  <meta name="description" content="Przewodnik: gdzie w aplikacji Fermly znajdziesz podsumowania (pulpit, kasa, RHD) i co wyeksportujesz do CSV i Excela — dzienna produkcja jaj, zużycie paszy, pełny raport partii. Krok po kroku." />
+  <link rel="canonical" href="https://fermly.pl/przewodnik-raporty.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#15803d" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Raporty i podsumowania w gospodarstwie — Fermly" />
+  <meta property="og:description" content="Gdzie znajdziesz podsumowania na żywo (pulpit, kasa, RHD) i co wyeksportujesz do CSV/Excela — w aplikacji Fermly." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://fermly.pl/przewodnik-raporty.html" />
+  <meta property="og:site_name" content="Fermly" />
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:image" content="https://fermly.pl/fermly-logo.jpg" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "Raporty i podsumowania w gospodarstwie rolnym — aplikacja Fermly",
+    "description": "Gdzie w Fermly znajdziesz podsumowania na żywo (pulpit, kasa i bank, rejestr RHD) oraz jakie dane wyeksportujesz do CSV i Excela do dalszej analizy.",
+    "inLanguage": "pl",
+    "url": "https://fermly.pl/przewodnik-raporty.html",
+    "publisher": { "@type": "Organization", "name": "Fermly", "url": "https://fermly.pl" }
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 5rem;
+      font: 16px/1.7 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1f2937; }
+    header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #d1fae5; }
+    header a { color: #15803d; text-decoration: none; font-size: .9rem; }
+    header a:hover { text-decoration: underline; }
+    h1 { font-size: 1.75rem; color: #14532d; margin: .75rem 0 .5rem; line-height: 1.3; }
+    .lead { font-size: 1.05rem; color: #374151; }
+    h2 { font-size: 1.2rem; color: #166534; margin: 2.25rem 0 .6rem; padding-bottom: .25rem; border-bottom: 1px solid #d1fae5; }
+    p { margin: .5rem 0; }
+    ul, ol { padding-left: 1.4rem; margin: .5rem 0; }
+    li { margin: .3rem 0; }
+    .box { background: #f0fdf4; border-left: 4px solid #15803d; border-radius: 0 .5rem .5rem 0; padding: 1rem 1.25rem; margin: 1.25rem 0; }
+    .box.warn { background: #fefce8; border-left-color: #ca8a04; }
+    .box strong { color: #14532d; }
+    .box.warn strong { color: #854d0e; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .95rem; }
+    th { background: #f0fdf4; color: #14532d; text-align: left; padding: .5rem .75rem; border: 1px solid #d1fae5; }
+    td { padding: .5rem .75rem; border: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .cta { display: inline-block; margin-top: .5rem; padding: .65rem 1.25rem; background: #15803d; color: #fff; border-radius: .6rem; text-decoration: none; font-weight: 500; }
+    .cta:hover { background: #166534; }
+    footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; font-size: .85rem; color: #6b7280; }
+    footer a { color: #15803d; }
+    @media (max-width: 600px) { h1 { font-size: 1.4rem; } table { font-size: .85rem; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="https://fermly.pl">← Fermly — aplikacja do zarządzania gospodarstwem</a>
+  <h1>Raporty i podsumowania w gospodarstwie</h1>
+  <p class="lead">Gdzie w Fermly znajdziesz podsumowania całego gospodarstwa na żywo i co wyeksportujesz do CSV oraz Excela do dalszej analizy. Bez żargonu — po kolei.</p>
+</header>
+
+<h2>Dwa rodzaje „raportów" w Fermly</h2>
+<p>
+  W praktyce potrzebujesz dwóch rzeczy: <strong>podsumowań na żywo</strong> (żeby na bieżąco wiedzieć,
+  jak idzie) oraz <strong>eksportu danych</strong> (żeby zarchiwizować albo policzyć coś po swojemu
+  w arkuszu). Fermly daje jedno i drugie — tylko w różnych miejscach.
+</p>
+
+<h2>Podsumowania na żywo — gdzie ich szukać</h2>
+<table>
+  <thead><tr><th>Miejsce</th><th>Co podsumowuje</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Pulpit</strong></td><td>aktywne stada, liczba ptaków, przychody i marża „od początku", wykres przychody vs koszty (ostatnie 6 miesięcy)</td></tr>
+    <tr><td><strong>Kasa i Bank</strong></td><td>suma wpływów, wydatków i saldo — z filtrami per konto, działalność i miesiąc</td></tr>
+    <tr><td><strong>Rejestr RHD</strong></td><td>przychód narastająco od początku roku i licznik wykorzystania rocznego limitu</td></tr>
+    <tr><td><strong>Karta stada</strong></td><td>FCR, procent upadków, bieżąca liczebność</td></tr>
+  </tbody>
+</table>
+<div class="box">
+  <strong>Wskazówka:</strong> jeśli chcesz szybko sprawdzić „jak wyszedł miesiąc" — zacznij od Pulpitu
+  (ogólny obraz) i Kasy (wpływy − wydatki). Do limitu RHD służy Rejestr RHD.
+</div>
+
+<h2>Eksport danych — moduł „Raporty i eksport"</h2>
+<p>W module Raporty wyeksportujesz dane do pliku, gotowe do otwarcia w Excelu lub do dalszej analizy:</p>
+<table>
+  <thead><tr><th>Raport</th><th>Format</th><th>Co zawiera</th></tr></thead>
+  <tbody>
+    <tr><td>Dzienna produkcja jaj</td><td>CSV</td><td>data, stado, jaja zebrane, jaja wadliwe</td></tr>
+    <tr><td>Tygodniowe zużycie paszy</td><td>CSV</td><td>stado, tydzień, rodzaj paszy, zużycie (kg)</td></tr>
+    <tr><td>Pełny raport partii</td><td>Excel</td><td>wiele arkuszy: Dziennik, Ważenia, Zdrowie, Ubój, Sprzedaż, Koszty</td></tr>
+  </tbody>
+</table>
+<div class="box">
+  <strong>„Pełny raport partii"</strong> to najmocniejsze narzędzie — w jednym pliku Excel masz całą
+  historię stada (od dziennika po sprzedaż i koszty). Idealne do policzenia kosztu na kilogram albo
+  porównania cykli.
+</div>
+<p style="font-size:.95rem;color:#6b7280;">
+  Raporty mleczarskie oraz dodatkowe zestawienia (m.in. rentowność, zestawienia roczne) są stopniowo
+  rozwijane — śledź aktualizacje w aplikacji.
+</p>
+
+<h2>Jak wykorzystać eksport</h2>
+<ul>
+  <li><strong>Rozliczenie i archiwizacja</strong> — eksportuj kwartalnie i trzymaj kopię poza aplikacją.</li>
+  <li><strong>Własne analizy</strong> — w Excelu lub w skrypcie (np. Python) policzysz marżę, scenariusze cen, wrażliwość na FCR.</li>
+  <li><strong>Porównanie cykli</strong> — zestaw dane z kilku partii, by zobaczyć, który cykl był najlepszy.</li>
+</ul>
+
+<h2>Dobre praktyki</h2>
+<ul>
+  <li>Raport jest tak dobry, jak dane wejściowe — prowadź dziennik i kasę na bieżąco.</li>
+  <li>Przypisuj koszty i przychody do działalności i stad — wtedy podsumowania mają sens.</li>
+  <li>Na koniec cyklu/roku zrób eksport i podsumuj rentowność, nie tylko obrót.</li>
+</ul>
+
+<p style="margin-top:1.25rem;">
+  <a class="cta" href="https://fermly.pl">Otwórz Fermly →</a>
+</p>
+
+<h2>Powiązane przewodniki</h2>
+<ul>
+  <li><a href="https://fermly.pl/przewodnik-kasa-bank.html">Kasa i Bank</a> — wpływy, wydatki, saldo per działalność.</li>
+  <li><a href="https://fermly.pl/przewodnik-stado-drob.html">Stado i dziennik drobiu</a> — FCR, upadki, dane do raportu partii.</li>
+  <li><a href="https://fermly.pl/przewodnik-rhd.html">Przewodnik RHD</a> — przychód narastająco i limit.</li>
+</ul>
+
+<footer>
+  <p>
+    Ten przewodnik jest materiałem informacyjnym zespołu <a href="https://fermly.pl">Fermly</a>
+    i opisuje sposób korzystania z aplikacji. Zakres dostępnych raportów może się zmieniać wraz
+    z rozwojem aplikacji.
+  </p>
+  <p style="margin-top:.75rem;">
+    <a href="https://fermly.pl">Fermly</a> ·
+    <a href="https://fermly.pl/o-aplikacji.html">Opis aplikacji</a> ·
+    <a href="https://fermly.pl/przewodnik-kasa-bank.html">Kasa i Bank</a> ·
+    <a href="https://fermly.pl/przewodnik-stado-drob.html">Stado drobiu</a>
+  </p>
+</footer>
+
+</body>
+</html>

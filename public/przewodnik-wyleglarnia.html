@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Jak prowadzić wylęgarnię — inkubacja jaj krok po kroku — Fermly</title>
+  <meta name="description" content="Przewodnik: jak prowadzić wylęgarnię w aplikacji Fermly — magazyn jaj wylęgowych, wsad inkubacji, parametry inkubatora, owoskopowanie, lockdown i wylęg. Krok po kroku." />
+  <link rel="canonical" href="https://fermly.pl/przewodnik-wyleglarnia.html" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="theme-color" content="#15803d" />
+
+  <!-- Open Graph -->
+  <meta property="og:title" content="Jak prowadzić wylęgarnię — inkubacja jaj krok po kroku — Fermly" />
+  <meta property="og:description" content="Magazyn jaj wylęgowych, wsad inkubacji, parametry inkubatora, owoskopowanie, lockdown i wylęg — krok po kroku w aplikacji Fermly." />
+  <meta property="og:type" content="article" />
+  <meta property="og:url" content="https://fermly.pl/przewodnik-wyleglarnia.html" />
+  <meta property="og:site_name" content="Fermly" />
+  <meta property="og:locale" content="pl_PL" />
+  <meta property="og:image" content="https://fermly.pl/fermly-logo.jpg" />
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Jak prowadzić wylęgarnię i inkubację jaj w aplikacji Fermly",
+    "description": "Prowadzenie wylęgarni: magazyn jaj wylęgowych, zakładanie wsadu inkubacji, parametry inkubatora (temperatura, wilgotność, lockdown), owoskopowanie i wylęg.",
+    "inLanguage": "pl",
+    "publisher": { "@type": "Organization", "name": "Fermly", "url": "https://fermly.pl" },
+    "step": [
+      { "@type": "HowToStep", "name": "Uzupełnij magazyn jaj wylęgowych", "text": "Dodaj jaja do magazynu — z własnych niosek lub z zakupu (gatunek, rasa, liczba, źródło)." },
+      { "@type": "HowToStep", "name": "Załóż wsad inkubacji", "text": "Utwórz wsad: nazwa, data nałożenia jaj i skład (grupy jaj z magazynu lub ręcznie)." },
+      { "@type": "HowToStep", "name": "Ustaw parametry inkubatora", "text": "Określ długość cyklu, dzień lockdown oraz temperaturę i wilgotność dla obu etapów." },
+      { "@type": "HowToStep", "name": "Wykonaj owoskopowanie", "text": "Zapisz wynik prześwietlenia jaj: zapłodnione, niezapłodnione, nierozwinięte." },
+      { "@type": "HowToStep", "name": "Lockdown i wylęg", "text": "Od dnia lockdown podnieś wilgotność i nie obracaj jaj; doczekaj wylęgu." },
+      { "@type": "HowToStep", "name": "Załóż stado z piskląt", "text": "Wyklute pisklęta przenieś do nowego stada w module hodowli drobiu." }
+    ]
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 5rem;
+      font: 16px/1.7 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1f2937; }
+    header { margin-bottom: 2.5rem; padding-bottom: 1.5rem; border-bottom: 2px solid #d1fae5; }
+    header a { color: #15803d; text-decoration: none; font-size: .9rem; }
+    header a:hover { text-decoration: underline; }
+    h1 { font-size: 1.75rem; color: #14532d; margin: .75rem 0 .5rem; line-height: 1.3; }
+    .lead { font-size: 1.05rem; color: #374151; }
+    h2 { font-size: 1.2rem; color: #166534; margin: 2.25rem 0 .6rem; padding-bottom: .25rem; border-bottom: 1px solid #d1fae5; }
+    p { margin: .5rem 0; }
+    ul, ol { padding-left: 1.4rem; margin: .5rem 0; }
+    li { margin: .3rem 0; }
+    .box { background: #f0fdf4; border-left: 4px solid #15803d; border-radius: 0 .5rem .5rem 0; padding: 1rem 1.25rem; margin: 1.25rem 0; }
+    .box.warn { background: #fefce8; border-left-color: #ca8a04; }
+    .box strong { color: #14532d; }
+    .box.warn strong { color: #854d0e; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .95rem; }
+    th { background: #f0fdf4; color: #14532d; text-align: left; padding: .5rem .75rem; border: 1px solid #d1fae5; }
+    td { padding: .5rem .75rem; border: 1px solid #e5e7eb; vertical-align: top; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    .cta { display: inline-block; margin-top: .5rem; padding: .65rem 1.25rem; background: #15803d; color: #fff; border-radius: .6rem; text-decoration: none; font-weight: 500; }
+    .cta:hover { background: #166534; }
+    footer { margin-top: 3.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb; font-size: .85rem; color: #6b7280; }
+    footer a { color: #15803d; }
+    @media (max-width: 600px) { h1 { font-size: 1.4rem; } table { font-size: .85rem; } }
+  </style>
+</head>
+<body>
+
+<header>
+  <a href="https://fermly.pl">← Fermly — aplikacja do zarządzania gospodarstwem</a>
+  <h1>Jak prowadzić wylęgarnię — inkubacja jaj krok po kroku</h1>
+  <p class="lead">Przewodnik po module wylęgarni w Fermly: od magazynu jaj wylęgowych, przez wsad inkubacji i parametry inkubatora, po owoskopowanie i wylęg. Bez żargonu — krok po kroku.</p>
+</header>
+
+<h2>Po co prowadzić wylęgarnię w aplikacji</h2>
+<p>
+  Inkubacja to gra parametrów i terminów. Fermly pozwala zapanować nad <strong>składem wsadu</strong>
+  (skąd jaja, ile, jaki gatunek/rasa), <strong>parametrami inkubatora</strong> (temperatura, wilgotność,
+  lockdown) oraz <strong>wynikami</strong> (owoskopowanie, wylęg) — dzięki czemu kolejne lęgi możesz
+  porównywać i poprawiać zdolność wylęgu zamiast zgadywać.
+</p>
+
+<h2>Krok 1. Uzupełnij magazyn jaj wylęgowych</h2>
+<p>
+  Najpierw jaja trafiają do <strong>magazynu jaj wylęgowych</strong>. Dla każdej partii podajesz datę,
+  gatunek, opcjonalnie rasę, liczbę jaj i źródło:
+</p>
+<ul>
+  <li><strong>Przeniesienie z własnych niosek</strong> — jaja z Twojego stada (powiązane z modułem stad),</li>
+  <li><strong>Zakup zewnętrzny</strong> (stado zarodowe) — wtedy dodajesz dostawcę, cenę za jajo i numer faktury.</li>
+</ul>
+
+<h2>Krok 2. Załóż wsad inkubacji</h2>
+<p>
+  Przyciskiem <strong>„+ Nowy wsad"</strong> tworzysz wsad: nadajesz nazwę (np. „Wylęg kwiecień 2026"),
+  podajesz <strong>datę nałożenia jaj</strong> i kompletujesz skład. Jaja możesz dodać prosto
+  <strong>z magazynu</strong> (Fermly pilnuje dostępnej liczby) albo <strong>ręcznie</strong>, bez powiązania.
+  Każda grupa ma swój gatunek, rasę i liczbę jaj.
+</p>
+
+<h2>Krok 3. Ustaw parametry inkubatora</h2>
+<p>
+  Wsad prowadzony jest w dwóch etapach. Fermly podpowiada wartości domyślne <strong>zależnie od gatunku</strong>;
+  dla kur są to orientacyjnie:
+</p>
+<table>
+  <thead><tr><th>Parametr</th><th>Etap 1: Inkubacja</th><th>Etap 2: Lockdown</th></tr></thead>
+  <tbody>
+    <tr><td>Temperatura</td><td>≈ 37,5°C</td><td>≈ 37,2°C</td></tr>
+    <tr><td>Wilgotność</td><td>≈ 55%</td><td>≈ 70%</td></tr>
+  </tbody>
+</table>
+<p>
+  Ustawiasz też <strong>długość cyklu</strong> (dla kur ok. 21 dni) i <strong>dzień lockdown</strong>
+  (zwykle 18.). Lockdown to końcowa faza: podnosisz wilgotność i przestajesz obracać jaja.
+</p>
+<div class="box">
+  <strong>Wartości zależą od gatunku.</strong> Kaczki, gęsi czy przepiórki mają inne długości cyklu
+  i parametry — Fermly proponuje domyślne wartości po wyborze gatunku, ale dostosuj je do swojego inkubatora.
+</div>
+
+<h2>Krok 4. Owoskopowanie (prześwietlenie jaj)</h2>
+<p>
+  W trakcie inkubacji wykonuje się <strong>owoskopowanie</strong> — prześwietlenie jaj, które pozwala
+  ocenić rozwój zarodków. W Fermly zapiszesz liczby:
+</p>
+<ul>
+  <li><strong>zapłodnione</strong> (rozwijające się),</li>
+  <li><strong>niezapłodnione</strong>,</li>
+  <li><strong>nierozwinięte</strong> (zamarłe).</li>
+</ul>
+<p>To pokazuje realną jakość jaj i pozwala usunąć te, które nie rokują.</p>
+
+<h2>Krok 5. Lockdown i wylęg</h2>
+<p>
+  Od dnia lockdown trzymasz podwyższoną wilgotność i nie obracasz jaj — zarodki ustawiają się do
+  wyklucia. Po zakończeniu cyklu następuje <strong>wylęg</strong>, a Ty zapisujesz wynik.
+</p>
+
+<h2>Krok 6. Z piskląt — nowe stado</h2>
+<p>
+  Wyklute pisklęta zakładasz jako <strong>nowe stado</strong> w module hodowli drobiu i prowadzisz dalej
+  jak każdą partię (dziennik, pasza, ważenia). Tak domyka się cykl: jajo → wylęg → stado.
+  Zob. <a href="https://fermly.pl/przewodnik-stado-drob.html">przewodnik o prowadzeniu stada</a>.
+</p>
+
+<h2>Dobre praktyki</h2>
+<ul>
+  <li>Używaj świeżych, czystych jaj wylęgowych — im starsze, tym niższa zdolność wylęgu.</li>
+  <li>Notuj parametry i wyniki owoskopowania — porównanie lęgów pokazuje, co poprawić.</li>
+  <li>Zapisuj datę nałożenia — Fermly pomoże policzyć dzień lockdown i przewidywany wylęg.</li>
+</ul>
+
+<p style="margin-top:1.25rem;">
+  <a class="cta" href="https://fermly.pl">Otwórz Fermly i załóż wsad →</a>
+</p>
+
+<footer>
+  <p>
+    Ten przewodnik jest materiałem informacyjnym zespołu <a href="https://fermly.pl">Fermly</a>
+    i opisuje sposób korzystania z aplikacji. Podane temperatury i czasy są wartościami orientacyjnymi
+    (domyślnymi dla kur) — dostosuj je do gatunku, rasy i własnego inkubatora.
+  </p>
+  <p style="margin-top:.75rem;">
+    <a href="https://fermly.pl">Fermly</a> ·
+    <a href="https://fermly.pl/o-aplikacji.html">Opis aplikacji</a> ·
+    <a href="https://fermly.pl/przewodnik-stado-drob.html">Stado drobiu</a> ·
+    <a href="https://fermly.pl/przewodnik-rhd.html">RHD</a>
+  </p>
+</footer>
+
+</body>
+</html>
