@@ -4,7 +4,7 @@
  * Realtime subscriptions keep Supabase data fresh after mutations.
  */
 
-import { useEffect, useState, useId } from 'react';
+import { useEffect, useState, useId, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { supabase } from '@/lib/supabase';
@@ -444,6 +444,35 @@ export function useActivities(): Activity[] {
     return () => { supabase.removeChannel(ch); };
   }, [user?.id]);
   return user ? sb : dexie;
+}
+
+/**
+ * Wariant z jawnym `refresh()` — do użycia tam, gdzie mutujemy działalności
+ * „w miejscu" (Ustawienia) i nie chcemy polegać wyłącznie na Supabase Realtime,
+ * który bywa wyłączony dla tej tabeli. Po każdej mutacji wywołaj `refresh()`.
+ */
+export function useActivitiesManaged(): { activities: Activity[]; refresh: () => void } {
+  const { user } = useAuth();
+  const dexie = useLiveQuery(
+    () => !user ? db.activities.orderBy('sortOrder').toArray() : Promise.resolve([] as Activity[]),
+    [!!user]
+  ) ?? [];
+  const [sb, setSb] = useState<Activity[]>(() =>
+    user ? (cacheGet<Activity[]>(`activities_${user.id}`) ?? []) : []
+  );
+  const refresh = useCallback(() => {
+    if (!user) return; // demo (Dexie) odświeża się sam przez useLiveQuery
+    activityService.getAll().then(data => { setSb(data); cacheSet(`activities_${user.id}`, data); });
+  }, [user?.id]);
+  useEffect(() => {
+    if (!user) { setSb([]); return; }
+    refresh();
+    const ch = supabase.channel(`activities-managed-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'activities' }, refresh)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.id, refresh]);
+  return { activities: user ? sb : dexie, refresh };
 }
 
 // ── Internal Transfers ───────────────────────────────────────

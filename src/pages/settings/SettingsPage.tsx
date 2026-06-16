@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { exportToJson, importFromLocalDexie, importFromJson, clearAllSupabaseData } from '@/services/migration.service';
 import { clearDemoData, isDemoSeeded } from '@/services/demoData.service';
 import { activityService } from '@/services/activity.service';
-import { useActivities } from '@/hooks/useTableData';
+import { useActivitiesManaged } from '@/hooks/useTableData';
 import { Card } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -23,7 +23,7 @@ export function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   // ── Działalności ────────────────────────────────────────────
-  const activities = useActivities();
+  const { activities, refresh: refreshActivities } = useActivitiesManaged();
   const [showAddActivity,  setShowAddActivity]  = useState(false);
   const [newActName,       setNewActName]       = useState('');
   const [newActIcon,       setNewActIcon]       = useState('🏭');
@@ -40,6 +40,7 @@ export function SettingsPage() {
       await activityService.create({ key: '', name: newActName.trim(), icon: newActIcon, color: newActColor });
       setNewActName(''); setNewActIcon('🏭'); setNewActColor('blue');
       setShowAddActivity(false);
+      refreshActivities();
     } catch (e) {
       setActError(e instanceof Error ? e.message : JSON.stringify(e));
     } finally {
@@ -49,10 +50,12 @@ export function SettingsPage() {
 
   const handleToggleActivity = async (id: number, isActive: boolean) => {
     await activityService.setActive(id, !isActive);
+    refreshActivities();
   };
 
   const handleDeleteActivity = async (id: number) => {
     await activityService.delete(id);
+    refreshActivities();
     setDeleteActTarget(null);
   };
 
@@ -158,18 +161,20 @@ export function SettingsPage() {
 
       {/* ── Tryb aplikacji ───────────────────────────────────────────── */}
       {(() => {
-        const hasAnyUserActivity = activities.some(a => a.isActive && a.key !== 'osobiste');
+        const hasAnyUserActivity = activities.some(a => a.isActive && !a.isSystem);
         const isFinanceMode = !hasAnyUserActivity && activities.length > 0;
 
         const switchToFinance = async () => {
           for (const act of activities.filter(a => !a.isSystem && a.isActive)) {
             if (act.id != null) await activityService.setActive(act.id, false);
           }
+          refreshActivities();
         };
         const switchToFarm = async () => {
           for (const act of activities.filter(a => !a.isSystem && !a.isActive)) {
             if (act.id != null) await activityService.setActive(act.id, true);
           }
+          refreshActivities();
         };
 
         return (
