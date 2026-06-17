@@ -1,8 +1,18 @@
 import { db } from './database';
+import { DEFAULT_ACTIVITIES } from '@/models/activity.model';
 
 export async function seedDemoData(): Promise<void> {
+  // Działalności — niezależnie od reszty demo. KONIECZNE: na świeżej bazie Dexie
+  // tworzy schemat od razu w najnowszej wersji i NIE odpala callbacku migracji v16,
+  // który normalnie zasiewa działalności. Bez tego nowy użytkownik widzi okrojoną
+  // apkę (brak modułów produkcyjnych, „martwe" kafelki w Ustawieniach).
+  if (await db.activities.count() === 0) {
+    const nowIso = new Date().toISOString();
+    await db.activities.bulkAdd(DEFAULT_ACTIVITIES.map(a => ({ ...a, createdAt: nowIso })));
+  }
+
   const count = await db.batches.count();
-  if (count > 0) return; // Już zasiany
+  if (count > 0) return; // Reszta demo już zasiana
 
   const now = new Date().toISOString();
   const today = new Date();
