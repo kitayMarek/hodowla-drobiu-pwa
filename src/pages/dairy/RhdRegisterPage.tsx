@@ -45,6 +45,18 @@ function entryQuantity(e: RhdEntry): string {
 function entryUnitPrice(e: RhdEntry): string {
   if (e.kind === 'dairy') return `${fmt(e.sale.unitPricePln)} zł`;
   // drob
+  if (e.sale.saleType === 'inne') {
+    // „Inne" nie ma osobnego pola ceny — wyliczamy ją z wartości łącznej i ilości
+    // (ilość zapisana jest w notatce jako drugi segment, np. „2 sł.").
+    const qtySeg = (e.sale.notes?.split(' · ')[1] ?? '').trim();
+    const m = qtySeg.match(/^([\d.,]+)\s*(.*)$/);
+    if (m) {
+      const qty  = parseFloat(m[1].replace(',', '.'));
+      const unit = m[2].trim();
+      if (qty > 0) return `${fmt(e.sale.totalRevenuePln / qty)} zł${unit ? '/' + unit : ''}`;
+    }
+    return '—';
+  }
   if (e.sale.saleType === 'jaja' && e.sale.eggPricePln != null)
     return `${fmt(e.sale.eggPricePln)} zł/szt.`;
   if (e.sale.pricePerKgPln != null)
