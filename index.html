@@ -16,7 +16,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#15803d" />
-    <meta name="description" content="Fermly.pl — polska aplikacja (PWA) do zarządzania gospodarstwem rolnym: hodowla drobiu, przetwórstwo mleka i serów, ewidencja sprzedaży RHD. Po polsku, działa offline." />
+    <meta name="description" content="Fermly.pl — polska aplikacja do zarządzania gospodarstwem rolnym: drób, przetwórstwo mleka i serów, ewidencja sprzedaży RHD. Działa offline." />
     <!-- Strony statyczne dla botów które nie renderują JS -->
     <link rel="alternate" href="https://fermly.pl/o-aplikacji.html"
           title="Opis aplikacji Fermly — hodowla drobiu, RHD, sery" />
@@ -62,10 +62,14 @@
     <title>Fermly.pl — Menadżer Farmy | polska aplikacja rolnicza</title>
   </head>
   <body>
+    <!-- Fallback w #root: widoczny nagłówek na czas ładowania, podmieniany przez React.
+         Daje crawlerom prawdziwy nagłówek h1 w surowym HTML (boty nie liczą h1 z noscript). -->
+    <div id="root">
+      <h1 style="max-width:780px;margin:3rem auto 0;padding:0 1.25rem;font:600 1.4rem system-ui,-apple-system,sans-serif;color:#15803d;text-align:center">Fermly.pl — polska aplikacja do gospodarstwa rolnego i ewidencji RHD</h1>
+    </div>
     <!-- Mapa treści dla botów/asystentów AI bez JavaScriptu (użytkownicy z JS jej nie widzą). -->
     <noscript>
       <div style="max-width:780px;margin:0 auto;padding:2rem 1.25rem;font:16px/1.6 system-ui,sans-serif;color:#1f2937">
-        <h1 style="color:#15803d;font-size:1.7rem">Fermly.pl — polska aplikacja do gospodarstwa rolnego i ewidencji RHD</h1>
         <p>
           Fermly to polska aplikacja (PWA) do zarządzania gospodarstwem rolnym: hodowla drobiu, przetwórstwo
           mleka i serów oraz rejestr sprzedaży w ramach Rolniczego Handlu Detalicznego (RHD). Działa
@@ -98,7 +102,6 @@
         </p>
       </div>
     </noscript>
-    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
