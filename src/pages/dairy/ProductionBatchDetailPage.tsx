@@ -22,6 +22,19 @@ export function ProductionBatchDetailPage() {
   // Edycja wyniku
   const [editYield, setEditYield] = useState(false);
   const [yieldVal,  setYieldVal]  = useState('');
+  // Fork do własnego przepisu (L2)
+  const [savedRecipe, setSavedRecipe] = useState(false);
+
+  const handleSaveRecipe = async () => {
+    if (!batch?.id) return;
+    setSaving(true);
+    try {
+      await dairyService.saveUserRecipeFromBatch(batch.id);
+      setSavedRecipe(true);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const load = async () => {
     if (!id) return;
@@ -94,12 +107,30 @@ export function ProductionBatchDetailPage() {
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-base font-semibold text-gray-800">
-                {PRODUCT_LABELS[batch.productType]}
+                {batch.cheeseName || PRODUCT_LABELS[batch.productType]}
               </span>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${STATUS_COLORS[batch.status]}`}>
                 {STATUS_LABELS[batch.status]}
               </span>
             </div>
+            {batch.cheeseName && (
+              <div className="text-xs text-gray-400">{PRODUCT_LABELS[batch.productType]}</div>
+            )}
+            {batch.cheeseVariety && (
+              <Link to={`/mleko/przepisy?ser=${batch.cheeseVariety}`}
+                className="inline-block text-xs font-medium text-brand-600 hover:text-brand-800 mt-0.5">
+                📖 Przepis i proces →
+              </Link>
+            )}
+            {batch.additives && batch.additives.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {batch.additives.map((a, i) => (
+                  <span key={i} className="text-xs bg-amber-50 border border-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+                    ➕ {a.co}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="text-xs text-gray-400 mt-1 space-y-0.5">
               <div>📅 Produkcja: {new Date(batch.productionDate + 'T12:00:00').toLocaleDateString('pl-PL')}</div>
               <div className={`font-medium ${daysLeft <= 7 && batch.status === 'gotowy' ? 'text-amber-600' : daysLeft < 0 ? 'text-red-500' : 'text-gray-400'}`}>
@@ -164,6 +195,25 @@ export function ProductionBatchDetailPage() {
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Okno produkcji (runner z timerami) */}
+      {steps.length > 0 && completedSteps < steps.length && (
+        <Link to={`/mleko/partie/${batch.id}/produkcja`} className="block">
+          <Button className="w-full">▶ Otwórz okno produkcji</Button>
+        </Link>
+      )}
+
+      {/* Fork: zapisz jako własny przepis (z faktycznym przebiegiem) */}
+      {savedRecipe ? (
+        <div className="rounded-xl bg-green-50 border border-green-200 px-4 py-2.5 text-sm text-green-700 flex items-center justify-between">
+          <span>✅ Zapisano jako Twój przepis (prywatny).</span>
+          <Link to="/mleko/moje-przepisy" className="font-medium text-green-800 hover:underline">Moje przepisy →</Link>
+        </div>
+      ) : (
+        <Button variant="outline" className="w-full" loading={saving} onClick={handleSaveRecipe}>
+          💾 Zapisz jako mój przepis
+        </Button>
       )}
 
       {/* Workflow kroków */}

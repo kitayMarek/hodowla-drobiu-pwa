@@ -96,10 +96,20 @@ export interface MilkAllocation {
 
 // ── Partia produkcyjna ───────────────────────────────────────────
 
+/** Dodatek wprowadzony do partii w trakcie produkcji (orzechy, popiół, wino…). Wolny tekst. */
+export interface BatchAdditive {
+  co: string;          // nazwa dodatku — dowolny tekst
+  atStep?: string;     // moment/etap dodania (etykieta kroku)
+  addedAt: string;     // ISO
+}
+
 export interface ProductionBatch {
   id?: number;
   batchNumber: string;       // PARTIA-2026-05-27-A
   productType: DairyProductType;
+  cheeseVariety?: string;    // slug odmiany z serowarni (np. "caciotta") lub id własnego przepisu
+  cheeseName?: string;       // nazwa wyświetlana / własna ("Caciotta", "Caciotta z orzechami")
+  additives?: BatchAdditive[]; // dodatki dorzucone w trakcie produkcji (L1 — bez zmiany receptury)
   milkLiters: number;
   expectedYieldKg: number;
   actualYieldKg?: number;
@@ -122,9 +132,16 @@ export interface ProductionStep {
   sortOrder: number;
   scheduledAt?: string;
   completedAt?: string;
-  durationMinutes?: number;
+  durationMinutes?: number;     // planowany czas (z przepisu) — orientacyjny
   temperatureC?: number;
-  notes?: string;
+  notes?: string;               // notatka użytkownika (z runnera)
+  // ── Dane z przepisu serowarni (Etap 2) ──
+  description?: string;         // pełny opis kroku
+  hint?: string;               // wskazówka „co pilnować"
+  endCondition?: string;        // warunek końca (stan, nie czas): „pH 6,1", „czysty rozłam"
+  // ── Faktyczny przebieg (pod fork do własnego przepisu, Etap 3) ──
+  startedAt?: string;           // kiedy serowar kliknął „Start"
+  actualDurationMin?: number;   // faktyczny czas trwania kroku
 }
 
 // ── Serwatka ─────────────────────────────────────────────────────

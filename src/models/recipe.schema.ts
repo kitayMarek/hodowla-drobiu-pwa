@@ -60,6 +60,22 @@ export interface RecipeAging {
   temperaturaC?: number;
   wilgotnoscProc?: number;
   pielegnacja?: string;      // obracanie / mycie / nakłuwanie
+  ubytekWagiProc?: number | null; // CAŁKOWITY % ubytku wagi na koniec dojrzewania (serowarnia, BRIEF #5)
+}
+
+/**
+ * Szacowana waga sera w trakcie dojrzewania (stan magazynu, Etap 4).
+ * Krzywa √ wg rekomendacji serowarni — ubytek „mocno z przodu" (wilgoć ucieka
+ * najszybciej na początku): waga(t) = wagaPocz × (1 − ubytek/100 × √(t/dni)).
+ */
+export function estimateAgingWeightKg(
+  initialKg: number, ubytekWagiProc: number | null | undefined,
+  elapsedDays: number, totalDays: number,
+): number {
+  if (!ubytekWagiProc || totalDays <= 0) return initialKg;
+  const frac = Math.min(1, Math.max(0, elapsedDays / totalDays));
+  const loss = (ubytekWagiProc / 100) * Math.sqrt(frac);
+  return Math.max(0, initialKg * (1 - loss));
 }
 
 export interface Recipe {
@@ -99,3 +115,13 @@ export interface Recipe {
  */
 export type UserRecipeStatus = 'prywatny' | 'zgloszony' | 'zatwierdzony' | 'odrzucony';
 export const DEFAULT_USER_RECIPE_STATUS: UserRecipeStatus = 'prywatny';
+
+/** Własny przepis usera, zapisany lokalnie z faktycznego przebiegu produkcji (Etap 3 L2). */
+export interface UserRecipe {
+  id?: number;
+  slug: string;             // np. "user-1718800000000"
+  status: UserRecipeStatus; // domyślnie 'prywatny'
+  recipe: Recipe;           // pełny obiekt (zrodlo: 'fermly-spolecznosc')
+  batchId?: number;         // partia, z której powstał
+  createdAt: string;
+}

@@ -6,6 +6,8 @@ import {
   PRODUCT_ICONS, PRODUCT_LABELS, YIELD_FACTORS,
   calcExpectedYield, calcExpectedWhey, NO_BATCH_TYPES,
 } from '@/models/dairy.model';
+import { fetchRecipes, recipesForProductType } from '@/services/recipeContract.service';
+import type { Recipe } from '@/models/recipe.schema';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
@@ -14,6 +16,8 @@ interface AllocLine {
   productType: DairyProductType;
   liters: string;
   agingDays: string;
+  cheeseVariety?: string;   // slug odmiany z serowarni
+  cheeseName?: string;      // nazwa z przepisu
 }
 
 const PRODUCTION_PRODUCTS: DairyProductType[] = [
@@ -29,8 +33,13 @@ export function MilkAllocationPage() {
   const [reception,    setReception]    = useState<MilkReception | null>(null);
   const [alreadyUsedL, setAlreadyUsedL] = useState(0);
   const [lines,        setLines]        = useState<AllocLine[]>([]);
+  const [recipes,      setRecipes]      = useState<Recipe[]>([]);
   const [saving,       setSaving]       = useState(false);
   const [error,        setError]        = useState('');
+
+  useEffect(() => {
+    fetchRecipes().then(setRecipes).catch(() => { /* offline — rozlew działa bez przepisów */ });
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -62,7 +71,13 @@ export function MilkAllocationPage() {
       if (l.key !== key) return l;
       if (field === 'productType') {
         const pt = value as DairyProductType;
-        return { ...l, productType: pt, agingDays: String(YIELD_FACTORS[pt].agingDays ?? '') };
+        // zmiana typu resetuje odmianę (przepisy są per-typ)
+        return { ...l, productType: pt, agingDays: String(YIELD_FACTORS[pt].agingDays ?? ''),
+          cheeseVariety: undefined, cheeseName: undefined };
+      }
+      if (field === 'cheeseVariety') {
+        const rec = recipes.find(r => r.slug === value);
+        return { ...l, cheeseVariety: value || undefined, cheeseName: rec?.nazwa };
       }
       return { ...l, [field]: value };
     }));
@@ -88,6 +103,8 @@ export function MilkAllocationPage() {
             productType: l.productType,
             litersAllocated: parseFloat(l.liters),
             agingDays: l.agingDays ? parseInt(l.agingDays) : undefined,
+            cheeseVariety: l.cheeseVariety,
+            cheeseName: l.cheeseName,
           }))
       );
       // Przejdź do pierwszej utworzonej partii
@@ -150,6 +167,7 @@ export function MilkAllocationPage() {
             const hasAging = YIELD_FACTORS[line.productType].agingDays !== undefined;
 
             const isNoBatch = NO_BATCH_TYPES.has(line.productType);
+            const lineRecipes = isNoBatch ? [] : recipesForProductType(recipes, line.productType);
             return (
               <div key={line.key} className={`p-3 rounded-xl border space-y-2 ${
                 isNoBatch ? 'bg-amber-50 border-amber-100' : 'bg-gray-50 border-gray-100'
@@ -174,6 +192,18 @@ export function MilkAllocationPage() {
                   </select>
                   <button onClick={() => removeLine(line.key)} className="text-gray-300 hover:text-red-400">✕</button>
                 </div>
+
+                {/* Odmiana sera (przepis z serowarni) */}
+                {lineRecipes.length > 0 && (
+                  <select
+                    value={line.cheeseVariety ?? ''}
+                    onChange={e => updateLine(line.key, 'cheeseVariety', e.target.value)}
+                    className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  >
+                    <option value="">Odmiana sera — bez przepisu</option>
+                    {lineRecipes.map(r => <option key={r.slug} value={r.slug}>{r.nazwa}</option>)}
+                  </select>
+                )}
 
                 <div className={`grid gap-2 ${hasAging && !isNoBatch ? 'grid-cols-2' : 'grid-cols-1'}`}>
                   <div>

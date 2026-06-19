@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { fetchRecipes } from '@/services/recipeContract.service';
 import type { Recipe, RecipeStep, StepTemp } from '@/models/recipe.schema';
 import { Card } from '@/components/ui/Card';
@@ -17,6 +17,80 @@ function fmtTemp(t: StepTemp | null | undefined): string | null {
   if (typeof t === 'number') return `${t}°C`;
   if ('rampMin' in t) return `${t.from}→${t.to}°C w ${t.rampMin} min`;
   return `${t.min}–${t.max}°C`;
+}
+
+const esc = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Wydruk przepisu z procedurą i miejscem na ręczne notatki (dla robiących „z kartki"). */
+function printRecipe(recipe: Recipe) {
+  const meta = [
+    `🥛 ${recipe.mleko.litry} L${recipe.mleko.typ ? ` (${recipe.mleko.typ})` : ''}`,
+    recipe.wydajnoscKg != null ? `📦 ~${recipe.wydajnoscKg} kg` : '',
+    recipe.dojrzewanie?.dni != null ? `⏳ dojrzewanie ${recipe.dojrzewanie.dni} dni` : '',
+  ].filter(Boolean).join(' &nbsp;•&nbsp; ');
+
+  const kultury = recipe.kultury?.length
+    ? `<p><b>Kultury:</b> ${esc(recipe.kultury.map(k => `${k.co} (${k.dawka})`).join(', '))}</p>` : '';
+  const podp = recipe.podpuszczka
+    ? `<p><b>Podpuszczka:</b> ${esc(recipe.podpuszczka.dawka)}</p>` : '';
+
+  const stepRows = recipe.kroki.map(s => {
+    const t = fmtTemp(s.temperaturaC);
+    const chips = [t ? `🌡 ${t}` : '', s.czasMin != null ? `⏱ ${s.czasMin} min` : '',
+      s.warunekKonca ? `✓ koniec: ${s.warunekKonca}` : ''].filter(Boolean).map(esc).join(' &nbsp;•&nbsp; ');
+    return `<div class="step">
+      <div class="step-head"><span class="num">${s.nr}</span><b>${esc(s.nazwa)}</b></div>
+      ${s.opis ? `<div class="desc">${esc(s.opis)}</div>` : ''}
+      ${chips ? `<div class="chips">${chips}</div>` : ''}
+      ${s.wskazowka ? `<div class="hint">💡 ${esc(s.wskazowka)}</div>` : ''}
+      <div class="notes"><span>Notatki:</span></div>
+    </div>`;
+  }).join('');
+
+  const extra = [
+    recipe.solenie ? `<p><b>Solenie:</b> ${recipe.solenie.typ === 'solanka' ? 'solanka' : 'w masie'}${
+      recipe.solenie.stezenieProc != null ? ` ${recipe.solenie.stezenieProc}%` : ''}${
+      recipe.solenie.czasH != null ? `, ${recipe.solenie.czasH} h` : ''}</p>` : '',
+    recipe.dojrzewanie ? `<p><b>Dojrzewanie:</b> ${recipe.dojrzewanie.dni} dni${
+      recipe.dojrzewanie.temperaturaC != null ? `, ${recipe.dojrzewanie.temperaturaC}°C` : ''}${
+      recipe.dojrzewanie.wilgotnoscProc != null ? `, wilgotność ${recipe.dojrzewanie.wilgotnoscProc}%` : ''}${
+      recipe.dojrzewanie.pielegnacja ? `. Pielęgnacja: ${esc(recipe.dojrzewanie.pielegnacja)}` : ''}</p>` : '',
+  ].filter(Boolean).join('');
+
+  const html = `<!doctype html><html lang="pl"><head><meta charset="utf-8">
+    <title>${esc(recipe.nazwa)} — przepis</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font: 13px/1.5 system-ui, sans-serif; color: #1f2937; max-width: 720px; margin: 0 auto; padding: 24px; }
+      h1 { font-size: 22px; margin: 0 0 2px; color: #14532d; }
+      .rodzina { color: #6b7280; margin: 0 0 8px; }
+      .meta { background: #f0fdf4; border: 1px solid #d1fae5; border-radius: 8px; padding: 8px 12px; margin: 8px 0 16px; }
+      .step { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; margin: 8px 0; page-break-inside: avoid; }
+      .step-head { display: flex; align-items: center; gap: 8px; }
+      .num { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: #15803d; color: #fff;
+        align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+      .desc { margin: 4px 0; }
+      .chips { color: #374151; font-size: 12px; margin: 2px 0; }
+      .hint { color: #92400e; font-size: 12px; margin: 3px 0; }
+      .notes { border: 1px dashed #cbd5e1; border-radius: 6px; min-height: 46px; margin-top: 6px; padding: 4px 8px; }
+      .notes span { color: #9ca3af; font-size: 11px; }
+      .src { margin-top: 16px; color: #9ca3af; font-size: 11px; }
+      @media print { body { padding: 0; } button { display: none; } }
+    </style></head><body>
+    <button onclick="window.print()" style="float:right;padding:6px 12px;border:1px solid #15803d;background:#15803d;color:#fff;border-radius:6px;cursor:pointer">🖨 Drukuj</button>
+    <h1>${esc(recipe.nazwa)}</h1>
+    <p class="rodzina">${esc(recipe.rodzina)}</p>
+    <div class="meta">${meta}</div>
+    ${kultury}${podp}
+    <h3>Proces (${recipe.kroki.length} kroków)</h3>
+    ${stepRows}
+    ${extra}
+    <p class="src">Przepis: mojaserowarnia.pl${recipe.url ? ` — ${esc(recipe.url)}` : ''} · wydruk z Fermly</p>
+    </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (w) { w.document.write(html); w.document.close(); }
 }
 
 function StepCard({ step }: { step: RecipeStep }) {
@@ -73,12 +147,18 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
             <h2 className="text-lg font-bold text-gray-900">🧀 {recipe.nazwa}</h2>
             <p className="text-sm text-gray-500">{recipe.rodzina}</p>
           </div>
-          {recipe.url && (
-            <a href={recipe.url} target="_blank" rel="noopener noreferrer"
-              className="shrink-0 text-xs font-medium text-brand-600 hover:text-brand-800 whitespace-nowrap">
-              Pełny przepis ↗
-            </a>
-          )}
+          <div className="shrink-0 flex flex-col items-end gap-1">
+            {recipe.url && (
+              <a href={recipe.url} target="_blank" rel="noopener noreferrer"
+                className="text-xs font-medium text-brand-600 hover:text-brand-800 whitespace-nowrap">
+                Pełny przepis ↗
+              </a>
+            )}
+            <button onClick={() => printRecipe(recipe)}
+              className="text-xs font-medium text-gray-500 hover:text-gray-800 whitespace-nowrap">
+              🖨 Wydruk z notatkami
+            </button>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2 mt-3 text-xs">
           <span className="bg-blue-50 text-blue-700 border border-blue-100 rounded-full px-2.5 py-1">
@@ -160,18 +240,20 @@ function RecipeView({ recipe }: { recipe: Recipe }) {
 }
 
 export function CheeseRecipePage() {
+  const [searchParams] = useSearchParams();
+  const wanted = searchParams.get('ser') || DEFAULT_SLUG;
   const [recipes, setRecipes] = useState<Recipe[] | null>(null);
-  const [slug, setSlug] = useState(DEFAULT_SLUG);
+  const [slug, setSlug] = useState(wanted);
   const [error, setError] = useState('');
 
   useEffect(() => {
     fetchRecipes()
       .then(list => {
         setRecipes(list);
-        if (!list.some(r => r.slug === DEFAULT_SLUG) && list[0]) setSlug(list[0].slug);
+        if (!list.some(r => r.slug === wanted) && list[0]) setSlug(list[0].slug);
       })
       .catch(e => setError(e instanceof Error ? e.message : 'Błąd pobierania'));
-  }, []);
+  }, [wanted]);
 
   const recipe = recipes?.find(r => r.slug === slug) ?? null;
 

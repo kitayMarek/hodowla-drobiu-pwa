@@ -28,6 +28,7 @@ import type {
   DairyProduct, DairyBuyer,
 } from '@/models/dairy.model';
 import type { SaleDocument } from '@/models/saleDocument.model';
+import type { UserRecipe } from '@/models/recipe.schema';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -69,6 +70,7 @@ export class FarmDatabase extends Dexie {
   dairyProducts!: Table<DairyProduct, number>;
   dairyBuyers!: Table<DairyBuyer, number>;
   saleDocuments!: Table<SaleDocument, number>;
+  userRecipes!: Table<UserRecipe, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -279,6 +281,11 @@ export class FarmDatabase extends Dexie {
     // v22: numeracja RHD dla sprzedaży drobiu/innych (wspólna sekwencja z dairySales)
     this.version(22).stores({
       sales: '++id, batchId, saleDate, saleType, saleDocumentId, rhdYear, rhdNumber, [batchId+saleDate], [saleType+saleDate], [rhdYear+rhdNumber]',
+    });
+
+    // v23: własne przepisy usera (fork z faktycznego przebiegu produkcji, Etap 3 L2)
+    this.version(23).stores({
+      userRecipes: '++id, slug, status, batchId, createdAt',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

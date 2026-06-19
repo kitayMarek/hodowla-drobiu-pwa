@@ -95,8 +95,76 @@ import type {
 } from '@/models/dairy.model';
 import {
   calcExpectedYield, calcExpectedWhey, calcExpiryDate,
-  generateBatchNumber, WORKFLOW_STEPS, YIELD_FACTORS, NO_BATCH_TYPES,
+  generateBatchNumber, WORKFLOW_STEPS, YIELD_FACTORS, NO_BATCH_TYPES, PRODUCT_LABELS,
 } from '@/models/dairy.model';
+import { fetchRecipeBySlug, buildStepsFromRecipe } from '@/services/recipeContract.service';
+import type { Recipe, UserRecipe } from '@/models/recipe.schema';
+import { RECIPE_SCHEMA_VERSION, DEFAULT_USER_RECIPE_STATUS } from '@/models/recipe.schema';
+
+/** Zbuduj przepis z faktycznego przebiegu partii (Etap 3 L2 — fork do „mojego przepisu"). */
+function buildRecipeFromBatch(batch: ProductionBatch, steps: ProductionStep[]): Recipe {
+  const kroki = steps.map((s, i) => ({
+    nr: i + 1,
+    nazwa: s.label,
+    opis: s.description,
+    wskazowka: s.hint,
+    czasMin: s.actualDurationMin ?? s.durationMinutes ?? null,
+    temperaturaC: s.temperatureC ?? null,
+    warunekKonca: s.endCondition ?? null,
+  }));
+  const uwagi = batch.additives?.length
+    ? 'Dodatki: ' + batch.additives.map(a => `${a.co}${a.atStep ? ` (${a.atStep})` : ''}`).join(', ')
+    : undefined;
+  return {
+    wersjaSchematu: RECIPE_SCHEMA_VERSION,
+    slug: `user-${Date.now()}`,
+    nazwa: batch.cheeseName || PRODUCT_LABELS[batch.productType],
+    rodzina: PRODUCT_LABELS[batch.productType],
+    zrodlo: 'fermly-spolecznosc',
+    mleko: { litry: batch.milkLiters, typ: 'krowie' },
+    kroki,
+    wydajnoscKg: batch.actualYieldKg ?? batch.expectedYieldKg,
+    uwagi,
+  };
+}
+
+type NewStep = Omit<ProductionStep, 'id' | 'batchId'>;
+
+/** Wybierz kroki dla partii: z przepisu serowarni (gdy jest odmiana), inaczej generyczne. */
+async function resolveBatchSteps(
+  productType: DairyProductType, cheeseVariety: string | undefined, aging: number | undefined,
+): Promise<NewStep[]> {
+  if (cheeseVariety) {
+    try {
+      const recipe = await fetchRecipeBySlug(cheeseVariety);
+      if (recipe) return buildStepsFromRecipe(recipe);
+    } catch { /* offline / brak sieci → fallback do generycznych */ }
+  }
+  return WORKFLOW_STEPS[productType].map((s, i) => ({
+    stepType: s.stepType, label: s.label, sortOrder: i,
+    durationMinutes: s.stepType === 'dojrzewalnia' ? (aging ?? 21) * 24 * 60 : s.defaultDurationMinutes,
+  }));
+}
+
+/** Zapisz kroki partii (Supabase lub Dexie). Nowe kolumny dodawane warunkowo (odporność na brak migracji). */
+async function insertSteps(
+  user: { id: string } | null, batchId: number, steps: NewStep[],
+): Promise<void> {
+  for (const s of steps) {
+    if (user) {
+      await supabase.from('production_steps').insert({
+        user_id: user.id, batch_id: batchId, step_type: s.stepType, label: s.label,
+        sort_order: s.sortOrder, duration_minutes: s.durationMinutes ?? null,
+        temperature_c: s.temperatureC ?? null,
+        ...(s.description  ? { description:   s.description }  : {}),
+        ...(s.hint         ? { hint:          s.hint }         : {}),
+        ...(s.endCondition ? { end_condition: s.endCondition } : {}),
+      });
+    } else {
+      await db.productionSteps.add({ batchId, ...s });
+    }
+  }
+}
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -120,6 +188,9 @@ function toReception(r: Record<string, unknown>): MilkReception {
 function toBatch(r: Record<string, unknown>): ProductionBatch {
   return { id: r.id as number, batchNumber: r.batch_number as string,
     productType: r.product_type as DairyProductType,
+    cheeseVariety: (r.cheese_variety as string | null) ?? undefined,
+    cheeseName: (r.cheese_name as string | null) ?? undefined,
+    additives: (r.additives as ProductionBatch['additives']) ?? undefined,
     milkLiters: Number(r.milk_liters), expectedYieldKg: Number(r.expected_yield_kg),
     actualYieldKg: r.actual_yield_kg != null ? Number(r.actual_yield_kg) : undefined,
     status: r.status as ProductionBatch['status'],
@@ -135,7 +206,12 @@ function toStep(r: Record<string, unknown>): ProductionStep {
     scheduledAt: r.scheduled_at as string | undefined, completedAt: r.completed_at as string | undefined,
     durationMinutes: r.duration_minutes != null ? Number(r.duration_minutes) : undefined,
     temperatureC: r.temperature_c != null ? Number(r.temperature_c) : undefined,
-    notes: r.notes as string | undefined };
+    notes: r.notes as string | undefined,
+    description: (r.description as string | null) ?? undefined,
+    hint: (r.hint as string | null) ?? undefined,
+    endCondition: (r.end_condition as string | null) ?? undefined,
+    startedAt: (r.started_at as string | null) ?? undefined,
+    actualDurationMin: r.actual_duration_min != null ? Number(r.actual_duration_min) : undefined };
 }
 
 function toWhey(r: Record<string, unknown>): WheyByproduct {
@@ -438,7 +514,8 @@ export const dairyService = {
    */
   async saveAllocations(
     receptionId: number,
-    lines: Array<{ productType: DairyProductType; litersAllocated: number; agingDays?: number }>
+    lines: Array<{ productType: DairyProductType; litersAllocated: number; agingDays?: number;
+      cheeseVariety?: string; cheeseName?: string }>
   ): Promise<number[]> {
     const user = await getAuthUser();
     const now = new Date().toISOString();
@@ -481,13 +558,17 @@ export const dairyService = {
           user_id: user.id, batch_number: batchNum, product_type: line.productType,
           milk_liters: line.litersAllocated, expected_yield_kg: expected,
           status: 'w_produkcji', production_date: reception.date, expiry_date: expiry,
-          quantity_remaining_kg: expected, aging_days: aging ?? null, created_at: now,
+          quantity_remaining_kg: expected, aging_days: aging ?? null,
+          ...(line.cheeseVariety ? { cheese_variety: line.cheeseVariety } : {}),
+          ...(line.cheeseName ? { cheese_name: line.cheeseName } : {}),
+          created_at: now,
         }).select('id').single();
         if (error) throw error;
         batchId = data.id;
       } else {
         batchId = await db.productionBatches.add({
           batchNumber: batchNum, productType: line.productType,
+          cheeseVariety: line.cheeseVariety, cheeseName: line.cheeseName,
           milkLiters: line.litersAllocated, expectedYieldKg: expected,
           status: 'w_produkcji', productionDate: reception.date, expiryDate: expiry,
           quantityRemainingKg: expected, agingDays: aging, createdAt: now,
@@ -495,25 +576,9 @@ export const dairyService = {
       }
       batchIds.push(batchId);
 
-      // Utwórz kroki workflow
-      const steps = WORKFLOW_STEPS[line.productType];
-      for (let i = 0; i < steps.length; i++) {
-        const s = steps[i];
-        const dur = s.stepType === 'dojrzewalnia'
-          ? (aging ?? 21) * 24 * 60
-          : s.defaultDurationMinutes;
-        if (user) {
-          await supabase.from('production_steps').insert({
-            user_id: user.id, batch_id: batchId, step_type: s.stepType,
-            label: s.label, sort_order: i, duration_minutes: dur ?? null,
-          });
-        } else {
-          await db.productionSteps.add({
-            batchId, stepType: s.stepType, label: s.label,
-            sortOrder: i, durationMinutes: dur,
-          });
-        }
-      }
+      // Utwórz kroki — z przepisu serowarni (gdy wybrano odmianę) albo generyczne
+      const stepDefs = await resolveBatchSteps(line.productType, line.cheeseVariety, aging);
+      await insertSteps(user, batchId, stepDefs);
 
       // Utwórz wpis serwatki (jeśli dotyczy)
       const wheyL = calcExpectedWhey(line.litersAllocated, line.productType);
@@ -545,6 +610,58 @@ export const dairyService = {
     }
 
     return batchIds;
+  },
+
+  /**
+   * Warzenie sera BEZ przyjęcia mleka (drugie wejście w produkcję).
+   * Tworzy partię + kroki workflow. Mleko opcjonalne (do wyliczenia wydajności).
+   */
+  async createStandaloneBatch(input: {
+    productType: DairyProductType;
+    cheeseVariety?: string;
+    cheeseName?: string;
+    milkLiters?: number;
+    productionDate: string;
+    agingDays?: number;
+  }): Promise<number> {
+    const user = await getAuthUser();
+    const now  = new Date().toISOString();
+    const { productType, cheeseVariety, cheeseName } = input;
+    const milk     = input.milkLiters ?? 0;
+    const date     = input.productionDate;
+    const expected = milk > 0 ? calcExpectedYield(milk, productType) : 0;
+    const expiry   = calcExpiryDate(date, productType, input.agingDays);
+    const aging    = input.agingDays ?? YIELD_FACTORS[productType].agingDays;
+    const suffix   = await nextBatchSuffix(date);
+    const batchNum = generateBatchNumber(date, suffix);
+
+    let batchId: number;
+    if (user) {
+      const { data, error } = await supabase.from('production_batches').insert({
+        user_id: user.id, batch_number: batchNum, product_type: productType,
+        milk_liters: milk, expected_yield_kg: expected,
+        status: 'w_produkcji', production_date: date, expiry_date: expiry,
+        quantity_remaining_kg: expected, aging_days: aging ?? null,
+        ...(cheeseVariety ? { cheese_variety: cheeseVariety } : {}),
+        ...(cheeseName ? { cheese_name: cheeseName } : {}),
+        created_at: now,
+      }).select('id').single();
+      if (error) throw error;
+      batchId = data.id;
+    } else {
+      batchId = await db.productionBatches.add({
+        batchNumber: batchNum, productType, cheeseVariety, cheeseName,
+        milkLiters: milk, expectedYieldKg: expected,
+        status: 'w_produkcji', productionDate: date, expiryDate: expiry,
+        quantityRemainingKg: expected, agingDays: aging, createdAt: now,
+      });
+    }
+
+    // Kroki — z przepisu serowarni (gdy wybrano odmianę) albo generyczne
+    const stepDefs = await resolveBatchSteps(productType, cheeseVariety, aging);
+    await insertSteps(user, batchId, stepDefs);
+
+    return batchId;
   },
 
   // ── Partie produkcyjne ───────────────────────────────────────
@@ -584,6 +701,19 @@ export const dairyService = {
     await db.productionBatches.update(id, { status });
   },
 
+  /** Aktualizuj nazwę sera i/lub dodatki partii (L1: dodatki + nazywanie wariantu). */
+  async updateBatchMeta(id: number, patch: { cheeseName?: string; additives?: ProductionBatch['additives'] }): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      const row: Record<string, unknown> = {};
+      if (patch.cheeseName !== undefined) row.cheese_name = patch.cheeseName || null;
+      if (patch.additives  !== undefined) row.additives   = patch.additives ?? null;
+      await supabase.from('production_batches').update(row).eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.productionBatches.update(id, patch);
+  },
+
   async updateBatchYield(id: number, actualYieldKg: number): Promise<void> {
     const user = await getAuthUser();
     if (user) {
@@ -593,6 +723,39 @@ export const dairyService = {
       return;
     }
     await db.productionBatches.update(id, { actualYieldKg, quantityRemainingKg: actualYieldKg });
+  },
+
+  // ── Własne przepisy (fork z produkcji, Etap 3 L2) ────────────
+
+  /** Zapisz partię jako własny przepis (z faktycznym timingiem + dodatkami). Status: prywatny. */
+  async saveUserRecipeFromBatch(batchId: number): Promise<number> {
+    const [batch, steps] = await Promise.all([this.getBatchById(batchId), this.getStepsByBatch(batchId)]);
+    if (!batch) throw new Error('Partia nie istnieje');
+    const recipe = buildRecipeFromBatch(batch, steps);
+    const now = new Date().toISOString();
+    const user = await getAuthUser();
+    if (user) {
+      const { data, error } = await supabase.from('user_recipes').insert({
+        user_id: user.id, slug: recipe.slug, status: DEFAULT_USER_RECIPE_STATUS,
+        recipe, batch_id: batchId, created_at: now,
+      }).select('id').single();
+      if (error) throw error;
+      return data.id;
+    }
+    return db.userRecipes.add({ slug: recipe.slug, status: DEFAULT_USER_RECIPE_STATUS, recipe, batchId, createdAt: now });
+  },
+
+  async getUserRecipes(): Promise<UserRecipe[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('user_recipes').select('*')
+        .eq('user_id', user.id).order('created_at', { ascending: false });
+      return (data ?? []).map(r => ({
+        id: r.id, slug: r.slug, status: r.status as UserRecipe['status'],
+        recipe: r.recipe as Recipe, batchId: r.batch_id ?? undefined, createdAt: r.created_at,
+      }));
+    }
+    return db.userRecipes.orderBy('createdAt').reverse().toArray();
   },
 
   // ── Kroki workflow ────────────────────────────────────────────
@@ -607,16 +770,37 @@ export const dairyService = {
     return db.productionSteps.where('batchId').equals(batchId).sortBy('sortOrder');
   },
 
-  async completeStep(stepId: number, opts?: { temperatureC?: number; notes?: string }): Promise<void> {
+  /** Runner: oznacz początek kroku (start timera). */
+  async startStep(stepId: number): Promise<void> {
+    const user = await getAuthUser();
+    const startedAt = new Date().toISOString();
+    if (user) {
+      await supabase.from('production_steps').update({ started_at: startedAt })
+        .eq('id', stepId).eq('user_id', user.id);
+      return;
+    }
+    await db.productionSteps.update(stepId, { startedAt });
+  },
+
+  /** Runner: zakończ krok. Zapisuje faktyczny czas (pod późniejszy fork do własnego przepisu). */
+  async completeStep(stepId: number, opts?: { temperatureC?: number; notes?: string; actualDurationMin?: number }): Promise<void> {
     const user = await getAuthUser();
     const completedAt = new Date().toISOString();
     if (user) {
       await supabase.from('production_steps').update({
-        completed_at: completedAt, temperature_c: opts?.temperatureC ?? null, notes: opts?.notes ?? null,
+        completed_at: completedAt,
+        ...(opts?.temperatureC != null ? { temperature_c: opts.temperatureC } : {}),
+        ...(opts?.notes != null ? { notes: opts.notes } : {}),
+        ...(opts?.actualDurationMin != null ? { actual_duration_min: opts.actualDurationMin } : {}),
       }).eq('id', stepId).eq('user_id', user.id);
       return;
     }
-    await db.productionSteps.update(stepId, { completedAt, ...opts });
+    await db.productionSteps.update(stepId, {
+      completedAt,
+      ...(opts?.temperatureC != null ? { temperatureC: opts.temperatureC } : {}),
+      ...(opts?.notes != null ? { notes: opts.notes } : {}),
+      ...(opts?.actualDurationMin != null ? { actualDurationMin: opts.actualDurationMin } : {}),
+    });
   },
 
   // ── Serwatka ──────────────────────────────────────────────────

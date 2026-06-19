@@ -110,10 +110,12 @@ export function ProductionBatchListPage() {
             >
               <span className="text-3xl">{PRODUCT_ICONS[b.productType]}</span>
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-gray-800">{b.batchNumber}</div>
+                <div className="text-sm font-semibold text-gray-800">
+                  {b.cheeseName || b.batchNumber}
+                </div>
                 <div className="text-xs text-gray-400 mt-0.5">
-                  {PRODUCT_LABELS[b.productType]} · {b.milkLiters} L mleka
-                  · wynik: {b.actualYieldKg ?? b.expectedYieldKg} kg
+                  {b.cheeseName ? `${b.batchNumber} · ` : `${PRODUCT_LABELS[b.productType]} · `}
+                  {b.milkLiters} L mleka · wynik: {b.actualYieldKg ?? b.expectedYieldKg} kg
                 </div>
                 <div className="text-xs text-gray-400">
                   Produkcja: {new Date(b.productionDate + 'T12:00:00').toLocaleDateString('pl-PL')}

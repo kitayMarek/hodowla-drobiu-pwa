@@ -28,9 +28,14 @@ export function DairyDashboardPage() {
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold text-gray-900">🧀 Przetwórstwo Mleka</h1>
-        <Link to="/mleko/przyjecia/nowe">
-          <Button size="sm">+ Przyjęcie mleka</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Link to="/mleko/warzenie">
+            <Button size="sm" variant="outline">🧀 Warzenie sera</Button>
+          </Link>
+          <Link to="/mleko/przyjecia/nowe">
+            <Button size="sm">+ Przyjęcie mleka</Button>
+          </Link>
+        </div>
       </div>
 
       {/* Alerty */}

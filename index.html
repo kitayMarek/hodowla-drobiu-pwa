@@ -6,6 +6,10 @@
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
+      // Nie zaśmiecaj statystyk ruchem z dev/podglądu — wysyłaj tylko z fermly.pl
+      if (!/(^|\.)fermly\.pl$/.test(location.hostname)) {
+        window['ga-disable-G-ZQ8K0SCNSF'] = true;
+      }
       gtag('js', new Date());
       gtag('config', 'G-ZQ8K0SCNSF');
     </script>
