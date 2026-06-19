@@ -55,7 +55,15 @@ export function ProductionBatchListPage() {
         </Link>
       </div>
 
-      <div><AskLLM defaultQuery="jak prowadzić ewidencję partii sera zagrodowego RHD" contextUrl="https://fermly.pl/przewodnik-sery.html" summaryUrl="/przewodnik-sery.summary.txt" /></div>
+      <div><AskLLM
+        defaultQuery="jaką kulturę bakteryjną i jaki proces technologiczny dobrać do sera dojrzewającego (np. caciotta, gouda)"
+        contextUrl="https://fermly.pl/przewodnik-sery.html"
+        summaryUrl="/przewodnik-sery.summary.txt"
+        extraSources={[
+          { label: 'Baza kultur serowarskich (mojaserowarnia.pl)', url: 'https://mojaserowarnia.pl/kultury.summary.txt' },
+          { label: 'Przepisy na sery — wykaz', url: 'https://mojaserowarnia.pl/przepisy.summary.txt' },
+        ]}
+      /></div>
 
       {/* Filtry */}
       <div className="flex gap-2 flex-wrap">

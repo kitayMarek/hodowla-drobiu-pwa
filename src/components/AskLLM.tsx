@@ -13,6 +13,13 @@ interface AskLLMProps {
   defaultQuery: string;
   contextUrl?: string;
   summaryUrl?: string;
+  /**
+   * Dodatkowe źródła wiedzy do przeczytania przez model (np. baza kultur / przepisy
+   * z mojaserowarnia.pl). Trafiają do promptu jako lista URL-i — pobiera je model,
+   * nie przeglądarka, więc nie dotyczy ich CORS. Dla modeli bez dostępu do sieci są
+   * po prostu pomijane (zostaje wiedza ze streszczenia fermly).
+   */
+  extraSources?: { label: string; url: string }[];
 }
 
 /** Zdarzenie GA4 — pozwala zmierzyć, którego asystenta używają użytkownicy. */
@@ -21,7 +28,7 @@ export function trackHelpClick(target: string): void {
   w.gtag?.('event', 'help_click', { help_target: target });
 }
 
-export function AskLLM({ defaultQuery, contextUrl = 'https://fermly.pl/o-aplikacji.html', summaryUrl }: AskLLMProps) {
+export function AskLLM({ defaultQuery, contextUrl = 'https://fermly.pl/o-aplikacji.html', summaryUrl, extraSources }: AskLLMProps) {
   const [query, setQuery] = useState(defaultQuery);
   const [summary, setSummary] = useState('');
 
@@ -35,17 +42,24 @@ export function AskLLM({ defaultQuery, contextUrl = 'https://fermly.pl/o-aplikac
     return () => { cancelled = true; };
   }, [summaryUrl]);
 
+  const extraBlock = (): string => {
+    if (!extraSources?.length) return '';
+    const list = extraSources.map(s => `   - ${s.label}: ${s.url}`).join('\n');
+    return `\nDodatkowe źródła wiedzy (przeczytaj, jeśli masz dostęp do sieci):\n${list}\n`;
+  };
+
   const buildPrompt = (): string => {
     if (summary) {
       return (
         'Masz dostęp do dokumentacji na dwa sposoby:\n\n' +
         `1. Pełna dokumentacja online: ${contextUrl}\n` +
         '   (jeśli możesz, przeczytaj ją przed odpowiedzią)\n\n' +
-        `2. Streszczenie kluczowych informacji:\n${summary}\n\n` +
-        `Na podstawie powyższego odpowiedz: ${query}`
+        `2. Streszczenie kluczowych informacji:\n${summary}\n` +
+        extraBlock() +
+        `\nNa podstawie powyższego odpowiedz: ${query}`
       );
     }
-    return `Przeczytaj ${contextUrl} i ${query}`;
+    return `Przeczytaj ${contextUrl}${extraSources?.length ? ' oraz źródła: ' + extraSources.map(s => s.url).join(', ') : ''} i ${query}`;
   };
 
   const open = (provider: 'claude' | 'perplexity' | 'chatgpt') => {

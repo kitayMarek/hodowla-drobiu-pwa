@@ -89,6 +89,10 @@ export function DairyDashboardPage() {
             className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-colors text-sm font-medium text-gray-700">
             <span className="text-xl">✅</span> Gotowe do sprzedaży
           </Link>
+          <Link to="/mleko/przepisy"
+            className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-colors text-sm font-medium text-gray-700">
+            <span className="text-xl">📖</span> Przepisy serów
+          </Link>
         </div>
       </Card>
 
