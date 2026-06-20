@@ -83,6 +83,8 @@ export interface Recipe {
   slug: string;              // = id z recipesData serowarni (STABILNY); klucz cheeseVariety
   nazwa: string;
   rodzina: string;           // np. „ser dojrzewający (półtwardy)" — 1:1 z 4. kolumną przepisy.summary.txt; mapowane na DairyProductType
+  kategoria?: string;        // faseta RODZAJ (serowarnia): "miekki"|"twardy"|"plesniowy"|"swiezy"|"inne"
+  trudnosc?: string;         // faseta TRUDNOŚĆ (serowarnia): "latwy"|"sredni"|"zaawansowany"
   url?: string;              // link do pełnej strony HTML przepisu (deep-link); dodane przez serowarnię w index.json
   zrodlo: RecipeSource;
   autor?: string | null;     // wymagane gdy zrodlo = 'fermly-spolecznosc'
@@ -91,7 +93,8 @@ export interface Recipe {
 
   mleko: {
     litry: number;
-    typ: MilkKind;
+    typ?: MilkKind;            // wiodące mleko (= typy[0]); zostaje dla zgodności
+    typy?: string[];           // faseta MLEKO (serowarnia): wszystkie wykonalne mleka (OR w grupie)
     pasteryzacja?: Pasteryzacja;
   };
   kultury?: RecipeAdditive[];     // denormalizacja — napędza podpowiedź z bazy kultur serowarni
