@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
 import type { ProductionBatch, ProductionStep, BatchAdditive } from '@/models/dairy.model';
 import { PRODUCT_LABELS } from '@/models/dairy.model';
+import { fetchRecipeBySlug } from '@/services/recipeContract.service';
+import type { RecipeAdditive } from '@/models/recipe.schema';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 
@@ -59,6 +61,7 @@ export function CheeseProductionRunnerPage() {
   const [nameVal, setNameVal] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [addVal, setAddVal] = useState('');
+  const [kultury, setKultury] = useState<RecipeAdditive[]>([]);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startMsRef = useRef<number | null>(null);
@@ -75,6 +78,9 @@ export function CheeseProductionRunnerPage() {
     setSteps(s);
     setAdditives(b.additives ?? []);
     setNameVal(b.cheeseName || '');
+    if (b.cheeseVariety) {
+      fetchRecipeBySlug(b.cheeseVariety).then(r => setKultury(r?.kultury ?? [])).catch(() => { /* offline */ });
+    }
     const firstOpen = s.findIndex(x => !x.completedAt);
     setIdx(firstOpen < 0 ? s.length : firstOpen);
   };
@@ -234,6 +240,28 @@ export function CheeseProductionRunnerPage() {
           </div>
         )}
       </Card>
+
+      {/* Dobór kultur — przepisy odsyłają do „tabeli doboru kultur" (serowarnia); damy do niej dostęp */}
+      {batch.cheeseVariety && (
+        <Card padding="md">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">🦠 Dobór kultur</p>
+            <a href="https://mojaserowarnia.pl/baza-kultur" target="_blank" rel="noopener noreferrer"
+              className="text-xs font-medium text-brand-600 hover:text-brand-800 whitespace-nowrap">
+              Tabela kultur (mojaserowarnia.pl) ↗
+            </a>
+          </div>
+          {kultury.length > 0 ? (
+            <ul className="text-sm text-gray-700 mt-2 space-y-0.5">
+              {kultury.map((k, i) => (
+                <li key={i}>• {k.co} <span className="text-gray-400">— {k.dawka}</span></li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1">Pełna tabela kultur i dawek — na mojaserowarnia.pl.</p>
+          )}
+        </Card>
+      )}
 
       {done ? (
         <Card padding="md">
