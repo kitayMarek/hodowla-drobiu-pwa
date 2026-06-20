@@ -13,6 +13,8 @@ export default defineConfig({
       includeAssets: ['icons/*.png', 'favicon.ico'],
       injectManifest: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Główny bundle przekroczył domyślne 2 MiB (przebudowa mleczarni) → podnosimy limit precache.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       manifest: {
         name: 'Fermly – Menadżer Farmy',
