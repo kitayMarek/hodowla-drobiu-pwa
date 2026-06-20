@@ -197,6 +197,8 @@ function toBatch(r: Record<string, unknown>): ProductionBatch {
     productionDate: r.production_date as string, expiryDate: r.expiry_date as string,
     quantityRemainingKg: Number(r.quantity_remaining_kg),
     agingDays: r.aging_days != null ? Number(r.aging_days) : undefined,
+    lastWeighedAt: (r.last_weighed_at as string | null) ?? undefined,
+    lastWeighedKg: r.last_weighed_kg != null ? Number(r.last_weighed_kg) : undefined,
     notes: r.notes as string | undefined, createdAt: r.created_at as string };
 }
 
@@ -714,6 +716,19 @@ export const dairyService = {
     await db.productionBatches.update(id, patch);
   },
 
+  /** Przeważenie partii w dojrzewalni — zmierzona waga staje się nową bazą stanu szacunkowego. */
+  async reweighBatch(id: number, kg: number): Promise<void> {
+    const user = await getAuthUser();
+    const today = new Date().toISOString().slice(0, 10);
+    if (user) {
+      await supabase.from('production_batches').update({
+        quantity_remaining_kg: kg, last_weighed_at: today, last_weighed_kg: kg,
+      }).eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.productionBatches.update(id, { quantityRemainingKg: kg, lastWeighedAt: today, lastWeighedKg: kg });
+  },
+
   async updateBatchYield(id: number, actualYieldKg: number): Promise<void> {
     const user = await getAuthUser();
     if (user) {
@@ -756,6 +771,31 @@ export const dairyService = {
       }));
     }
     return db.userRecipes.orderBy('createdAt').reverse().toArray();
+  },
+
+  /** Zmiana statusu własnego przepisu (PUBLISH: prywatny→zgloszony→zatwierdzony/odrzucony). */
+  async updateUserRecipeStatus(id: number, status: UserRecipe['status']): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('user_recipes').update({ status }).eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    await db.userRecipes.update(id, { status });
+  },
+
+  /**
+   * Buduje feed „przepisów społeczności" (TYLKO zatwierdzone) do publikacji.
+   * Marek eksportuje plik → wgrywa na fermly.pl/przepisy-spolecznosci.json → serowarnia pobiera (BRIEF #4).
+   * Uwaga: pod RLS widać tylko własne przepisy — pełna moderacja wielu userów wymaga roli admina (backend).
+   */
+  async buildCommunityFeed(): Promise<{ wersjaSchematu: number; zrodlo: string; wygenerowano: string; przepisy: Recipe[] }> {
+    const all = await this.getUserRecipes();
+    return {
+      wersjaSchematu: RECIPE_SCHEMA_VERSION,
+      zrodlo: 'fermly-spolecznosc',
+      wygenerowano: new Date().toISOString(),
+      przepisy: all.filter(u => u.status === 'zatwierdzony').map(u => u.recipe),
+    };
   },
 
   // ── Kroki workflow ────────────────────────────────────────────

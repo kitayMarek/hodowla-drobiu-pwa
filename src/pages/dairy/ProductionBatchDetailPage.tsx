@@ -7,6 +7,8 @@ import {
 } from '@/models/dairy.model';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { fetchRecipeBySlug } from '@/services/recipeContract.service';
+import { estimateBatchWeightKg, daysSince } from '@/utils/cheeseStock';
 
 const STATUS_ORDER: ProductionBatch['status'][] = ['w_produkcji', 'dojrzewa', 'gotowy', 'sprzedany', 'wycofany'];
 
@@ -24,6 +26,19 @@ export function ProductionBatchDetailPage() {
   const [yieldVal,  setYieldVal]  = useState('');
   // Fork do własnego przepisu (L2)
   const [savedRecipe, setSavedRecipe] = useState(false);
+  // Dojrzewanie: stan szacunkowy + przeważanie (Etap 4)
+  const [ubytek, setUbytek] = useState<number | null | undefined>(undefined);
+  const [editWeigh, setEditWeigh] = useState(false);
+  const [weighVal, setWeighVal] = useState('');
+
+  const handleReweigh = async () => {
+    if (!batch?.id || !weighVal) return;
+    setSaving(true);
+    await dairyService.reweighBatch(batch.id, parseFloat(weighVal));
+    setEditWeigh(false);
+    await load();
+    setSaving(false);
+  };
 
   const handleSaveRecipe = async () => {
     if (!batch?.id) return;
@@ -46,6 +61,11 @@ export function ProductionBatchDetailPage() {
     if (b) { setBatch(b); setYieldVal(String(b.actualYieldKg ?? b.expectedYieldKg)); }
     setSteps(s);
     setWhey(w ?? null);
+    if (b?.cheeseVariety) {
+      fetchRecipeBySlug(b.cheeseVariety)
+        .then(r => setUbytek(r?.dojrzewanie?.ubytekWagiProc))
+        .catch(() => { /* offline → util użyje domyślnej wartości per rodzina */ });
+    }
   };
 
   useEffect(() => { load(); }, [id]);
@@ -177,6 +197,36 @@ export function ProductionBatchDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Stan szacunkowy w dojrzewalni (Etap 4) */}
+      {(batch.status === 'dojrzewa' || batch.status === 'gotowy') && (
+        <Card padding="md">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Stan szacunkowy (dojrzewanie)</p>
+              <p className="text-lg font-bold text-gray-800">~{estimateBatchWeightKg(batch, ubytek).toFixed(2)} kg</p>
+              <p className="text-xs text-gray-400">
+                nominalnie {batch.quantityRemainingKg.toFixed(2)} kg · dojrzewa {daysSince(batch.productionDate)}{batch.agingDays ? `/${batch.agingDays}` : ''} dni
+                {batch.lastWeighedAt && ` · przeważono ${new Date(batch.lastWeighedAt + 'T12:00:00').toLocaleDateString('pl-PL')}`}
+              </p>
+            </div>
+            {!editWeigh && (
+              <Button size="sm" variant="outline"
+                onClick={() => { setWeighVal(estimateBatchWeightKg(batch, ubytek).toFixed(2)); setEditWeigh(true); }}>
+                Przeważ
+              </Button>
+            )}
+          </div>
+          {editWeigh && (
+            <div className="flex gap-2 mt-2">
+              <input type="number" step="0.01" min="0" value={weighVal} onChange={e => setWeighVal(e.target.value)}
+                className="flex-1 min-w-0 rounded-lg border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+              <Button size="sm" loading={saving} onClick={handleReweigh}>Zapisz wagę</Button>
+              <Button size="sm" variant="outline" onClick={() => setEditWeigh(false)}>Anuluj</Button>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Zmiana statusu */}
       {batch.status !== 'sprzedany' && batch.status !== 'wycofany' && (

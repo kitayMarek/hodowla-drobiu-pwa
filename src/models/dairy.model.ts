@@ -118,6 +118,8 @@ export interface ProductionBatch {
   expiryDate: string;
   quantityRemainingKg: number;
   agingDays?: number;
+  lastWeighedAt?: string;    // data ostatniego realnego przeważenia (baza dla stanu szacunkowego)
+  lastWeighedKg?: number;    // zmierzona waga przy ostatnim przeważeniu
   notes?: string;
   createdAt: string;
 }
