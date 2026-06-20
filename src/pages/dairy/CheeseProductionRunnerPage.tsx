@@ -16,12 +16,16 @@ const LONG_THRESHOLD_MIN = 240;
  * Fallback do czasu, aż serowarnia dostarczy precyzyjne per-przepis (BRIEF #7). Kierunki bezpieczne.
  */
 const MANIP_HINTS: { kw: RegExp; text: string }[] = [
+  // kolejność: bardziej swoiste dźwignie przed ogólną „kulturą" (która łapie typowe zaszczepienie)
   { kw: /kroj|cięci|ziarn/i,            text: 'Drobniejsze ziarno → ser twardszy i bardziej suchy; grubsze → wilgotniejszy i miększy.' },
   { kw: /pras/i,                        text: 'Mocniejsze/dłuższe prasowanie → zwięźlejszy, twardszy ser; lżejsze → bardziej otwarta struktura.' },
+  { kw: /płuk|pluk/i,                   text: 'Płukanie ziarna wodą (gouda/edam) wypłukuje laktozę → mniej kwasu, słodszy i bardziej elastyczny ser. (To różni goudę od cheddara.)' },
+  { kw: /cacl|wap[nń]|chlorek/i,        text: 'Więcej CaCl₂/wapnia → mocniejszy skrzep i lepsza wydajność; tekstura bardziej elastyczna (mniej krucha).' },
+  { kw: /pleśń|plesn|candidum|geotrichum|linens|nakłuw|nakluw|maziow/i, text: 'Kultury/pleśnie powierzchniowe (P. candidum, Geotrichum, B. linens) zmieniają TYP sera (biała pleśń, maziowa skórka) — najmocniejszy fork.' },
   { kw: /solank|soleni/i,               text: 'Dłużej w solance → słoniej i dłuższa trwałość; krócej → łagodniej.' },
-  { kw: /dojrzewa/i,                    text: 'Dłuższe dojrzewanie → intensywniejszy smak; wyższa wilgotność → bardziej kremowy.' },
+  { kw: /dojrzewa/i,                    text: 'Dłużej lub w wyższej temperaturze dojrzewalni → intensywniejszy smak (wyższa temp przyspiesza, ale ryzyko wad/wzdęć); wyższa wilgotność → bardziej kremowy.' },
   { kw: /podgrzew|temperatur|dogrzew/i, text: 'Wyższa temperatura dogrzewania → suchsze, twardsze ziarno; niższa → wilgotniejsze.' },
-  { kw: /zakwasz|kultur/i,              text: 'Więcej kultury lub dłuższe zakwaszanie → kwaśniejszy, wyrazistszy profil.' },
+  { kw: /zakwasz|kultur/i,              text: 'Więcej kultury / dłuższe zakwaszanie → kwaśniejszy profil; bardzo niskie pH = mniej wapnia = ser bardziej kruchy i mniej elastyczny.' },
 ];
 function manipulationHint(label: string): string | null {
   return MANIP_HINTS.find(x => x.kw.test(label))?.text ?? null;
@@ -278,9 +282,9 @@ export function CheeseProductionRunnerPage() {
         <Card padding="md">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">🦠 Dobór kultur</p>
-            <a href="https://mojaserowarnia.pl/baza-kultur" target="_blank" rel="noopener noreferrer"
+            <a href="https://mojaserowarnia.pl/kultury/" target="_blank" rel="noopener noreferrer"
               className="text-xs font-medium text-brand-600 hover:text-brand-800 whitespace-nowrap">
-              Tabela kultur (mojaserowarnia.pl) ↗
+              Tabela doboru kultur (mojaserowarnia.pl) ↗
             </a>
           </div>
           {kultury.length > 0 ? (
@@ -350,6 +354,12 @@ export function CheeseProductionRunnerPage() {
                 🧪 Eksperyment: {manipulationHint(step.label)}
                 <span className="text-purple-400"> — zmiana = inny ser, możesz potem zapisać jako swój.</span>
               </p>
+            )}
+            {/podpuszczk/i.test(`${step.label} ${step.description ?? ''}`) && (
+              <a href="https://mojaserowarnia.pl/sila-podpuszczki" target="_blank" rel="noopener noreferrer"
+                className="inline-block text-xs font-medium text-brand-600 hover:text-brand-800 mt-2">
+                🧮 Siła podpuszczki — ilość i kalkulator (mojaserowarnia.pl) ↗
+              </a>
             )}
 
             {/* Timer */}

@@ -87,6 +87,7 @@ export interface Recipe {
   zrodlo: RecipeSource;
   autor?: string | null;     // wymagane gdy zrodlo = 'fermly-spolecznosc'
   licencja?: string | null;  // jw. — atrybucja przy publikacji u serowarni
+  dataZatwierdzenia?: string; // ISO — ustawiana przy zatwierdzeniu; serowarnia użyje jako datePublished/dateModified
 
   mleko: {
     litry: number;

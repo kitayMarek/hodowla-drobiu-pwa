@@ -773,12 +773,23 @@ export const dairyService = {
     return db.userRecipes.orderBy('createdAt').reverse().toArray();
   },
 
-  /** Zmiana statusu własnego przepisu (PUBLISH: prywatny→zgloszony→zatwierdzony/odrzucony). */
+  /** Zmiana statusu własnego przepisu (PUBLISH: prywatny→zgloszony→zatwierdzony/odrzucony).
+   *  Przy „zatwierdzony" stempluje `recipe.dataZatwierdzenia` (serowarnia → datePublished). */
   async updateUserRecipeStatus(id: number, status: UserRecipe['status']): Promise<void> {
     const user = await getAuthUser();
+    const stamp = status === 'zatwierdzony' ? new Date().toISOString() : undefined;
     if (user) {
-      await supabase.from('user_recipes').update({ status }).eq('id', id).eq('user_id', user.id);
+      const row: Record<string, unknown> = { status };
+      if (stamp) {
+        const { data } = await supabase.from('user_recipes').select('recipe').eq('id', id).eq('user_id', user.id).single();
+        if (data?.recipe) row.recipe = { ...(data.recipe as Recipe), dataZatwierdzenia: stamp };
+      }
+      await supabase.from('user_recipes').update(row).eq('id', id).eq('user_id', user.id);
       return;
+    }
+    if (stamp) {
+      const ur = await db.userRecipes.get(id);
+      if (ur) { await db.userRecipes.update(id, { status, recipe: { ...ur.recipe, dataZatwierdzenia: stamp } }); return; }
     }
     await db.userRecipes.update(id, { status });
   },
