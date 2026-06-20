@@ -11,6 +11,22 @@ import { Card } from '@/components/ui/Card';
 /** Powyżej tego progu krok jest „bierny" (dojrzewanie, długie zakwaszanie) — bez tykającego timera. */
 const LONG_THRESHOLD_MIN = 240;
 
+/**
+ * Ogólne (podręcznikowe) sugestie „co możesz zmienić" na danym etapie — zachęta do eksperymentu.
+ * Fallback do czasu, aż serowarnia dostarczy precyzyjne per-przepis (BRIEF #7). Kierunki bezpieczne.
+ */
+const MANIP_HINTS: { kw: RegExp; text: string }[] = [
+  { kw: /kroj|cięci|ziarn/i,            text: 'Drobniejsze ziarno → ser twardszy i bardziej suchy; grubsze → wilgotniejszy i miększy.' },
+  { kw: /pras/i,                        text: 'Mocniejsze/dłuższe prasowanie → zwięźlejszy, twardszy ser; lżejsze → bardziej otwarta struktura.' },
+  { kw: /solank|soleni/i,               text: 'Dłużej w solance → słoniej i dłuższa trwałość; krócej → łagodniej.' },
+  { kw: /dojrzewa/i,                    text: 'Dłuższe dojrzewanie → intensywniejszy smak; wyższa wilgotność → bardziej kremowy.' },
+  { kw: /podgrzew|temperatur|dogrzew/i, text: 'Wyższa temperatura dogrzewania → suchsze, twardsze ziarno; niższa → wilgotniejsze.' },
+  { kw: /zakwasz|kultur/i,              text: 'Więcej kultury lub dłuższe zakwaszanie → kwaśniejszy, wyrazistszy profil.' },
+];
+function manipulationHint(label: string): string | null {
+  return MANIP_HINTS.find(x => x.kw.test(label))?.text ?? null;
+}
+
 function fmtPlanned(min?: number): string | null {
   if (min == null) return null;
   if (min >= 24 * 60) return `${Math.round(min / (24 * 60))} dni`;
@@ -139,12 +155,27 @@ export function CheeseProductionRunnerPage() {
         actualDurationMin: actual,
       });
     }
-    // reset i przejście dalej
+    // reset i przejście dalej (notatkę kolejnego kroku ustawi efekt na zmianę idx)
     startMsRef.current = null;
-    setRunning(false); setAlarm(false); setNote(''); setRemaining(0);
-    const next = idx + 1;
+    setRunning(false); setAlarm(false); setRemaining(0);
     setSteps(prev => prev.map((x, i) => i === idx ? { ...x, completedAt: new Date().toISOString() } : x));
-    setIdx(next);
+    setIdx(idx + 1);
+  };
+
+  /** Po zmianie kroku załaduj jego zapisaną notatkę (działa też przy cofaniu). */
+  useEffect(() => { setNote(steps[idx]?.notes ?? ''); /* eslint-disable-next-line */ }, [idx]);
+
+  const resetStepUi = () => {
+    stopTick();
+    setRunning(false); setAlarm(false); setRemaining(0); startMsRef.current = null;
+  };
+  const goBack = () => { resetStepUi(); setIdx(i => Math.max(0, i - 1)); };
+  const goNext = () => { resetStepUi(); setIdx(i => Math.min(steps.length, i + 1)); };
+
+  /** Zapisz notatkę do (zwykle cofniętego, już ukończonego) kroku bez zmiany completedAt. */
+  const saveNote = async () => {
+    if (step?.id) await dairyService.updateStepNote(step.id, note.trim());
+    setSteps(prev => prev.map((x, i) => i === idx ? { ...x, notes: note.trim() } : x));
   };
 
   const saveName = async () => {
@@ -168,6 +199,7 @@ export function CheeseProductionRunnerPage() {
   const title = batch.cheeseName || PRODUCT_LABELS[batch.productType];
   const done = idx >= steps.length;
   const planned = fmtPlanned(plannedMin);
+  const stepDone = !!step?.completedAt;
 
   return (
     <div className={`space-y-4 max-w-lg transition-colors ${alarm ? 'animate-pulse' : ''}`}>
@@ -241,8 +273,8 @@ export function CheeseProductionRunnerPage() {
         )}
       </Card>
 
-      {/* Dobór kultur — przepisy odsyłają do „tabeli doboru kultur" (serowarnia); damy do niej dostęp */}
-      {batch.cheeseVariety && (
+      {/* Dobór kultur — istotny na wczesnych etapach (zaszczepienie); później zbędny */}
+      {batch.cheeseVariety && idx < 2 && (
         <Card padding="md">
           <div className="flex items-center justify-between gap-2">
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">🦠 Dobór kultur</p>
@@ -269,9 +301,10 @@ export function CheeseProductionRunnerPage() {
             <div className="text-5xl mb-2">✅</div>
             <p className="text-lg font-bold text-gray-800">Produkcja zakończona!</p>
             <p className="text-sm text-gray-500 mt-1">Wszystkie kroki odhaczone. Partia czeka w karcie.</p>
-            <Link to={`/mleko/partie/${batch.id}`} className="inline-block mt-4">
-              <Button>Przejdź do partii →</Button>
-            </Link>
+            <div className="flex gap-2 justify-center mt-4">
+              <Button variant="outline" onClick={goBack}>← Wróć do kroków</Button>
+              <Link to={`/mleko/partie/${batch.id}`}><Button>Przejdź do partii →</Button></Link>
+            </div>
           </div>
         </Card>
       ) : (
@@ -287,7 +320,10 @@ export function CheeseProductionRunnerPage() {
           <Card padding="md">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">Krok {idx + 1} z {steps.length}</p>
+                <p className="text-xs font-semibold text-brand-600 uppercase tracking-wide">
+                  Krok {idx + 1} z {steps.length}
+                  {stepDone && <span className="ml-2 text-green-600">✓ ukończony</span>}
+                </p>
                 <h2 className="text-lg font-bold text-gray-900 mt-0.5">{step.label}</h2>
               </div>
               {planned && (
@@ -309,6 +345,12 @@ export function CheeseProductionRunnerPage() {
                 ✓ Kończ, gdy: <strong>{step.endCondition}</strong>
               </p>
             )}
+            {manipulationHint(step.label) && (
+              <p className="text-xs text-purple-700 bg-purple-50 border border-purple-100 rounded-lg px-2 py-1.5 mt-2">
+                🧪 Eksperyment: {manipulationHint(step.label)}
+                <span className="text-purple-400"> — zmiana = inny ser, możesz potem zapisać jako swój.</span>
+              </p>
+            )}
 
             {/* Timer */}
             {hasTimer && running && (
@@ -327,19 +369,31 @@ export function CheeseProductionRunnerPage() {
             />
 
             {/* Akcje */}
-            <div className="flex gap-2 mt-3">
-              {hasTimer && !running && (
-                <Button className="flex-1" onClick={handleStart}>▶ Start ({planned})</Button>
+            <div className="flex flex-wrap gap-2 mt-3">
+              {idx > 0 && (
+                <Button variant="outline" onClick={goBack} title="Wróć do poprzedniego kroku">← Wstecz</Button>
               )}
-              {hasTimer && running && (
-                <Button className="flex-1" onClick={finishStep}>
-                  {alarm ? 'Zakończ krok ✓' : 'Zakończ wcześniej ✓'}
-                </Button>
+              {stepDone ? (
+                <>
+                  <Button className="flex-1" onClick={saveNote}>💾 Zapisz notatkę</Button>
+                  <Button variant="outline" onClick={goNext}>Następna →</Button>
+                </>
+              ) : (
+                <>
+                  {hasTimer && !running && (
+                    <Button className="flex-1" onClick={handleStart}>▶ Start ({planned})</Button>
+                  )}
+                  {hasTimer && running && (
+                    <Button className="flex-1" onClick={finishStep}>
+                      {alarm ? 'Zakończ krok ✓' : 'Zakończ wcześniej ✓'}
+                    </Button>
+                  )}
+                  {!hasTimer && (
+                    <Button className="flex-1" onClick={finishStep}>Gotowe ✓</Button>
+                  )}
+                  <Button variant="outline" onClick={finishStep} title="Przejdź dalej bez czekania">Następna →</Button>
+                </>
               )}
-              {!hasTimer && (
-                <Button className="flex-1" onClick={finishStep}>Gotowe ✓</Button>
-              )}
-              <Button variant="outline" onClick={finishStep} title="Przejdź dalej bez czekania">Następna →</Button>
             </div>
           </Card>
 

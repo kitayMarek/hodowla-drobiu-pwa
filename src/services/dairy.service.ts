@@ -810,6 +810,16 @@ export const dairyService = {
     return db.productionSteps.where('batchId').equals(batchId).sortBy('sortOrder');
   },
 
+  /** Runner: zapisz/uaktualnij notatkę kroku (np. po cofnięciu się), bez zmiany completedAt. */
+  async updateStepNote(stepId: number, notes: string): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      await supabase.from('production_steps').update({ notes: notes || null }).eq('id', stepId).eq('user_id', user.id);
+      return;
+    }
+    await db.productionSteps.update(stepId, { notes });
+  },
+
   /** Runner: oznacz początek kroku (start timera). */
   async startStep(stepId: number): Promise<void> {
     const user = await getAuthUser();
