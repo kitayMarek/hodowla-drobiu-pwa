@@ -51,14 +51,18 @@ export function CheeseProductionStartPage() {
   // Nazwa sera: własna > nazwa z przepisu > etykieta kategorii
   const effectiveName = customName.trim() || selectedRecipe?.nazwa || '';
 
+  const milkL = parseFloat(milk);
+  const milkValid = milk !== '' && milkL > 0;
+
   const handleStart = async () => {
+    if (!milkValid) { setError('Podaj ilość mleka (większą od 0) — bez mleka nie ma sera.'); return; }
     setSaving(true); setError('');
     try {
       const id = await dairyService.createStandaloneBatch({
         productType,
         cheeseVariety: variety || undefined,
         cheeseName: effectiveName || undefined,
-        milkLiters: milk ? parseFloat(milk) : undefined,
+        milkLiters: milkL,
         productionDate: date,
         agingDays: YIELD_FACTORS[productType].agingDays,
       });
@@ -138,7 +142,7 @@ export function CheeseProductionStartPage() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
-                Mleko (L) <span className="text-gray-300 normal-case font-normal">opc.</span>
+                Mleko (L) <span className="text-red-400 normal-case font-normal">wymagane</span>
               </label>
               <input
                 type="number" step="0.5" min="0" value={milk} onChange={e => setMilk(e.target.value)}
@@ -161,7 +165,7 @@ export function CheeseProductionStartPage() {
         <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">⚠ {error}</div>
       )}
 
-      <Button className="w-full" loading={saving} onClick={handleStart}>
+      <Button className="w-full" loading={saving} disabled={!milkValid} onClick={handleStart}>
         Rozpocznij produkcję{effectiveName ? `: ${effectiveName}` : ''} →
       </Button>
     </div>
