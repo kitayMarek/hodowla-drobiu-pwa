@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
 import type { DairyProductType } from '@/models/dairy.model';
 import { PRODUCT_ICONS, PRODUCT_LABELS, YIELD_FACTORS } from '@/models/dairy.model';
-import { fetchRecipes, recipesForProductType } from '@/services/recipeContract.service';
+import { fetchRecipes, recipesForProductType, productTypeFromRodzina } from '@/services/recipeContract.service';
 import type { Recipe } from '@/models/recipe.schema';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -18,8 +18,11 @@ const TYPES: DairyProductType[] = ['ser_dojrzewajacy', 'twarog', 'jogurt', 'kefi
 export function CheeseProductionStartPage() {
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
+  const [searchParams] = useSearchParams();
+  const wantedSlug = searchParams.get('ser');   // deep-link z serowarni: „Uwarz ten ser w Fermly"
 
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [fromSerowarnia, setFromSerowarnia] = useState('');  // nazwa sera, gdy przyszedł z deep-linku
   const [productType, setProductType] = useState<DairyProductType>('ser_dojrzewajacy');
   const [variety, setVariety] = useState('');        // slug
   const [customName, setCustomName] = useState('');
@@ -29,8 +32,19 @@ export function CheeseProductionStartPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchRecipes().then(setRecipes).catch(() => { /* offline — działamy bez przepisów */ });
-  }, []);
+    fetchRecipes().then(list => {
+      setRecipes(list);
+      // Deep-link „Uwarz ten ser w Fermly" — preselekcja typu + odmiany z przepisu
+      if (wantedSlug) {
+        const r = list.find(x => x.slug === wantedSlug);
+        if (r) {
+          setProductType(productTypeFromRodzina(r.rodzina));
+          setVariety(r.slug);
+          setFromSerowarnia(r.nazwa);
+        }
+      }
+    }).catch(() => { /* offline — działamy bez przepisów */ });
+  }, [wantedSlug]);
 
   const matching = recipesForProductType(recipes, productType);
   const selectedRecipe = matching.find(r => r.slug === variety) ?? null;
@@ -64,6 +78,13 @@ export function CheeseProductionStartPage() {
       <p className="text-sm text-gray-500">
         Zacznij produkcję bez rozlewu mleka — wybierz typ i odmianę, a Fermly przygotuje partię i proces.
       </p>
+
+      {fromSerowarnia && (
+        <div className="rounded-xl bg-brand-50 border border-brand-100 px-4 py-3 text-sm text-brand-800">
+          🧀 Z <strong>mojaserowarnia.pl</strong> — masz wybrany ser <strong>{fromSerowarnia}</strong>.
+          Uzupełnij ilość mleka i kliknij „Rozpocznij produkcję", a Fermly poprowadzi Cię przez proces.
+        </div>
+      )}
 
       <Card padding="md">
         <div className="space-y-3">
