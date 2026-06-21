@@ -50,6 +50,7 @@ import { CheeseProductionStartPage } from '@/pages/dairy/CheeseProductionStartPa
 import { CheeseProductionRunnerPage } from '@/pages/dairy/CheeseProductionRunnerPage';
 import { MyRecipesPage } from '@/pages/dairy/MyRecipesPage';
 import { DojrzewalniaPage } from '@/pages/dairy/DojrzewalniaPage';
+import { WProdukcjiPage } from '@/pages/dairy/WProdukcjiPage';
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -149,6 +150,7 @@ export const router = createBrowserRouter([
       { path: 'mleko/warzenie',          element: <CheeseProductionStartPage /> },
       { path: 'mleko/moje-przepisy',     element: <MyRecipesPage /> },
       { path: 'mleko/dojrzewalnia',      element: <DojrzewalniaPage /> },
+      { path: 'mleko/w-produkcji',       element: <WProdukcjiPage /> },
 
       // Placeholdery – moduły w przygotowaniu
       { path: 'mleko-old',    element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },

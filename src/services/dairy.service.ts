@@ -716,6 +716,27 @@ export const dairyService = {
     await db.productionBatches.update(id, patch);
   },
 
+  /** Usuń partię (kroki + serwatkę + alokację). Blokada, gdy partia ma sprzedaż. */
+  async deleteBatch(id: number): Promise<void> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('dairy_sales').select('id').eq('user_id', user.id).eq('batch_id', id).limit(1);
+      if (data && data.length) throw new Error('Nie można usunąć — partia ma sprzedaż.');
+      await supabase.from('production_steps').delete().eq('batch_id', id).eq('user_id', user.id);
+      await supabase.from('whey_byproducts').delete().eq('batch_id', id).eq('user_id', user.id);
+      await supabase.from('milk_allocations').delete().eq('batch_id', id).eq('user_id', user.id);
+      await supabase.from('production_batches').delete().eq('id', id).eq('user_id', user.id);
+      return;
+    }
+    if (await db.dairySales.where('batchId').equals(id).count() > 0) {
+      throw new Error('Nie można usunąć — partia ma sprzedaż.');
+    }
+    await db.productionSteps.where('batchId').equals(id).delete();
+    await db.wheyByproducts.where('batchId').equals(id).delete();
+    await db.milkAllocations.where('batchId').equals(id).delete();
+    await db.productionBatches.delete(id);
+  },
+
   /** Przeważenie partii w dojrzewalni — zmierzona waga staje się nową bazą stanu szacunkowego. */
   async reweighBatch(id: number, kg: number): Promise<void> {
     const user = await getAuthUser();
