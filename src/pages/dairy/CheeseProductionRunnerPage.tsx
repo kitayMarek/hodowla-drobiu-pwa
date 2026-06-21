@@ -150,19 +150,23 @@ export function CheeseProductionRunnerPage() {
 
   const finishStep = async () => {
     stopTick();
+    const noteVal = note.trim();
+    const actual = startMsRef.current != null
+      ? Math.round((Date.now() - startMsRef.current) / 60000)
+      : undefined;
     if (step?.id) {
-      const actual = startMsRef.current != null
-        ? Math.round((Date.now() - startMsRef.current) / 60000)
-        : undefined;
       await dairyService.completeStep(step.id, {
-        notes: note.trim() || undefined,
+        notes: noteVal || undefined,
         actualDurationMin: actual,
       });
     }
-    // reset i przejście dalej (notatkę kolejnego kroku ustawi efekt na zmianę idx)
+    // reset i przejście dalej. WAŻNE: notatkę + faktyczny czas zapisujemy też do stanu
+    // lokalnego, żeby po cofnięciu się („← Wstecz") krok pokazał wpisaną treść (nie pustkę).
     startMsRef.current = null;
     setRunning(false); setAlarm(false); setRemaining(0);
-    setSteps(prev => prev.map((x, i) => i === idx ? { ...x, completedAt: new Date().toISOString() } : x));
+    setSteps(prev => prev.map((x, i) => i === idx
+      ? { ...x, completedAt: new Date().toISOString(), notes: noteVal || undefined, actualDurationMin: actual }
+      : x));
     setIdx(idx + 1);
   };
 

@@ -99,8 +99,13 @@ export function buildStepsFromRecipe(recipe: Recipe): NewStep[] {
     };
   });
 
+  // Bloki solenie/dojrzewanie doklejaj TYLKO gdy przepis nie ma ich już wśród kroków
+  // (serowarnia trzyma je i jako kroki, i jako bloki — bez tego powstawał duplikat i zła kolejność).
+  const hasSolStep = recipe.kroki.some(k => /solen|solank/i.test(k.nazwa));
+  const hasDojStep = recipe.kroki.some(k => /dojrzewa/i.test(k.nazwa));
+
   let order = steps.length;
-  if (recipe.solenie) {
+  if (recipe.solenie && !hasSolStep) {
     const s = recipe.solenie;
     const desc = [
       s.typ === 'solanka' ? 'Solanka' : 'Solenie w masie',
@@ -114,7 +119,7 @@ export function buildStepsFromRecipe(recipe: Recipe): NewStep[] {
       description: desc || undefined,
     });
   }
-  if (recipe.dojrzewanie) {
+  if (recipe.dojrzewanie && !hasDojStep) {
     const d = recipe.dojrzewanie;
     const desc = [
       `${d.dni} dni`,
