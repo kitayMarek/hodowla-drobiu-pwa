@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
 import type { ProductionBatch, ProductionStep } from '@/models/dairy.model';
 import { PRODUCT_ICONS, PRODUCT_LABELS } from '@/models/dairy.model';
 import { fetchRecipeBySlug } from '@/services/recipeContract.service';
 import type { Recipe } from '@/models/recipe.schema';
+import type { BatchPhoto } from '@/models/batchPhoto.model';
 import { batchCode, readyDate, estimateBatchWeightKg, daysSince } from '@/utils/cheeseStock';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+
+interface PhotoView { photo: BatchPhoto; url: string; }
 
 const fmtD = (d?: string | null) => (d ? new Date(d + 'T12:00:00').toLocaleDateString('pl-PL') : '—');
 const fmtMin = (m?: number) => {
@@ -25,6 +29,18 @@ export function MetryczkaPage() {
   const [batch, setBatch] = useState<ProductionBatch | null>(null);
   const [steps, setSteps] = useState<ProductionStep[]>([]);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [photos, setPhotos] = useState<PhotoView[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadPhotos = async () => {
+    if (!id) return;
+    const list = await dairyService.getPhotosByBatch(Number(id));
+    setPhotos(prev => {
+      prev.forEach(p => URL.revokeObjectURL(p.url));
+      return list.map(p => ({ photo: p, url: URL.createObjectURL(p.thumbData) }));
+    });
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -33,7 +49,22 @@ export function MetryczkaPage() {
         setBatch(b ?? null); setSteps(s);
         if (b?.cheeseVariety) fetchRecipeBySlug(b.cheeseVariety).then(r => setRecipe(r)).catch(() => {});
       });
+    loadPhotos();
+    return () => setPhotos(prev => { prev.forEach(p => URL.revokeObjectURL(p.url)); return []; });
   }, [id]);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f || !id) return;
+    setUploading(true);
+    try { await dairyService.addPhotoFromFile(Number(id), f, new Date().toISOString().slice(0, 10)); await loadPhotos(); }
+    finally { setUploading(false); if (fileRef.current) fileRef.current.value = ''; }
+  };
+
+  const delPhoto = async (pid?: number) => {
+    if (!pid || !window.confirm('Usunąć zdjęcie?')) return;
+    await dairyService.deletePhoto(pid); await loadPhotos();
+  };
 
   if (!batch) return <p className="text-sm text-gray-400 p-4">Ładowanie…</p>;
 
@@ -119,6 +150,31 @@ export function MetryczkaPage() {
             );
           })}
         </div>
+      </Card>
+
+      {/* Zdjęcia — proces i obserwacja w dojrzewalni */}
+      <Card padding="md">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">📷 Zdjęcia</p>
+          <Button size="sm" variant="outline" loading={uploading} onClick={() => fileRef.current?.click()}>+ Dodaj zdjęcie</Button>
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={handleFile} />
+        {photos.length === 0 ? (
+          <p className="text-xs text-gray-400">Brak zdjęć. Dodaj, by śledzić, jak ser zmienia się w czasie.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {photos.map(({ photo, url }) => (
+              <div key={photo.id} className="relative">
+                <img src={url} alt="" className="w-full aspect-square object-cover rounded-lg border border-gray-100" />
+                <span className="absolute bottom-1 left-1 text-[10px] bg-black/55 text-white rounded px-1">
+                  {new Date(photo.photoDate + 'T12:00:00').toLocaleDateString('pl-PL')}
+                </span>
+                <button onClick={() => delPhoto(photo.id)} aria-label="Usuń zdjęcie"
+                  className="absolute top-1 right-1 text-xs bg-black/55 text-white rounded-full w-5 h-5 flex items-center justify-center hover:bg-red-500">✕</button>
+              </div>
+            ))}
+          </div>
+        )}
       </Card>
 
       <p className="text-xs text-gray-400 text-center">

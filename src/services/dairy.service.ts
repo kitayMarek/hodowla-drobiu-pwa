@@ -100,6 +100,8 @@ import {
 import { fetchRecipeBySlug, buildStepsFromRecipe } from '@/services/recipeContract.service';
 import type { Recipe, UserRecipe } from '@/models/recipe.schema';
 import { RECIPE_SCHEMA_VERSION, DEFAULT_USER_RECIPE_STATUS } from '@/models/recipe.schema';
+import type { BatchPhoto } from '@/models/batchPhoto.model';
+import { compressImage, makeThumbnail } from '@/utils/imageUtils';
 
 /** Zbuduj przepis z faktycznego przebiegu partii (Etap 3 L2 — fork do „mojego przepisu"). */
 function buildRecipeFromBatch(batch: ProductionBatch, steps: ProductionStep[]): Recipe {
@@ -828,6 +830,29 @@ export const dairyService = {
       wygenerowano: new Date().toISOString(),
       przepisy: all.filter(u => u.status === 'zatwierdzony').map(u => u.recipe),
     };
+  },
+
+  // ── Zdjęcia partii (proces + dojrzewanie) ────────────────────
+
+  async getPhotosByBatch(batchId: number): Promise<BatchPhoto[]> {
+    return db.dairyPhotos.where('batchId').equals(batchId).sortBy('photoDate');
+  },
+
+  /** Dodaj zdjęcie z pliku (kompresja + miniatura, offline w Dexie). */
+  async addPhotoFromFile(batchId: number, file: File, photoDate: string, description?: string): Promise<number> {
+    const [imageData, thumbData] = await Promise.all([
+      compressImage(file, 1920, 0.82),
+      makeThumbnail(file, 220),
+    ]);
+    return db.dairyPhotos.add({
+      batchId, photoDate, description: description?.trim() || undefined,
+      imageData, thumbData, fileName: file.name, mediaType: 'image',
+      createdAt: new Date().toISOString(),
+    });
+  },
+
+  async deletePhoto(id: number): Promise<void> {
+    await db.dairyPhotos.delete(id);
   },
 
   // ── Kroki workflow ────────────────────────────────────────────

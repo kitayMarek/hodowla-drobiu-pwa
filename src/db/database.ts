@@ -71,6 +71,7 @@ export class FarmDatabase extends Dexie {
   dairyBuyers!: Table<DairyBuyer, number>;
   saleDocuments!: Table<SaleDocument, number>;
   userRecipes!: Table<UserRecipe, number>;
+  dairyPhotos!: Table<BatchPhoto, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -286,6 +287,11 @@ export class FarmDatabase extends Dexie {
     // v23: własne przepisy usera (fork z faktycznego przebiegu produkcji, Etap 3 L2)
     this.version(23).stores({
       userRecipes: '++id, slug, status, batchId, createdAt',
+    });
+
+    // v24: zdjęcia partii mleczarskich (proces + obserwacja w dojrzewalni)
+    this.version(24).stores({
+      dairyPhotos: '++id, batchId, photoDate',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.
