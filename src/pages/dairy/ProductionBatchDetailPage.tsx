@@ -136,12 +136,14 @@ export function ProductionBatchDetailPage() {
             {batch.cheeseName && (
               <div className="text-xs text-gray-400">{PRODUCT_LABELS[batch.productType]}</div>
             )}
-            {batch.cheeseVariety && (
-              <Link to={`/mleko/przepisy?ser=${batch.cheeseVariety}`}
-                className="inline-block text-xs font-medium text-brand-600 hover:text-brand-800 mt-0.5">
-                📖 Przepis i proces →
-              </Link>
-            )}
+            <div className="flex flex-wrap gap-x-3 mt-0.5">
+              {batch.cheeseVariety && (
+                <Link to={`/mleko/przepisy?ser=${batch.cheeseVariety}`}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-800">📖 Przepis i proces →</Link>
+              )}
+              <Link to={`/mleko/partie/${batch.id}/metryczka`}
+                className="text-xs font-medium text-brand-600 hover:text-brand-800">📜 Metryczka →</Link>
+            </div>
             {batch.additives && batch.additives.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">
                 {batch.additives.map((a, i) => (

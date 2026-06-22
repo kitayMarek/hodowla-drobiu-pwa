@@ -1,4 +1,21 @@
 import type { ProductionBatch, DairyProductType } from '@/models/dairy.model';
+import { PRODUCT_LABELS } from '@/models/dairy.model';
+
+/** Czytelny kod partii na etykietę/metryczkę: NAZWA-RRRRMMDD-NR (NR z dziennego sufiksu A/B/C…). */
+export function batchCode(b: Pick<ProductionBatch, 'cheeseName' | 'productType' | 'productionDate' | 'batchNumber'>): string {
+  const name = (b.cheeseName || PRODUCT_LABELS[b.productType]).toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const date = b.productionDate.replace(/-/g, '');
+  const suffix = b.batchNumber.split('-').pop() || '';
+  return `${name}-${date}-${suffix}`;
+}
+
+/** Data gotowości = data produkcji + dni dojrzewania. */
+export function readyDate(b: Pick<ProductionBatch, 'productionDate' | 'agingDays'>): string | null {
+  if (!b.agingDays) return null;
+  const d = new Date(b.productionDate + 'T12:00:00');
+  d.setDate(d.getDate() + b.agingDays);
+  return d.toISOString().slice(0, 10);
+}
 
 /**
  * Stan szacunkowy wagi sera w dojrzewalni (Etap 4).
