@@ -11,8 +11,8 @@ import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 
 interface LabelFields {
-  nazwa: string; masaNetto: string; dataProdukcji: string; typDaty: 'minimalnej' | 'przydatnosci';
-  dataWaznosci: string; przechowywanie: string; sklad: string; alergeny: string;
+  nazwa: string; haslo: string; masaNetto: string; dataProdukcji: string; typDaty: 'minimalnej' | 'przydatnosci';
+  dataWaznosci: string; przechowywanie: string; sklad: string; alergeny: string; poOtwarciu: string;
   numerPartii: string; producent: string; adres: string; nrWet: string; nrRhd: string; uwagi: string;
 }
 
@@ -44,13 +44,15 @@ export function CheeseLabelPage() {
       .filter(Boolean).join(', ');
     setF({
       nazwa: batch.cheeseName || PRODUCT_LABELS[batch.productType],
+      haslo: '',
       masaNetto: '',
       dataProdukcji: batch.productionDate,
       typDaty: 'minimalnej',
       dataWaznosci: batch.expiryDate || '',
       przechowywanie: String(settings.rhd_storage_default || 'Przechowywać w temp. 4–8°C'),
       sklad,
-      alergeny: 'Zawiera: mleko',
+      alergeny: 'mleko',
+      poOtwarciu: '',
       numerPartii: batchCode(batch),
       producent: String(settings.rhd_producer_name || ''),
       adres: String(settings.rhd_producer_address || ''),
@@ -63,41 +65,46 @@ export function CheeseLabelPage() {
   if (!batch || !f) return <p className="text-sm text-gray-400 p-4">Ładowanie…</p>;
   const set = (k: keyof LabelFields, v: string) => setF(prev => prev ? { ...prev, [k]: v } : prev);
 
-  const labelHtml = () => `
-    <div class="lbl">
-      <div class="hd"><div><div class="nm">${esc(f.nazwa)}</div><div class="rhd">ROLNICZY HANDEL DETALICZNY</div></div></div>
-      <table>
-        ${f.producent ? `<tr><td>Producent</td><td><b>${esc(f.producent)}</b></td></tr>` : ''}
-        ${f.adres ? `<tr><td>Adres</td><td>${esc(f.adres).replace(/\n/g, ', ')}</td></tr>` : ''}
-        ${f.masaNetto ? `<tr><td>Masa netto</td><td><b>${esc(f.masaNetto)}</b></td></tr>` : ''}
-        <tr><td>Data produkcji</td><td>${fmtD(f.dataProdukcji)}</td></tr>
-        <tr><td>${dateLabel(f.typDaty)}</td><td><b>${fmtD(f.dataWaznosci)}</b></td></tr>
-        ${f.przechowywanie ? `<tr><td>Przechowywanie</td><td>${esc(f.przechowywanie)}</td></tr>` : ''}
-        <tr><td>Partia</td><td>${esc(f.numerPartii)}</td></tr>
-        ${f.nrWet ? `<tr><td>Nr wet.</td><td>${esc(f.nrWet)}</td></tr>` : ''}
-        ${f.nrRhd ? `<tr><td>Nr RHD</td><td>${esc(f.nrRhd)}</td></tr>` : ''}
-      </table>
-      ${f.sklad ? `<div class="sk"><b>Skład:</b> ${esc(f.sklad)}</div>` : ''}
-      ${f.alergeny ? `<div class="al">${esc(f.alergeny)}</div>` : ''}
-      ${f.uwagi ? `<div class="uw">${esc(f.uwagi)}</div>` : ''}
-    </div>`;
+  const labelInner = () => `
+    <div class="rhd-ti">${esc(f.nazwa)}</div>
+    ${f.haslo ? `<div class="rhd-sub">${esc(f.haslo)}</div>` : ''}
+    <div class="rhd-tag">ROLNICZY HANDEL DETALICZNY</div>
+    <div class="rhd-cols">
+      <div class="rhd-cl">
+        ${f.producent ? `<b>${esc(f.producent)}</b><br>` : ''}${f.adres ? `${esc(f.adres).replace(/\n/g, '<br>')}<br>` : ''}
+        ${f.nrRhd ? `RHD ${esc(f.nrRhd)}<br>` : ''}${f.nrWet ? `WNL ${esc(f.nrWet)}` : ''}
+      </div>
+      <div class="rhd-cm">
+        ${f.sklad ? `<b>Składniki:</b> ${esc(f.sklad)}<br>` : ''}
+        ${f.alergeny ? `<b>Alergeny:</b> ${esc(f.alergeny)}<br>` : ''}
+        ${f.poOtwarciu ? `<span class="rhd-mut">Po otwarciu: ${esc(f.poOtwarciu)}</span>` : ''}
+      </div>
+      <div class="rhd-cr">
+        <div class="rhd-mut">${dateLabel(f.typDaty)} / nr partii</div>
+        <div><b>${fmtD(f.dataWaznosci)}</b></div>
+        <div>${esc(f.numerPartii)}</div>
+        ${f.przechowywanie ? `<div class="rhd-mut">${esc(f.przechowywanie)}</div>` : ''}
+        ${f.masaNetto ? `<div>masa netto: <b>${esc(f.masaNetto)}</b></div>` : ''}
+      </div>
+    </div>
+    ${f.uwagi ? `<div class="rhd-uw">${esc(f.uwagi)}</div>` : ''}`;
+
+  const LBL_CSS = `*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif}
+    .rhd-lbl{width:10cm;height:7cm;padding:0.4cm;border:1px solid #333;font-size:9px;line-height:1.35;page-break-after:always;overflow:hidden}
+    .rhd-ti{font-size:18px;font-weight:bold;text-align:center;letter-spacing:0.5px}
+    .rhd-sub{font-size:9px;font-style:italic;text-align:center;color:#444;margin-top:1px}
+    .rhd-tag{font-size:7px;text-align:center;color:#777;letter-spacing:1px;margin:2px 0 4px}
+    .rhd-cols{display:flex;gap:8px;border-top:1px solid #ccc;padding-top:5px}
+    .rhd-cl{width:30%;font-size:8px}.rhd-cm{flex:1;font-size:8px}.rhd-cr{width:28%;font-size:8px;text-align:right}
+    .rhd-mut{color:#666}.rhd-uw{font-size:8px;color:#777;margin-top:3px;border-top:1px solid #eee;padding-top:2px}`;
+  const PRINT_CSS = `${LBL_CSS} @media print{.rhd-lbl{border:none}@page{size:10cm 7cm;margin:0}}`;
 
   const print = () => {
     const n = Math.max(1, Math.min(50, parseInt(copies) || 1));
-    const css = `*{box-sizing:border-box;margin:0;padding:0}
-      body{font-family:Arial,sans-serif}
-      .lbl{width:10cm;height:7cm;padding:0.5cm;border:1px solid #333;font-size:10px;line-height:1.4;page-break-after:always;overflow:hidden}
-      .nm{font-size:15px;font-weight:bold;line-height:1.2}
-      .rhd{font-size:9px;color:#555;margin-top:2px}
-      table{width:100%;font-size:9px;border-collapse:collapse;margin-top:6px;border-top:1px solid #ccc;padding-top:4px}
-      td{padding:1px 0;vertical-align:top} td:first-child{color:#666;width:42%}
-      .sk{margin-top:4px;font-size:8px;border-top:1px solid #eee;padding-top:3px}
-      .al{font-size:8px;font-weight:bold;margin-top:1px}
-      .uw{margin-top:3px;font-size:8px;color:#777}
-      @media print{.lbl{border:none}@page{size:10cm 7cm;margin:0}}`;
     const w = window.open('', '_blank');
     if (!w) return;
-    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etykieta ${esc(f.numerPartii)}</title><style>${css}</style></head><body>${labelHtml().repeat(n)}<scr` + `ipt>window.onload=()=>window.print()</scr` + `ipt></body></html>`);
+    const one = `<div class="rhd-lbl">${labelInner()}</div>`;
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etykieta ${esc(f.numerPartii)}</title><style>${PRINT_CSS}</style></head><body>${one.repeat(n)}<scr` + `ipt>window.onload=()=>window.print()</scr` + `ipt></body></html>`);
     w.document.close();
   };
 
@@ -123,9 +130,8 @@ export function CheeseLabelPage() {
       )}
 
       {/* Podgląd live */}
-      <div className="overflow-x-auto">
-        <div style={{ width: '10cm', height: '7cm', padding: '0.5cm', border: '1px solid #333', fontSize: 10, lineHeight: 1.4, background: '#fff', fontFamily: 'Arial, sans-serif' }}
-          dangerouslySetInnerHTML={{ __html: `<style>.pv .nm{font-size:15px;font-weight:bold}.pv .rhd{font-size:9px;color:#555}.pv table{width:100%;font-size:9px;border-collapse:collapse;margin-top:6px;border-top:1px solid #ccc;padding-top:4px}.pv td{padding:1px 0;vertical-align:top}.pv td:first-child{color:#666;width:42%}.pv .sk{margin-top:4px;font-size:8px;border-top:1px solid #eee;padding-top:3px}.pv .al{font-size:8px;font-weight:bold}.pv .uw{margin-top:3px;font-size:8px;color:#777}</style><div class="pv">${labelHtml().replace('<div class="lbl">', '<div>').replace(/page-break-after:always/, '')}</div>` }} />
+      <div className="overflow-x-auto bg-white">
+        <div dangerouslySetInnerHTML={{ __html: `<style>${LBL_CSS}</style><div class="rhd-lbl">${labelInner()}</div>` }} />
       </div>
 
       {/* Druk */}
@@ -142,9 +148,10 @@ export function CheeseLabelPage() {
       <Card title="Produkt" padding="md">
         <div className="space-y-3">
           {I('Nazwa', 'nazwa')}
-          {I('Masa netto', 'masaNetto', 'np. 0,5 kg')}
+          {I('Hasło / podtytuł', 'haslo', 'np. produkt tworzony ręcznie z małej serowarni')}
+          {I('Masa netto', 'masaNetto', 'np. 180 g')}
           {I('Skład', 'sklad')}
-          {I('Alergeny', 'alergeny')}
+          {I('Alergeny', 'alergeny', 'np. mleko, jaja')}
         </div>
       </Card>
 
@@ -171,6 +178,7 @@ export function CheeseLabelPage() {
             </select>
           </div>
           {I('Warunki przechowywania', 'przechowywanie')}
+          {I('Po otwarciu spożyć w ciągu', 'poOtwarciu', 'np. 2 dni')}
         </div>
       </Card>
 

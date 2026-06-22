@@ -64,24 +64,29 @@ export function DojrzewalniaPage() {
               const total = b.agingDays ?? 0;
               const ready = b.status === 'gotowy' || (total > 0 && age >= total);
               return (
-                <Link key={b.id} to={`/mleko/partie/${b.id}`}
-                  className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100 hover:border-brand-200 hover:shadow-sm transition-all">
-                  <span className="text-3xl">{PRODUCT_ICONS[b.productType]}</span>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-gray-800 truncate">
-                      {b.cheeseName || PRODUCT_LABELS[b.productType]}
+                <div key={b.id} className="p-3 bg-white rounded-xl border border-gray-100">
+                  <Link to={`/mleko/partie/${b.id}`} className="flex items-center gap-3 hover:opacity-80">
+                    <span className="text-3xl">{PRODUCT_ICONS[b.productType]}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-800 truncate">
+                        {b.cheeseName || PRODUCT_LABELS[b.productType]}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Dojrzewa {age}{total > 0 ? `/${total}` : ''} dni
+                        {b.lastWeighedAt && <span className="text-gray-300"> · przeważono {new Date(b.lastWeighedAt + 'T12:00:00').toLocaleDateString('pl-PL')}</span>}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-400">
-                      Dojrzewa {age}{total > 0 ? `/${total}` : ''} dni
-                      {b.lastWeighedAt && <span className="text-gray-300"> · przeważono {new Date(b.lastWeighedAt + 'T12:00:00').toLocaleDateString('pl-PL')}</span>}
+                    <div className="flex flex-col items-end gap-0.5 shrink-0">
+                      <span className="text-sm font-bold text-gray-800">~{est.toFixed(2)} kg</span>
+                      {lost >= 0.5 && <span className="text-xs text-gray-400">−{lost.toFixed(0)}% wagi</span>}
+                      {ready && <span className="text-xs font-medium text-green-600">gotowy</span>}
                     </div>
+                  </Link>
+                  <div className="flex gap-3 mt-2 pt-2 border-t border-gray-50">
+                    <Link to={`/mleko/partie/${b.id}/etykieta`} className="text-xs font-medium text-brand-600 hover:text-brand-800">🏷️ Etykieta</Link>
+                    <Link to={`/mleko/partie/${b.id}/metryczka`} className="text-xs font-medium text-brand-600 hover:text-brand-800">📜 Metryczka</Link>
                   </div>
-                  <div className="flex flex-col items-end gap-0.5 shrink-0">
-                    <span className="text-sm font-bold text-gray-800">~{est.toFixed(2)} kg</span>
-                    {lost >= 0.5 && <span className="text-xs text-gray-400">−{lost.toFixed(0)}% wagi</span>}
-                    {ready && <span className="text-xs font-medium text-green-600">gotowy</span>}
-                  </div>
-                </Link>
+                </div>
               );
             })}
           </div>
