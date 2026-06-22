@@ -143,6 +143,8 @@ export function ProductionBatchDetailPage() {
               )}
               <Link to={`/mleko/partie/${batch.id}/metryczka`}
                 className="text-xs font-medium text-brand-600 hover:text-brand-800">📜 Metryczka →</Link>
+              <Link to={`/mleko/partie/${batch.id}/etykieta`}
+                className="text-xs font-medium text-brand-600 hover:text-brand-800">🏷️ Etykieta →</Link>
             </div>
             {batch.additives && batch.additives.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-1">

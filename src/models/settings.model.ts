@@ -16,7 +16,12 @@ export type SettingsKey =
   | 'mortality_alert_percent'
   | 'ammonia_alert_ppm'
   | 'temp_alert_celsius'
-  | 'rhd_limit_pln';
+  | 'rhd_limit_pln'
+  | 'rhd_producer_name'
+  | 'rhd_producer_address'
+  | 'rhd_reg_number'
+  | 'rhd_vet_number'
+  | 'rhd_storage_default';
 
 export const SETTINGS_DEFAULTS: Record<SettingsKey, string> = {
   farm_name: '"Moja Ferma"',
@@ -30,4 +35,9 @@ export const SETTINGS_DEFAULTS: Record<SettingsKey, string> = {
   ammonia_alert_ppm: '20',
   temp_alert_celsius: '35',
   rhd_limit_pln: '100000',
+  rhd_producer_name: '""',
+  rhd_producer_address: '""',
+  rhd_reg_number: '""',
+  rhd_vet_number: '""',
+  rhd_storage_default: '"Przechowywać w temp. 4–8°C"',
 };

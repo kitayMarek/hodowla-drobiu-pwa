@@ -134,6 +134,11 @@ export function SettingsPage() {
       ammonia_alert_ppm: String(settings['ammonia_alert_ppm'] ?? '20'),
       temp_alert_celsius: String(settings['temp_alert_celsius'] ?? '35'),
       rhd_limit_pln: String(settings['rhd_limit_pln'] ?? '100000'),
+      rhd_producer_name: String(settings['rhd_producer_name'] ?? ''),
+      rhd_producer_address: String(settings['rhd_producer_address'] ?? ''),
+      rhd_reg_number: String(settings['rhd_reg_number'] ?? ''),
+      rhd_vet_number: String(settings['rhd_vet_number'] ?? ''),
+      rhd_storage_default: String(settings['rhd_storage_default'] ?? 'Przechowywać w temp. 4–8°C'),
     },
   });
 
@@ -148,6 +153,11 @@ export function SettingsPage() {
       settingsService.set('ammonia_alert_ppm', parseFloat(data.ammonia_alert_ppm)),
       settingsService.set('temp_alert_celsius', parseFloat(data.temp_alert_celsius)),
       settingsService.set('rhd_limit_pln', parseFloat(data.rhd_limit_pln)),
+      settingsService.set('rhd_producer_name', data.rhd_producer_name),
+      settingsService.set('rhd_producer_address', data.rhd_producer_address),
+      settingsService.set('rhd_reg_number', data.rhd_reg_number),
+      settingsService.set('rhd_vet_number', data.rhd_vet_number),
+      settingsService.set('rhd_storage_default', data.rhd_storage_default),
     ]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -336,6 +346,24 @@ export function SettingsPage() {
           <div className="space-y-3">
             <Input label={pl.settings.farmName} {...register('farm_name')} />
             <Input label={pl.settings.ownerName} {...register('owner_name')} />
+          </div>
+        </Card>
+
+        <Card title="Dane do etykiet RHD">
+          <div className="space-y-3">
+            <Input label="Producent (imię i nazwisko)" {...register('rhd_producer_name')} />
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Adres gospodarstwa</label>
+              <textarea rows={2} {...register('rhd_producer_address')}
+                placeholder="ul. Przykładowa 1, 11-000 Miejscowość"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            </div>
+            <Input label="Nr rejestracyjny RHD" placeholder="np. RHD/WM/001/2024" {...register('rhd_reg_number')} />
+            <div>
+              <Input label="Nr weterynaryjny (produkty odzwierzęce)" placeholder="np. WIW-RHD-14-0023/2024" {...register('rhd_vet_number')} />
+              <p className="text-xs text-gray-400 mt-1">Nadawany przez PIW dla sera/masła/jaj — wymagany na etykiecie, inny niż nr RHD.</p>
+            </div>
+            <Input label="Domyślne przechowywanie" {...register('rhd_storage_default')} />
           </div>
         </Card>
 
