@@ -82,6 +82,9 @@ export function CheeseProductionRunnerPage() {
   const [showAdd, setShowAdd] = useState(false);
   const [addVal, setAddVal] = useState('');
   const [kultury, setKultury] = useState<RecipeAdditive[]>([]);
+  // Koniec produkcji (#3)
+  const [endYield, setEndYield] = useState('');
+  const [endBusy, setEndBusy] = useState(false);
 
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startMsRef = useRef<number | null>(null);
@@ -98,6 +101,7 @@ export function CheeseProductionRunnerPage() {
     setSteps(s);
     setAdditives(b.additives ?? []);
     setNameVal(b.cheeseName || '');
+    setEndYield(String(b.actualYieldKg ?? b.expectedYieldKg ?? ''));
     if (b.cheeseVariety) {
       fetchRecipeBySlug(b.cheeseVariety).then(r => setKultury(r?.kultury ?? [])).catch(() => { /* offline */ });
     }
@@ -184,6 +188,26 @@ export function CheeseProductionRunnerPage() {
   const saveNote = async () => {
     if (step?.id) await dairyService.updateStepNote(step.id, note.trim());
     setSteps(prev => prev.map((x, i) => i === idx ? { ...x, notes: note.trim() } : x));
+  };
+
+  /** Koniec produkcji: ser → dojrzewalnia/magazyn (waga szac./wpisana), opcjonalnie zapisz jako mój przepis. */
+  const endProduction = async (alsoSaveRecipe: boolean) => {
+    if (!batch?.id) return;
+    setEndBusy(true);
+    try {
+      const kg = parseFloat(endYield);
+      if (!isNaN(kg) && kg >= 0) await dairyService.updateBatchYield(batch.id, kg);
+      await dairyService.updateBatchStatus(batch.id, 'dojrzewa');
+      if (alsoSaveRecipe) {
+        await dairyService.saveUserRecipeFromBatch(batch.id);
+        navigate('/mleko/moje-przepisy');
+      } else {
+        navigate('/mleko/dojrzewalnia');
+      }
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Błąd kończenia produkcji');
+      setEndBusy(false);
+    }
   };
 
   const saveName = async () => {
@@ -304,17 +328,37 @@ export function CheeseProductionRunnerPage() {
       )}
 
       {done ? (
-        <Card padding="md">
-          <div className="text-center py-6">
+        <div className="space-y-4">
+          <div className="text-center py-2">
             <div className="text-5xl mb-2">✅</div>
             <p className="text-lg font-bold text-gray-800">Produkcja zakończona!</p>
-            <p className="text-sm text-gray-500 mt-1">Wszystkie kroki odhaczone. Partia czeka w karcie.</p>
-            <div className="flex gap-2 justify-center mt-4">
-              <Button variant="outline" onClick={goBack}>← Wróć do kroków</Button>
-              <Link to={`/mleko/partie/${batch.id}`}><Button>Przejdź do partii →</Button></Link>
-            </div>
+            <p className="text-sm text-gray-500 mt-1">{title} — {steps.length} kroków. Co dalej z serem?</p>
           </div>
-        </Card>
+
+          {/* Waga (wspólna dla obu dróg) */}
+          <Card padding="md">
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Ile sera wyszło? (kg)</label>
+            <input type="number" step="0.1" min="0" value={endYield} onChange={e => setEndYield(e.target.value)}
+              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
+            <p className="text-xs text-gray-400 mt-1">Szacunkowo z mleka: {batch.expectedYieldKg} kg — popraw, jeśli zważyłeś.</p>
+          </Card>
+
+          {/* Dwie drogi */}
+          <Button className="w-full" loading={endBusy} onClick={() => endProduction(false)}>
+            ✓ Zakończ → ser do dojrzewalni
+          </Button>
+          <Button variant="outline" className="w-full" loading={endBusy} onClick={() => endProduction(true)}>
+            💾 Zakończ i zapisz jako mój przepis
+          </Button>
+          <p className="text-xs text-gray-400 text-center">
+            „Do dojrzewalni" = ser w magazynie, dostępny do sprzedaży (stan szacunkowy). Notatki i proces zostają na partii.
+          </p>
+
+          <div className="flex gap-2 justify-center pt-1">
+            <Button variant="outline" onClick={goBack}>← Wróć do kroków</Button>
+            <Link to={`/mleko/partie/${batch.id}`}><Button variant="outline">Karta partii</Button></Link>
+          </div>
+        </div>
       ) : (
         <>
           {/* Alarm */}
