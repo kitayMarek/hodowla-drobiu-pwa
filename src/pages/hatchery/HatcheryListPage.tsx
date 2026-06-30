@@ -159,9 +159,14 @@ export function HatcheryListPage() {
   const [tab, setTab] = React.useState<Tab>('wsady');
 
   const lotsRaw   = useLiveQuery(() => db.hatchingEggLots.toArray(), []) ?? [];
-  const allGroups = useLiveQuery(() => db.incubationEggGroups.toArray(), []) ?? [];
+  const [allGroups, setAllGroups] = React.useState<IncubationEggGroup[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    incubationService.getAllEggGroups().then(g => { if (!cancelled) setAllGroups(g); });
+    return () => { cancelled = true; };
+  }, []);
   const totalAvailable = lotsRaw.reduce((s, lot) => {
-    const used = allGroups.filter(g => (g as any).hatchingEggLotId === lot.id).reduce((a, g) => a + g.count, 0);
+    const used = allGroups.filter(g => g.hatchingEggLotId === lot.id).reduce((a, g) => a + g.count, 0);
     return s + Math.max(0, lot.count - used);
   }, 0);
 

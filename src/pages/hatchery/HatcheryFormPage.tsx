@@ -34,9 +34,14 @@ export function HatcheryFormPage() {
   // WAŻNE: musi być zadeklarowane PRZED obliczeniem `lots`
   const [groupsFromEdit, setGroupsFromEdit] = React.useState<EggGroupDraft[]>([]);
 
-  // Magazyn jaj wylęgowych z dostępnością
+  // Magazyn jaj wylęgowych (Dexie) + zużycie z wsadów (serwis: Supabase/Dexie)
   const lotsRaw   = useLiveQuery(() => db.hatchingEggLots.orderBy('entryDate').reverse().toArray(), []) ?? [];
-  const allGroups = useLiveQuery(() => db.incubationEggGroups.toArray(), []) ?? [];
+  const [allGroups, setAllGroups] = React.useState<IncubationEggGroup[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    incubationService.getAllEggGroups().then(g => { if (!cancelled) setAllGroups(g); });
+    return () => { cancelled = true; };
+  }, []);
 
   const lots = lotsRaw.map(lot => {
     const used = allGroups

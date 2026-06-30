@@ -2,6 +2,8 @@ import React from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '@/db/database';
 import { hatchingEggService } from '@/services/hatchingEgg.service';
+import { incubationService } from '@/services/incubation.service';
+import type { IncubationEggGroup } from '@/models/incubation.model';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal, ConfirmDialog } from '@/components/ui/Modal';
@@ -20,8 +22,15 @@ import { formatPln } from '@/utils/format';
 
 export function HatchingEggPage() {
   const lotsRaw    = useLiveQuery(() => db.hatchingEggLots.orderBy('entryDate').reverse().toArray(), []) ?? [];
-  const allGroups  = useLiveQuery(() => db.incubationEggGroups.toArray(), []) ?? [];
   const allBatches = useLiveQuery(() => db.batches.where('status').equals('active').toArray(), []) ?? [];
+
+  // Zużycie jaj z wsadów inkubacji (serwis: Supabase w chmurze / Dexie offline)
+  const [allGroups, setAllGroups] = React.useState<IncubationEggGroup[]>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    incubationService.getAllEggGroups().then(g => { if (!cancelled) setAllGroups(g); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Statystyki magazynu sprzedażowego (do walidacji przy przeniesienie)
   const allDailyEntries  = useLiveQuery(() => db.dailyEntries.toArray(), []) ?? [];

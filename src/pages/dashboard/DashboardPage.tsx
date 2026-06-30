@@ -298,13 +298,13 @@ export function DashboardPage() {
   const allExpenses    = useAllExpenses();
   const allSales       = useAllSales();
 
-  // Wylęgarnia – alerty lockdown (Dexie-only for now)
+  // Wylęgarnia – alerty lockdown + szybki podgląd (przez serwis: Supabase/Dexie)
   const upcomingLockdowns = useLiveQuery(
     () => incubationService.getUpcomingLockdowns(3),
     []
   ) ?? [];
   const activeIncubations = useLiveQuery(
-    () => db.incubations.where('status').anyOf('incubating', 'lockdown').count(),
+    () => incubationService.getActive().then(list => list.length),
     []
   ) ?? 0;
 
