@@ -3,7 +3,6 @@ import { supabase, getAuthUser } from '@/lib/supabase';
 import { cashFlowService } from '@/services/cashFlow.service';
 import { dairyService } from '@/services/dairy.service';
 import { saleService } from '@/services/sale.service';
-import { slaughterService } from '@/services/slaughter.service';
 import { batchService } from '@/services/batch.service';
 import type { SaleDocument, SaleDocumentWithLines } from '@/models/saleDocument.model';
 import type { DairyBuyer, DairyProduct } from '@/models/dairy.model';
@@ -227,18 +226,10 @@ export const saleDocumentService = {
 
         await saleService.create(saleData);
 
-        if ((l.drobSaleType === 'tuszki' || l.drobSaleType === 'elementy') &&
-            batchId && (parseInt(l.drobBirdCount) || 0) > 0) {
-          const existing = await slaughterService.getByBatch(batchId);
-          if (!existing.some(s => s.slaughterDate === docData.docDate)) {
-            await slaughterService.create({
-              batchId, slaughterDate: docData.docDate,
-              birdsSlaughtered: parseInt(l.drobBirdCount) || 0,
-              liveWeightTotalKg: 0, carcassWeightTotalKg: parseFloat(l.drobWeightKg) || 0,
-            });
-          }
-        }
-        if (batchId && (l.drobSaleType === 'ptaki_zywe' || l.drobSaleType === 'tuszki')) {
+        // Sprzedaż tuszek/elementów NIE tworzy już rekordu uboju — tuszki pochodzą
+        // z magazynu (ubój → magazyn tuszek → sprzedaż). Ptaki odjęto przy uboju.
+        // Auto-zamknięcie stada tylko przy sprzedaży żywych ptaków.
+        if (batchId && l.drobSaleType === 'ptaki_zywe') {
           await batchService.checkAndAutoClose(batchId);
         }
       }

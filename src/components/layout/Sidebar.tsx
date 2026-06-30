@@ -46,6 +46,7 @@ const NAV_SECTIONS: NavSection[] = [
       { to: '/pasze/receptury',  label: 'Receptury',       icon: '🧪' },
       { to: '/pasze/skladniki',  label: 'Składniki pasz.', icon: '🔬' },
       { to: '/sprzedaz/nowa',   label: 'Nowa sprzedaż',   icon: '💰' },
+      { to: '/magazyn-tuszek',  label: 'Magazyn tuszek',  icon: '📦' },
       { to: '/wyleglarnia',     label: 'Wylęgarnia',     icon: '🥚' },
       { to: '/finanse',         label: 'Finanse',        icon: '📈' },
       { to: '/szybki',          label: 'Szybki wpis',    icon: '⚡' },

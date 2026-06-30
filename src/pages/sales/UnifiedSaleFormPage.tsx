@@ -10,6 +10,7 @@ import { dairyService } from '@/services/dairy.service';
 import { cashFlowService } from '@/services/cashFlow.service';
 import { batchService } from '@/services/batch.service';
 import { saleService } from '@/services/sale.service';
+import { carcassService, type CarcassStock } from '@/services/carcass.service';
 import type { DairyProduct, DairyBuyer } from '@/models/dairy.model';
 import { PRODUCT_ICONS, UNIT_LABELS } from '@/models/dairy.model';
 import type { CashAccount } from '@/models/cashFlow.model';
@@ -158,6 +159,7 @@ export function UnifiedSaleFormPage() {
   const [buyers,        setBuyers]        = useState<DairyBuyer[]>([]);
   const [accounts,      setAccounts]      = useState<CashAccount[]>([]);
   const [availableEggs, setAvailableEggs] = useState<number | null>(null);
+  const [carcassStocks, setCarcassStocks] = useState<CarcassStock[]>([]);
   const [dataLoaded,    setDataLoaded]    = useState(false);
 
   const [saleDate,      setSaleDate]      = useState(new Date().toISOString().slice(0, 10));
@@ -175,12 +177,14 @@ export function UnifiedSaleFormPage() {
       dairyService.getBuyers(),
       cashFlowService.getActiveAccounts(),
       saleService.getAvailableEggsCount(),
-    ]).then(([b, p, buyerList, a, eggs]) => {
+      carcassService.getAllStock(),
+    ]).then(([b, p, buyerList, a, eggs, carcass]) => {
       setBatches(b.filter(x => x.status === 'active'));
       setProducts(p.filter(x => x.isActive));
       setBuyers(buyerList);
       setAccounts(a);
       setAvailableEggs(eggs);
+      setCarcassStocks(carcass);
       setDataLoaded(true);
     });
   }, []);
@@ -192,12 +196,33 @@ export function UnifiedSaleFormPage() {
 
   const grandTotal = lines.reduce((s, l) => s + lineTotal(l), 0);
 
+  const carcassFor = (batchId: string): CarcassStock | undefined =>
+    batchId ? carcassStocks.find(s => s.batchId === Number(batchId)) : undefined;
+
   const handleSave = async (inRhd: boolean) => {
     if (lines.length === 0) { setError('Dodaj co najmniej jedną pozycję.'); return; }
     for (const l of lines) {
       if (l.activity === 'sery' && !l.dairyProductId) { setError('Wybierz produkt mleczarski.'); return; }
       if (l.activity === 'drob' && l.drobSaleType !== 'jaja' && !l.drobBatchId) { setError('Wybierz stado dla pozycji drobiu.'); return; }
       if (l.activity === 'inne' && !l.inneName.trim()) { setError('Podaj nazwę produktu w pozycji „Inne".'); return; }
+      // Magazyn tuszek: nie sprzedawaj więcej niż dostępne (ubój zasila magazyn)
+      if (l.activity === 'drob' && (l.drobSaleType === 'tuszki' || l.drobSaleType === 'elementy') && l.drobBatchId) {
+        const stock = carcassFor(l.drobBatchId);
+        const wantKg    = parseFloat(l.drobWeightKg) || 0;
+        const wantCount = parseInt(l.drobBirdCount) || 0;
+        if (!stock || (stock.availableCount <= 0 && stock.availableKg <= 0)) {
+          setError('Brak tuszek w magazynie dla wybranego stada. Najpierw zarejestruj ubój.');
+          return;
+        }
+        if (wantCount > stock.availableCount) {
+          setError(`Za mało tuszek w magazynie: dostępne ${stock.availableCount} szt., chcesz sprzedać ${wantCount}.`);
+          return;
+        }
+        if (wantKg > stock.availableKg + 0.001) {
+          setError(`Za mało tuszek w magazynie: dostępne ${stock.availableKg.toFixed(1)} kg, chcesz sprzedać ${wantKg} kg.`);
+          return;
+        }
+      }
     }
     setSaving(inRhd ? 'rhd' : 'norhd'); setError('');
     try {
@@ -360,6 +385,18 @@ export function UnifiedSaleFormPage() {
                     </div>
                   )}
                   {(l.drobSaleType === 'tuszki' || l.drobSaleType === 'elementy') && (
+                    <div className="space-y-2">
+                    {l.drobBatchId && (() => {
+                      const stock = carcassFor(l.drobBatchId);
+                      const has = stock && (stock.availableCount > 0 || stock.availableKg > 0);
+                      return (
+                        <div className={`text-xs px-2 py-1.5 rounded-lg ${has ? 'bg-green-50 text-green-700 border border-green-100' : 'bg-amber-50 text-amber-700 border border-amber-100'}`}>
+                          {has
+                            ? <>📦 Magazyn tuszek: <strong>{stock!.availableCount} szt. · {stock!.availableKg.toFixed(1)} kg</strong> dostępne</>
+                            : <>📦 Brak tuszek w magazynie tego stada — najpierw zarejestruj <strong>ubój</strong>.</>}
+                        </div>
+                      );
+                    })()}
                     <div className="grid grid-cols-3 gap-2">
                       <div>
                         <label className="block text-xs text-gray-500 mb-1">Szt.</label>
@@ -376,6 +413,7 @@ export function UnifiedSaleFormPage() {
                         <input type="number" min="0" step="0.01" value={l.unitPrice} onChange={e => updateLine(l.key, { unitPrice: e.target.value })} placeholder="0.00"
                           className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                       </div>
+                    </div>
                     </div>
                   )}
                   {l.drobSaleType === 'ptaki_zywe' && (

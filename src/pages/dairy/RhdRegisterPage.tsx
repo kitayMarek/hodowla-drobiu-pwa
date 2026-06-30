@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { dairyService } from '@/services/dairy.service';
 import { saleService } from '@/services/sale.service';
+import { batchService } from '@/services/batch.service';
 import { settingsService } from '@/services/settings.service';
 import type { DairySale } from '@/models/dairy.model';
 import type { Sale } from '@/models/sale.model';
@@ -19,14 +20,16 @@ type RhdEntry =
   | { kind: 'dairy'; sale: DairySale; date: string; value: number }
   | { kind: 'drob';  sale: Sale;      date: string; value: number };
 
-function entryProduct(e: RhdEntry): string {
+function entryProduct(e: RhdEntry, batchName?: string): string {
   if (e.kind === 'dairy') return e.sale.productName;
   // drob
   if (e.sale.saleType === 'inne') {
     return e.sale.notes?.split(' · ')[0] ?? 'Inne produkty';
   }
   const t = SALE_TYPE_LABELS[e.sale.saleType as SaleType] ?? e.sale.saleType;
-  return e.sale.invoiceNumber ? `${t} (${e.sale.invoiceNumber})` : t;
+  // Tuszki/elementy/ptaki — pokaż z którego stada (wiadomo co się sprzedaje)
+  const src = batchName ? ` — ${batchName}` : '';
+  return e.sale.invoiceNumber ? `${t}${src} (${e.sale.invoiceNumber})` : `${t}${src}`;
 }
 
 function entryQuantity(e: RhdEntry): string {
@@ -89,6 +92,7 @@ export function RhdRegisterPage() {
   const [loading,   setLoading]   = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [removing,  setRemoving]  = useState<string | null>(null); // klucz usuwanego wpisu
+  const [batchNames, setBatchNames] = useState<Map<number, string>>(new Map());
 
   const load = async (y: number) => {
     setLoading(true);
@@ -96,13 +100,16 @@ export function RhdRegisterPage() {
     try {
       const yearStr = String(y);
 
-      const [dairySales, drobSales, limitStr, farm, owner] = await Promise.all([
+      const [dairySales, drobSales, batches, limitStr, farm, owner] = await Promise.all([
         dairyService.getSales(y),
         saleService.getAll(),
+        batchService.getAll(),
         settingsService.get('rhd_limit_pln', '100000'),
         settingsService.get('farm_name', '"Moja Ferma"'),
         settingsService.get('owner_name', '""'),
       ]);
+
+      setBatchNames(new Map(batches.map(b => [b.id!, b.name])));
 
       const combined: RhdEntry[] = [];
 
@@ -212,7 +219,7 @@ export function RhdRegisterPage() {
         </td>
         <td className="border border-gray-200 px-3 py-2 text-gray-800 font-medium">
           <span className="mr-1 print:hidden">{sourceIcon}</span>
-          {entryProduct(entry)}
+          {entryProduct(entry, entry.kind === 'drob' && entry.sale.batchId ? batchNames.get(entry.sale.batchId) : undefined)}
         </td>
         <td className="border border-gray-200 px-3 py-2 text-right text-gray-700 whitespace-nowrap">
           {entryQuantity(entry)}

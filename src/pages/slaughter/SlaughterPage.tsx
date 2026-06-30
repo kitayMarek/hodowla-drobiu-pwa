@@ -6,6 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { slaughterSchema, type SlaughterFormValues } from '@/utils/validation';
 import { slaughterService } from '@/services/slaughter.service';
 import { batchService } from '@/services/batch.service';
+import { carcassService, type CarcassStock } from '@/services/carcass.service';
 import { useBatch } from '@/hooks/useBatch';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -31,6 +32,15 @@ export function SlaughterPage() {
   const recordsAsc = useSlaughterByBatch(id);
   const records    = [...recordsAsc].reverse();
 
+  // Magazyn tuszek tego stada (liczony: ubój − sprzedane)
+  const [stock, setStock] = useState<CarcassStock | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    carcassService.getStockByBatch(id).then(s => { if (!cancelled) setStock(s); });
+    return () => { cancelled = true; };
+  }, [id, recordsAsc.length]);
+
   const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<SlaughterFormValues>({
     resolver: zodResolver(slaughterSchema),
     defaultValues: {
@@ -54,7 +64,6 @@ export function SlaughterPage() {
 
   const totalCarcass = calcTotalCarcassKg(records);
   const avgDressing = calcAvgDressingPercent(records);
-  const totalRevenue = records.reduce((s, r) => s + (r.totalRevenuePln ?? 0), 0);
 
   const onSubmit = async (data: SlaughterFormValues) => {
     await slaughterService.create({ ...data, batchId: id });
@@ -81,7 +90,13 @@ export function SlaughterPage() {
       <div className="grid grid-cols-3 gap-3">
         <KPICard label="Masa poubojowa" value={formatKg(totalCarcass)} icon="🥩" color="green" />
         <KPICard label="Wyd. tuszki" value={formatPercent(avgDressing)} icon="📊" color="blue" />
-        <KPICard label="Przychód" value={formatPln(totalRevenue)} icon="💰" color="green" />
+        <KPICard
+          label="W magazynie"
+          value={stock ? `${stock.availableCount} szt.` : '—'}
+          sub={stock ? formatKg(stock.availableKg) : undefined}
+          icon="📦"
+          color="green"
+        />
       </div>
 
       {records.length === 0 ? (
@@ -140,9 +155,9 @@ export function SlaughterPage() {
             <Input label="Masa skonfiskowana (kg)" type="number" step="0.1" {...register('condemnedWeightKg')} />
           </div>
           <Input label="Ubojnia" {...register('slaughterHouseId')} />
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Cena (PLN/kg)" type="number" step="0.01" {...register('pricePerKgPln')} />
-            <Input label="Przychód (PLN)" type="number" step="0.01" {...register('totalRevenuePln')} />
+          <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+            📦 Tuszki trafiają do <strong>magazynu</strong> tego stada. Sprzedaż i przychód
+            zaksięgujesz osobno w <strong>Sprzedaż → Tuszki</strong> (wybierając to stado).
           </div>
           <Textarea label="Uwagi" {...register('notes')} />
           <div className="flex gap-3">

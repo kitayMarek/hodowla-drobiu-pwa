@@ -16,6 +16,7 @@ import { HousingPage } from '@/pages/housing/HousingPage';
 import { HealthPage } from '@/pages/health/HealthPage';
 import { WeighingListPage } from '@/pages/weighings/WeighingListPage';
 import { SlaughterPage } from '@/pages/slaughter/SlaughterPage';
+import { CarcassWarehousePage } from '@/pages/slaughter/CarcassWarehousePage';
 import { SalesPage } from '@/pages/sales/SalesPage';
 import { UnifiedSalesPage } from '@/pages/sales/UnifiedSalesPage';
 import { UnifiedSaleFormPage } from '@/pages/sales/UnifiedSaleFormPage';
@@ -93,6 +94,9 @@ export const router = createBrowserRouter([
 
       // Ubój
       { path: 'stada/:batchId/uboj', element: <SlaughterPage /> },
+
+      // Magazyn tuszek
+      { path: 'magazyn-tuszek', element: <CarcassWarehousePage /> },
 
       // Pasza
       { path: 'pasze',             element: <FeedPage /> },
