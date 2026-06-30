@@ -208,6 +208,17 @@ export const incubationService = {
     return db.incubationEggGroups.where('incubationId').equals(incubationId).toArray();
   },
 
+  /** Wszystkie grupy jaj użytkownika (do listy wsadów). */
+  async getAllEggGroups(): Promise<IncubationEggGroup[]> {
+    const user = await getAuthUser();
+    if (user) {
+      const { data } = await supabase.from('incubation_egg_groups').select('*')
+        .eq('user_id', user.id);
+      return (data ?? []).map(rowToGroup);
+    }
+    return db.incubationEggGroups.toArray();
+  },
+
   async addEggGroup(data: Omit<IncubationEggGroup, 'id' | 'createdAt'>): Promise<number> {
     const user = await getAuthUser();
     const now = new Date().toISOString();

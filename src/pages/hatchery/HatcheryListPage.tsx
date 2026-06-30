@@ -12,10 +12,10 @@ import {
   INCUBATION_STATUS_LABELS,
   INCUBATION_STATUS_COLORS,
 } from '@/constants/phases';
-import { calcIncubationDay, calcKeyDates } from '@/services/incubation.service';
+import { calcIncubationDay, calcKeyDates, incubationService } from '@/services/incubation.service';
 import { formatDate } from '@/utils/date';
 import { SPECIES_EMOJI, SPECIES_LABELS } from '@/constants/species';
-import type { Incubation } from '@/models/incubation.model';
+import type { Incubation, IncubationEggGroup } from '@/models/incubation.model';
 
 type Tab = 'wsady' | 'magazyn';
 
@@ -51,8 +51,20 @@ function groupSummary(groups: { species: string; breed?: string; count: number }
 
 // ── Zakładka: Wsady ───────────────────────────────────────────────────────────
 function IncubationTab() {
-  const incubations = useLiveQuery(() => db.incubations.orderBy('startDate').reverse().toArray(), []) ?? [];
-  const eggGroups   = useLiveQuery(() => db.incubationEggGroups.toArray(), []) ?? [];
+  const [incubations, setIncubations] = React.useState<Incubation[]>([]);
+  const [eggGroups, setEggGroups]     = React.useState<IncubationEggGroup[]>([]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const [incs, groups] = await Promise.all([
+        incubationService.getAll(),
+        incubationService.getAllEggGroups(),
+      ]);
+      if (!cancelled) { setIncubations(incs); setEggGroups(groups); }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const active    = incubations.filter(i => i.status === 'incubating' || i.status === 'lockdown');
   const completed = incubations.filter(i => i.status === 'completed' || i.status === 'cancelled');

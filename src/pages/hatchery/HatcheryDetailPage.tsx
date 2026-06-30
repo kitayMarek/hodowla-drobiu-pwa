@@ -20,7 +20,7 @@ import { INCUBATION_STATUS_LABELS, INCUBATION_STATUS_COLORS } from '@/constants/
 import { SPECIES_LABELS, SPECIES_EMOJI, ACTIVE_SPECIES } from '@/constants/species';
 import { formatDate, todayISO } from '@/utils/date';
 import type { Species } from '@/constants/species';
-import type { IncubationEggGroup } from '@/models/incubation.model';
+import type { Incubation, IncubationEggGroup } from '@/models/incubation.model';
 
 // ── Sekcja: Postęp inkubacji ────────────────────────────────────────────────
 function ProgressSection({ inc }: { inc: NonNullable<Awaited<ReturnType<typeof incubationService.getById>>> }) {
@@ -96,11 +96,7 @@ function ProgressSection({ inc }: { inc: NonNullable<Awaited<ReturnType<typeof i
 }
 
 // ── Sekcja: Grupy jaj ────────────────────────────────────────────────────────
-function EggGroupsSection({ incubationId }: { incubationId: number }) {
-  const groups = useLiveQuery(
-    () => db.incubationEggGroups.where('incubationId').equals(incubationId).toArray(),
-    [incubationId]
-  ) ?? [];
+function EggGroupsSection({ groups }: { groups: IncubationEggGroup[] }) {
   const lots = useLiveQuery(() => db.hatchingEggLots.toArray(), []) ?? [];
 
   const total = groups.reduce((s, g) => s + g.count, 0);
@@ -408,17 +404,33 @@ export function HatcheryDetailPage() {
   const navigate = useNavigate();
   const incId = Number(id);
 
-  const inc    = useLiveQuery(() => db.incubations.get(incId),      [incId]);
-  const groups = useLiveQuery(() => db.incubationEggGroups.where('incubationId').equals(incId).toArray(), [incId]) ?? [];
+  const [inc, setInc]       = React.useState<Incubation | null | undefined>(undefined);
+  const [groups, setGroups] = React.useState<IncubationEggGroup[]>([]);
+  const [rev, setRev]       = React.useState(0);
+  const reload = React.useCallback(() => setRev(r => r + 1), []);
 
   const [showCandling, setShowCandling]   = React.useState(false);
   const [showComplete, setShowComplete]   = React.useState(false);
   const [showCancel, setShowCancel]       = React.useState(false);
 
-  // Synchronizuj status przy wejściu
+  // Ładowanie z serwisu (Supabase w chmurze / Dexie offline) + synchronizacja statusu
   React.useEffect(() => {
-    if (incId) incubationService.syncStatus(incId);
-  }, [incId]);
+    if (!incId) return;
+    let cancelled = false;
+    (async () => {
+      try { await incubationService.syncStatus(incId); } catch { /* nie blokuj ładowania */ }
+      try {
+        const [i, g] = await Promise.all([
+          incubationService.getById(incId),
+          incubationService.getEggGroups(incId),
+        ]);
+        if (!cancelled) { setInc(i ?? null); setGroups(g); }
+      } catch {
+        if (!cancelled) setInc(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [incId, rev]);
 
   if (inc === undefined) return <div className="p-4 text-gray-400">Ładowanie…</div>;
   if (inc === null) return <div className="p-4 text-red-500">Wsad nie istnieje.</div>;
@@ -457,7 +469,7 @@ export function HatcheryDetailPage() {
       <ProgressSection inc={inc} />
 
       {/* Grupy jaj */}
-      <EggGroupsSection incubationId={incId} />
+      <EggGroupsSection groups={groups} />
 
       {/* Wyniki świetlenia */}
       <Card title="Świetlenie jaj (ok. 7. dnia)">
@@ -608,7 +620,7 @@ export function HatcheryDetailPage() {
           incubationId={incId}
           groups={groups}
           initialDate={inc.candlingDate}
-          onClose={() => setShowCandling(false)}
+          onClose={() => { setShowCandling(false); reload(); }}
         />
       )}
       {showComplete && (
@@ -638,6 +650,7 @@ export function HatcheryDetailPage() {
               onClick={async () => {
                 await incubationService.update(incId, { status: 'cancelled' });
                 setShowCancel(false);
+                reload();
               }}
             >
               Anuluj wsad
