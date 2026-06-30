@@ -225,8 +225,12 @@ export function HatcheryFormPage() {
         await incubationService.replaceEggGroups(newId, groupPayloads.map(g => ({ ...g, incubationId: newId })));
         navigate(`/wyleglarnia/${newId}`);
       }
-    } catch {
-      setError('Błąd zapisu. Spróbuj ponownie.');
+    } catch (err: unknown) {
+      const msg    = (err as { message?: string })?.message ?? String(err);
+      const detail = (err as { details?: string })?.details ?? '';
+      const hint   = (err as { hint?: string })?.hint ?? '';
+      setError(`Błąd zapisu: ${[msg, detail, hint].filter(Boolean).join(' — ')}`);
+      console.error('Błąd zapisu wsadu inkubacji:', err);
     } finally {
       setSaving(false);
     }

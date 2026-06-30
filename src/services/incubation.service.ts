@@ -55,11 +55,14 @@ function rowToInc(r: Record<string, unknown>): Incubation {
     lockdownTempC:          r.lockdown_temp_c as number,
     lockdownHumidityPct:    r.lockdown_humidity_pct as number,
     notes:                  r.notes as string | undefined,
-    totalHatched:           r.total_hatched as number | undefined,
-    totalUnhatched:         r.total_unhatched as number | undefined,
+    candlingDate:           r.candling_date as string | undefined,
     candlingFertileCount:   r.candling_fertile_count as number | undefined,
     candlingInfertileCount: r.candling_infertile_count as number | undefined,
     candlingNotDeveloped:   r.candling_not_developed as number | undefined,
+    hatchDate:              r.hatch_date as string | undefined,
+    totalHatched:           r.total_hatched as number | undefined,
+    totalUnhatched:         r.total_unhatched as number | undefined,
+    resultBatchId:          r.result_batch_id as number | undefined,
     createdAt:              r.created_at as string,
     updatedAt:              r.updated_at as string,
   };
@@ -154,12 +157,16 @@ export const incubationService = {
       if (data.lockdownTempC !== undefined)          patch.lockdown_temp_c = data.lockdownTempC;
       if (data.lockdownHumidityPct !== undefined)    patch.lockdown_humidity_pct = data.lockdownHumidityPct;
       if (data.notes !== undefined)                  patch.notes = data.notes ?? null;
-      if (data.totalHatched !== undefined)           patch.total_hatched = data.totalHatched ?? null;
-      if (data.totalUnhatched !== undefined)         patch.total_unhatched = data.totalUnhatched ?? null;
+      if (data.candlingDate !== undefined)           patch.candling_date = data.candlingDate ?? null;
       if (data.candlingFertileCount !== undefined)   patch.candling_fertile_count = data.candlingFertileCount ?? null;
       if (data.candlingInfertileCount !== undefined) patch.candling_infertile_count = data.candlingInfertileCount ?? null;
       if (data.candlingNotDeveloped !== undefined)   patch.candling_not_developed = data.candlingNotDeveloped ?? null;
-      await supabase.from('incubations').update(patch).eq('id', id).eq('user_id', user.id);
+      if (data.hatchDate !== undefined)              patch.hatch_date = data.hatchDate ?? null;
+      if (data.totalHatched !== undefined)           patch.total_hatched = data.totalHatched ?? null;
+      if (data.totalUnhatched !== undefined)         patch.total_unhatched = data.totalUnhatched ?? null;
+      if (data.resultBatchId !== undefined)          patch.result_batch_id = data.resultBatchId ?? null;
+      const { error } = await supabase.from('incubations').update(patch).eq('id', id).eq('user_id', user.id);
+      if (error) throw error;
       return;
     }
     await db.incubations.update(id, { ...data, updatedAt: now });
@@ -254,10 +261,11 @@ export const incubationService = {
     const user = await getAuthUser();
     const now = new Date().toISOString();
     if (user) {
-      await supabase.from('incubation_egg_groups').delete()
+      const { error: delError } = await supabase.from('incubation_egg_groups').delete()
         .eq('incubation_id', incubationId).eq('user_id', user.id);
+      if (delError) throw delError;
       if (groups.length > 0) {
-        await supabase.from('incubation_egg_groups').insert(
+        const { error: insError } = await supabase.from('incubation_egg_groups').insert(
           groups.map(g => ({
             user_id: user.id,
             incubation_id: incubationId,
@@ -272,6 +280,7 @@ export const incubationService = {
             created_at: now,
           }))
         );
+        if (insError) throw insError;
       }
       return;
     }
