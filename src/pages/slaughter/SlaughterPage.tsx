@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AskLLM } from '@/components/AskLLM';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
@@ -31,13 +31,20 @@ export function SlaughterPage() {
   const recordsAsc = useSlaughterByBatch(id);
   const records    = [...recordsAsc].reverse();
 
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitting } } = useForm<SlaughterFormValues>({
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors, isSubmitting } } = useForm<SlaughterFormValues>({
     resolver: zodResolver(slaughterSchema),
     defaultValues: {
       slaughterDate: todayISO(),
-      ageAtSlaughterDays: batch ? differenceInDays(new Date(), parseISO(batch.startDate)) : undefined,
     },
   });
+
+  const slaughterDate = watch('slaughterDate');
+  // Auto-wylicz wiek (dni) z daty uboju i daty wstawienia stada — gdy stado się załaduje
+  useEffect(() => {
+    if (batch && slaughterDate) {
+      setValue('ageAtSlaughterDays', differenceInDays(parseISO(slaughterDate), parseISO(batch.startDate)));
+    }
+  }, [batch, slaughterDate, setValue]);
 
   if (!batch) return <PageLoader />;
 
