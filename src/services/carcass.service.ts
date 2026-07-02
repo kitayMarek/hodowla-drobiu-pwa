@@ -24,18 +24,43 @@ function build(
   batchId: number,
   batchName: string,
   species: Species,
-  slaughter: { birdsSlaughtered: number; carcassWeightTotalKg: number; condemnedCount?: number }[],
-  sales: { birdCount?: number; weightKg?: number }[],
+  slaughter: { slaughterDate: string; birdsSlaughtered: number; carcassWeightTotalKg: number; condemnedCount?: number }[],
+  sales: { saleDate: string; birdCount?: number; weightKg?: number }[],
 ): CarcassStock {
   const producedCount = slaughter.reduce((s, r) => s + Math.max(0, r.birdsSlaughtered - (r.condemnedCount ?? 0)), 0);
   const producedKg    = slaughter.reduce((s, r) => s + (r.carcassWeightTotalKg ?? 0), 0);
   const soldCount     = sales.reduce((s, r) => s + (r.birdCount ?? 0), 0);
   const soldKg        = sales.reduce((s, r) => s + (r.weightKg ?? 0), 0);
+
+  // Stan liczony CHRONOLOGICZNIE z zatrzaskiem na zerze (jak prawdziwy magazyn):
+  // historyczne sprzedaże bez zarejestrowanego uboju (sprzed magazynu tuszek)
+  // sprowadzają stan do 0, ale nie tworzą "długu" zjadającego nowe uboje.
+  type Ev = { date: string; prio: number; count: number; kg: number };
+  const events: Ev[] = [
+    ...slaughter.map(r => ({
+      date: r.slaughterDate, prio: 0, // produkcja przed sprzedażą tego samego dnia
+      count: Math.max(0, r.birdsSlaughtered - (r.condemnedCount ?? 0)),
+      kg:    r.carcassWeightTotalKg ?? 0,
+    })),
+    ...sales.map(r => ({
+      date: r.saleDate, prio: 1,
+      count: -(r.birdCount ?? 0),
+      kg:    -(r.weightKg ?? 0),
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || a.prio - b.prio);
+
+  let availableCount = 0;
+  let availableKg    = 0;
+  for (const ev of events) {
+    availableCount = Math.max(0, availableCount + ev.count);
+    availableKg    = Math.max(0, availableKg + ev.kg);
+  }
+
   return {
     batchId, batchName, species,
     producedCount, producedKg, soldCount, soldKg,
-    availableCount: Math.max(0, producedCount - soldCount),
-    availableKg:    Math.max(0, producedKg - soldKg),
+    availableCount,
+    availableKg: Math.round(availableKg * 100) / 100,
   };
 }
 
