@@ -139,6 +139,10 @@ export function SettingsPage() {
       rhd_reg_number: String(settings['rhd_reg_number'] ?? ''),
       rhd_vet_number: String(settings['rhd_vet_number'] ?? ''),
       rhd_storage_default: String(settings['rhd_storage_default'] ?? 'Przechowywać w temp. 4–8°C'),
+      vat_rr_supplier_tax_id: String(settings['vat_rr_supplier_tax_id'] ?? ''),
+      vat_rr_supplier_tax_id_type: String(settings['vat_rr_supplier_tax_id_type'] ?? 'pesel'),
+      vat_rr_bank_account: String(settings['vat_rr_bank_account'] ?? ''),
+      vat_rr_prefix: String(settings['vat_rr_prefix'] ?? 'RR'),
     },
   });
 
@@ -158,6 +162,10 @@ export function SettingsPage() {
       settingsService.set('rhd_reg_number', data.rhd_reg_number),
       settingsService.set('rhd_vet_number', data.rhd_vet_number),
       settingsService.set('rhd_storage_default', data.rhd_storage_default),
+      settingsService.set('vat_rr_supplier_tax_id', data.vat_rr_supplier_tax_id),
+      settingsService.set('vat_rr_supplier_tax_id_type', data.vat_rr_supplier_tax_id_type),
+      settingsService.set('vat_rr_bank_account', data.vat_rr_bank_account),
+      settingsService.set('vat_rr_prefix', data.vat_rr_prefix),
     ]);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -364,6 +372,33 @@ export function SettingsPage() {
               <p className="text-xs text-gray-400 mt-1">Nadawany przez PIW dla sera/masła/jaj — wymagany na etykiecie, inny niż nr RHD.</p>
             </div>
             <Input label="Domyślne przechowywanie" {...register('rhd_storage_default')} />
+          </div>
+        </Card>
+
+        <Card title="Dane do faktur VAT RR">
+          <div className="space-y-3">
+            <p className="text-xs text-gray-400">
+              Dane <strong>dostawcy</strong> (Twoje) trafiają na fakturę VAT RR. Producent i adres pobierane są z karty
+              „Dane do etykiet RHD" powyżej.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Typ identyfikatora</label>
+                <select {...register('vat_rr_supplier_tax_id_type')}
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="pesel">PESEL</option>
+                  <option value="nip">NIP</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <Input label="Numer PESEL / NIP dostawcy" placeholder="np. 85010112345" {...register('vat_rr_supplier_tax_id')} />
+              </div>
+            </div>
+            <Input label="Rachunek bankowy (do przelewu)" placeholder="PL00 0000 0000 0000 0000 0000 0000" {...register('vat_rr_bank_account')} />
+            <Input label="Prefiks numeracji dokumentów" placeholder="RR" {...register('vat_rr_prefix')} hint="Buduje referencję dostawcy, np. RR/2026/0007" />
+            <p className="text-xs text-gray-400">
+              ⚠ PESEL to dana wrażliwa — trzymana lokalnie na tym urządzeniu, nie eksportowana automatycznie.
+            </p>
           </div>
         </Card>
 

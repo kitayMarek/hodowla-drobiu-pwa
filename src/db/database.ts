@@ -29,6 +29,7 @@ import type {
 } from '@/models/dairy.model';
 import type { SaleDocument } from '@/models/saleDocument.model';
 import type { UserRecipe } from '@/models/recipe.schema';
+import type { VatRrInvoice, VatRrLine } from '@/models/vatRr.model';
 
 export class FarmDatabase extends Dexie {
   batches!: Table<Batch, number>;
@@ -72,6 +73,9 @@ export class FarmDatabase extends Dexie {
   saleDocuments!: Table<SaleDocument, number>;
   userRecipes!: Table<UserRecipe, number>;
   dairyPhotos!: Table<BatchPhoto, number>;
+  // Faktura VAT RR
+  vatRrInvoices!: Table<VatRrInvoice, number>;
+  vatRrLines!: Table<VatRrLine, number>;
 
   constructor() {
     super('FarmManagerPL');
@@ -292,6 +296,12 @@ export class FarmDatabase extends Dexie {
     // v24: zdjęcia partii mleczarskich (proces + obserwacja w dojrzewalni)
     this.version(24).stores({
       dairyPhotos: '++id, batchId, photoDate',
+    });
+
+    // v25: Faktura VAT RR — nagłówki + pozycje
+    this.version(25).stores({
+      vatRrInvoices: '++id, status, purchaseDate, buyerId, docRef, rhdYear, [rhdYear+rhdNumber]',
+      vatRrLines: '++id, invoiceId, position, [invoiceId+position]',
     });
 
     // v14: Naprawa przelewów – usunięcie zduplikowanych rekordów "mirror" z cashTransactions.

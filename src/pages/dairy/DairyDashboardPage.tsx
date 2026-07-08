@@ -114,6 +114,10 @@ export function DairyDashboardPage() {
             className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-colors text-sm font-medium text-gray-700">
             <span className="text-xl">🏷️</span> Etykiety serów
           </Link>
+          <Link to="/vat-rr"
+            className="flex items-center gap-2 p-3 rounded-xl border border-gray-200 hover:border-brand-300 hover:bg-brand-50 transition-colors text-sm font-medium text-gray-700">
+            <span className="text-xl">🧾</span> Faktury VAT RR
+          </Link>
         </div>
       </Card>
 

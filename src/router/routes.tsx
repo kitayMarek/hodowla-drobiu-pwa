@@ -54,6 +54,9 @@ import { DojrzewalniaPage } from '@/pages/dairy/DojrzewalniaPage';
 import { WProdukcjiPage } from '@/pages/dairy/WProdukcjiPage';
 import { MetryczkaPage } from '@/pages/dairy/MetryczkaPage';
 import { CheeseLabelPage } from '@/pages/dairy/CheeseLabelPage';
+import { VatRrListPage } from '@/pages/vatrr/VatRrListPage';
+import { VatRrFormPage } from '@/pages/vatrr/VatRrFormPage';
+import { VatRrDetailPage } from '@/pages/vatrr/VatRrDetailPage';
 
 export const router = createBrowserRouter([
   // Strony autoryzacji – poza AppShell
@@ -159,6 +162,11 @@ export const router = createBrowserRouter([
       { path: 'mleko/w-produkcji',       element: <WProdukcjiPage /> },
       { path: 'mleko/partie/:id/metryczka', element: <MetryczkaPage /> },
       { path: 'mleko/partie/:id/etykieta',  element: <CheeseLabelPage /> },
+
+      // Faktura VAT RR
+      { path: 'vat-rr',        element: <VatRrListPage /> },
+      { path: 'vat-rr/nowa',   element: <VatRrFormPage /> },
+      { path: 'vat-rr/:id',    element: <VatRrDetailPage /> },
 
       // Placeholdery – moduły w przygotowaniu
       { path: 'mleko-old',    element: <ComingSoonPage module="🧀 Przetwórstwo mleka" /> },

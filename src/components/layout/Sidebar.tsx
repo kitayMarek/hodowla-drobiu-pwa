@@ -85,6 +85,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { to: '/sprzedaz',   label: 'Sprzedaż',     icon: '💰', requiresProduction: true },
       { to: '/mleko/rhd',  label: 'Rejestr RHD',  icon: '📋', requiresProduction: true },
+      { to: '/vat-rr',     label: 'Faktury VAT RR', icon: '🧾', requiresProduction: true },
       { to: '/kasa',       label: 'Kasa i Bank',  icon: '💳' },
       { to: '/inwestycje', label: 'Inwestycje',   icon: '🏗️' },
       { to: '/raporty',    label: pl.nav.reports, icon: '📊' },

@@ -21,7 +21,11 @@ export type SettingsKey =
   | 'rhd_producer_address'
   | 'rhd_reg_number'
   | 'rhd_vet_number'
-  | 'rhd_storage_default';
+  | 'rhd_storage_default'
+  | 'vat_rr_supplier_tax_id'
+  | 'vat_rr_supplier_tax_id_type'
+  | 'vat_rr_bank_account'
+  | 'vat_rr_prefix';
 
 export const SETTINGS_DEFAULTS: Record<SettingsKey, string> = {
   farm_name: '"Moja Ferma"',
@@ -40,4 +44,8 @@ export const SETTINGS_DEFAULTS: Record<SettingsKey, string> = {
   rhd_reg_number: '""',
   rhd_vet_number: '""',
   rhd_storage_default: '"Przechowywać w temp. 4–8°C"',
+  vat_rr_supplier_tax_id: '""',
+  vat_rr_supplier_tax_id_type: '"pesel"',
+  vat_rr_bank_account: '""',
+  vat_rr_prefix: '"RR"',
 };

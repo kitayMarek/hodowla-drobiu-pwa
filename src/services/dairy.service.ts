@@ -1064,6 +1064,7 @@ export const dairyService = {
     let sales: DairySale[];
     let drobMax = 0;
     let docsMax = 0;
+    let vatMax = 0;
     if (user) {
       const { data } = await supabase.from('dairy_sales').select('*')
         .eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
@@ -1075,6 +1076,10 @@ export const dairyService = {
       const { data: docRows, error: docErr } = await supabase.from('sale_documents')
         .select('rhd_number').eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
       if (!docErr) docsMax = (docRows ?? []).reduce((m, r) => Math.max(m, Number(r.rhd_number ?? 0)), 0);
+      // faktury VAT RR — tabela może jeszcze nie istnieć w bazie
+      const { data: vatRows, error: vatErr } = await supabase.from('vat_rr_invoices')
+        .select('rhd_number').eq('user_id', user.id).eq('in_rhd', true).eq('rhd_year', year);
+      if (!vatErr) vatMax = (vatRows ?? []).reduce((m, r) => Math.max(m, Number(r.rhd_number ?? 0)), 0);
     } else {
       sales = await db.dairySales
         .where('rhdYear').equals(year)
@@ -1090,12 +1095,18 @@ export const dairyService = {
         (d.rhdYear ?? new Date(d.docDate).getFullYear()) === year
       ).toArray();
       docsMax = docs.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0);
+      const vatInv = await db.vatRrInvoices.filter(v =>
+        v.status !== 'void' && v.inRhd !== false &&
+        (v.rhdYear ?? new Date(v.purchaseDate).getFullYear()) === year
+      ).toArray();
+      vatMax = vatInv.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0);
     }
     const totalPln = sales.reduce((s, r) => s + r.totalValuePln, 0);
     const maxNum   = Math.max(
       sales.reduce((m, r) => Math.max(m, r.rhdNumber ?? 0), 0),
       drobMax,
       docsMax,
+      vatMax,
     );
     return { totalPln, nextNumber: maxNum + 1, count: sales.length };
   },
