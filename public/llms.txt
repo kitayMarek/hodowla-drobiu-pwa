@@ -31,6 +31,7 @@ Szczegółowa, statyczna strona z opisem wszystkich modułów i funkcji aplikacj
 
 ## Przewodniki i dokumentacja
 - [Przewodnik RHD dla rolników](https://fermly.pl/przewodnik-rhd.html): ewidencja sprzedaży, limity przychodów i ilościowe, rejestracja w PIW i Sanepidzie, oznakowanie produktów — dla hodowców drobiu i wytwórców serów.
+- [Faktura VAT RR — kto wystawia, 7% zwrotu, wymogi](https://fermly.pl/faktura-vat-rr.html): dokument nabycia produktów rolnych od rolnika ryczałtowego (art. 116 ustawy o VAT). Kto wystawia (nabywca — czynny podatnik VAT), na czym polega zryczałtowany zwrot podatku 7%, warunek zapłaty przelewem, oświadczenie rolnika ryczałtowego, obowiązkowe elementy i przykład wyliczenia.
 - [Jak prowadzić kasę i bank w gospodarstwie rolnym](https://fermly.pl/przewodnik-kasa-bank.html): konta, transakcje wpływów i wydatków, przelewy między kontami, ewidencja kosztów i przypisanie operacji do działalności — krok po kroku w aplikacji Fermly.
 - [Jak prowadzić stado drobiu i dziennik hodowlany](https://fermly.pl/przewodnik-stado-drob.html): zakładanie stada, codzienny dziennik, FCR i procent upadków, ważenia, karencja lekowa, ubój — krok po kroku w aplikacji Fermly.
 - [Jak prowadzić produkcję serów i partie produkcyjne](https://fermly.pl/przewodnik-sery.html): przyjęcia mleka, partie produkcyjne, etapy, dojrzewanie, serwatka, dobór kultur starterowych i sprzedaż RHD — krok po kroku w aplikacji Fermly.
