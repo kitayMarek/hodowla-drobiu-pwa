@@ -1,0 +1,13 @@
+{
+  // Cloudflare Workers (static assets) — hosting statycznej apki Fermly (Vite → dist).
+  // Deploy: `npx wrangler deploy` wgrywa katalog dist jako statyczne assety.
+  "name": "hodowla-drobiu-pwa",
+  "compatibility_date": "2025-01-01",
+  "assets": {
+    "directory": "./dist",
+    // Routing SPA: nieistniejąca ścieżka (/vat-rr, /mleko/rhd) → index.html.
+    // Istniejące pliki (assety, statyczne mirrory *.html, llms.txt) serwowane są
+    // wcześniej, więc fallback łapie tylko trasy React Routera.
+    "not_found_handling": "single-page-application"
+  }
+}
