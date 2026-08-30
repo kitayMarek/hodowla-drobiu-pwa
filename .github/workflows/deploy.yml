@@ -1,8 +1,10 @@
-name: 🚀 Deploy to fermly.pl
+name: 🚀 Deploy to fermly.pl (FTP home.pl — ARCHIWALNE)
 
+# fermly.pl hostowane jest na Cloudflare Workers (build z repo przy każdym pushu).
+# Ten workflow FTP → home.pl NIE jest już potrzebny; zostaje jako ręczny fallback.
+# Uruchamiany WYŁĄCZNIE ręcznie (workflow_dispatch), nie odpala się na push.
 on:
-  push:
-    branches: [master]
+  workflow_dispatch:
 
 jobs:
   build-and-deploy:
