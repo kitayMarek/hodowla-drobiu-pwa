@@ -9,6 +9,13 @@ declare const self: ServiceWorkerGlobalScope;
 precacheAndRoute((self as any).__WB_MANIFEST ?? []);
 cleanupOutdatedCaches();
 
+// Natychmiastowa aktywacja nowej wersji: bez tego (registerType 'autoUpdate' +
+// injectManifest) nowy SW „czeka", a stary serwuje zacachowaną, starą index.html
+// → użytkownik widzi tylko statyczny fallback do pełnego reloadu. skipWaiting +
+// clients.claim sprawiają, że nowy deploy przejmuje kontrolę przy najbliższej nawigacji.
+self.addEventListener('install', () => { self.skipWaiting(); });
+self.addEventListener('activate', (event) => { event.waitUntil(self.clients.claim()); });
+
 // Sieć – Network First dla wszystkich żądań HTTP
 registerRoute(
   ({ url }) => url.protocol.startsWith('http'),
