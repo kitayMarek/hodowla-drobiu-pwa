@@ -85,6 +85,18 @@
   }
   </script>
 
+  <!-- Structured Data: Breadcrumb -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Fermly", "item": "https://fermly.pl/" },
+      { "@type": "ListItem", "position": 2, "name": "Faktura VAT RR", "item": "https://fermly.pl/faktura-vat-rr.html" }
+    ]
+  }
+  </script>
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { max-width: 780px; margin: 0 auto; padding: 2rem 1.25rem 5rem; font: 16px/1.7 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; color: #1f2937; }
@@ -283,6 +295,14 @@ ewidencji RHD z resztą sprzedaży, aby kontrolować roczny limit. Zobacz też
 produktów z opisem klasy/jakości, ceny i wartości netto, stawkę i kwotę zwrotu 7%, kwoty ogółem
 cyframi i słownie, oświadczenie rolnika oraz podpisy obu stron (art. 116 ust. 2 ustawy o VAT).</p>
 
+<div class="box">
+  <strong>Szersze omówienie prawne:</strong> obszerny przewodnik po fakturze VAT RR (definicje, orzecznictwo,
+  szczegóły podatkowe) prowadzi serwis wiedzy o serowarstwie
+  <a href="https://mojaserowarnia.pl/jak-wystawic-fakture-vat-rr.html">mojaserowarnia.pl — „Jak wystawić fakturę VAT RR"</a>.
+  Ta strona skupia się na <strong>narzędziu</strong>: w Fermly wystawisz gotowy projekt dokumentu, poprowadzisz
+  roczny rejestr faktur i powiążesz sprzedaż z ewidencją RHD.
+</div>
+
 <footer>
   <p>
     Ten materiał ma charakter informacyjny i został przygotowany przez zespół
@@ -293,7 +313,8 @@ cyframi i słownie, oświadczenie rolnika oraz podpisy obu stron (art. 116 ust. 
   <p style="margin-top:.75rem;">
     <a href="https://fermly.pl">Fermly — aplikacja do zarządzania gospodarstwem</a> ·
     <a href="https://fermly.pl/przewodnik-rhd.html">Przewodnik RHD</a> ·
-    <a href="https://fermly.pl/o-aplikacji.html">Opis aplikacji</a>
+    <a href="https://fermly.pl/o-aplikacji.html">Opis aplikacji</a> ·
+    <a href="https://mojaserowarnia.pl/jak-wystawic-fakture-vat-rr.html">Więcej: mojaserowarnia.pl</a>
   </p>
 </footer>
 
