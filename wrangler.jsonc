@@ -5,9 +5,12 @@
   "compatibility_date": "2025-01-01",
   "assets": {
     "directory": "./dist",
+    // Serwuj pliki .html DOKŁADNIE pod ich ścieżką (bez obcinania .html) —
+    // statyczne mirrory GEO są zaindeksowane jako /x.html i mają self-canonical.
+    // Domyślne "auto-trailing-slash" robiło 307 /faktura-vat-rr.html → /faktura-vat-rr.
+    "html_handling": "none",
     // Routing SPA: nieistniejąca ścieżka (/vat-rr, /mleko/rhd) → index.html.
-    // Istniejące pliki (assety, statyczne mirrory *.html, llms.txt) serwowane są
-    // wcześniej, więc fallback łapie tylko trasy React Routera.
+    // Istniejące pliki (assety, mirrory *.html, llms.txt) serwowane są wcześniej.
     "not_found_handling": "single-page-application"
   }
 }

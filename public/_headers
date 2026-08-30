@@ -1,18 +1,6 @@
-# Cloudflare Pages — nagłówki (odpowiednik <IfModule mod_headers> z .htaccess).
-
-# UTF-8 dla treści czytanej przez boty LLM (polskie znaki w llms.txt/sitemap).
-/llms.txt
-  Content-Type: text/plain; charset=utf-8
-/robots.txt
-  Content-Type: text/plain; charset=utf-8
-/*.txt
-  Content-Type: text/plain; charset=utf-8
-/*.xml
-  Content-Type: application/xml; charset=utf-8
-/*.webmanifest
-  Content-Type: application/manifest+json; charset=utf-8
-
-# Nagłówki bezpieczeństwa (wszystkie ścieżki).
+# Cloudflare (Workers static assets) — nagłówki bezpieczeństwa.
+# Content-Type/charset zostawiamy Cloudflare: .txt/.xml serwuje domyślnie jako
+# utf-8 (własny override dublował nagłówek → "charset=utf-8, charset=utf-8").
 /*
   X-Content-Type-Options: nosniff
   X-Frame-Options: SAMEORIGIN
