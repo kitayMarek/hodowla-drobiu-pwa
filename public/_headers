@@ -1,0 +1,19 @@
+# Cloudflare Pages — nagłówki (odpowiednik <IfModule mod_headers> z .htaccess).
+
+# UTF-8 dla treści czytanej przez boty LLM (polskie znaki w llms.txt/sitemap).
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+/robots.txt
+  Content-Type: text/plain; charset=utf-8
+/*.txt
+  Content-Type: text/plain; charset=utf-8
+/*.xml
+  Content-Type: application/xml; charset=utf-8
+/*.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+
+# Nagłówki bezpieczeństwa (wszystkie ścieżki).
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
