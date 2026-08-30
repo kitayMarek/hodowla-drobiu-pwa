@@ -1,5 +1,0 @@
-# Cloudflare Pages — routing SPA (odpowiednik reguły z .htaccess).
-# Pages serwuje ISTNIEJĄCE pliki (assety, statyczne mirrory *.html, llms.txt,
-# sitemap.xml) PRZED tą regułą, więc catch-all łapie tylko bezrozszerzeniowe
-# trasy aplikacji (/stada/123, /mleko/rhd, /vat-rr) → index.html (React Router).
-/*    /index.html   200
