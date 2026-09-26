@@ -18,7 +18,7 @@ const positiveInt = z.coerce.number().int().min(0, 'Wartość musi być nieujemn
 
 export const batchSchema = z.object({
   name: z.string().min(3, 'Nazwa musi mieć minimum 3 znaki'),
-  species: z.enum(['brojler', 'nioska', 'kaczka', 'indyk', 'ges']),
+  species: z.enum(['brojler', 'nioska', 'kaczka', 'indyk', 'ges', 'bydlo']),
   breed: z.string().optional(),
   status: z.enum(['active', 'completed', 'sold', 'archived']),
   startDate: isoDate,

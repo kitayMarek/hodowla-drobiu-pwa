@@ -15,7 +15,7 @@ import {
   HATCHING_EGG_SOURCE_LABELS,
   type HatchingEggSourceType,
 } from '@/models/hatchingEgg.model';
-import { ACTIVE_SPECIES, SPECIES_LABELS, SPECIES_EMOJI, isLayerSpecies } from '@/constants/species';
+import { POULTRY_SPECIES, SPECIES_LABELS, SPECIES_EMOJI, isLayerSpecies } from '@/constants/species';
 import type { Species } from '@/constants/species';
 import { formatDate, todayISO } from '@/utils/date';
 import { formatPln } from '@/utils/format';
@@ -373,7 +373,7 @@ export function HatchingEggPage() {
               label="Gatunek"
               value={species}
               onChange={e => setSpecies(e.target.value as Species)}
-              options={ACTIVE_SPECIES.map(s => ({ value: s, label: SPECIES_LABELS[s] }))}
+              options={POULTRY_SPECIES.map(s => ({ value: s, label: SPECIES_LABELS[s] }))}
             />
             <Input
               label="Rasa (opcjonalnie)"
